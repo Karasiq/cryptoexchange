@@ -1,10 +1,7 @@
 package com.bitcoin.daemon;
 
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.NonNull;
+import lombok.*;
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.type.TypeReference;
 
@@ -12,34 +9,38 @@ import java.math.BigDecimal;
 import java.util.*;
 
 public class CryptoCoinWallet {
+    private CryptoCoinWallet() {
+        // no instances
+    }
     public static final int REQUIRED_CONFIRMATIONS = 6;
 
     public
     @Data
     static class Account {
-        public Account(String name) {
-            this.name = name;
-        }
-
         public static String generateUniqueAccountName() {
             return UUID.randomUUID().toString();
         }
 
-        private String name;
+        private @NonNull String name;
 
         @Data public static class Address {
             @Data
+            private static class TransactionDetails {
+                protected String account;
+                protected String address;
+                protected BigDecimal amount = BigDecimal.ZERO;
+                protected BigDecimal fee = BigDecimal.ZERO;
+                protected String category; // send/receive
+            }
+
+            @Data
+            @EqualsAndHashCode(exclude = {"details", "confirmations"}, callSuper = false)
             @JsonIgnoreProperties(ignoreUnknown = true)
-            @EqualsAndHashCode(exclude = {"confirmations"})
-            public static class Transaction {
-                String account;
-                String address;
-                long time;
-                String txid;
-                BigDecimal amount;
-                BigDecimal fee;
-                String category; // send/receive
-                int confirmations;
+            public static class Transaction extends TransactionDetails {
+                protected long time;
+                protected String txid;
+                protected int confirmations;
+                protected List<TransactionDetails> details;
 
                 public boolean isConfirmed() {
                     return confirmations >= REQUIRED_CONFIRMATIONS;
@@ -50,18 +51,28 @@ public class CryptoCoinWallet {
                 synchronized (transactionList) {
                     int txHashCode = transaction.hashCode();
                     if(!transactionList.containsKey(txHashCode)) {
+                        BigDecimal amount = transaction.getAmount(), fee = transaction.getFee();
                         if(transaction.isConfirmed()) {
                             transactionList.put(txHashCode, transaction);
-                            confirmedBalance = confirmedBalance.add(transaction.amount);
+                            confirmedBalance = confirmedBalance.add(amount).add(fee);
                         } else {
-                            unconfirmedBalance = unconfirmedBalance.add(transaction.amount);
+                            if(amount.compareTo(BigDecimal.ZERO) < 0) { // Withdraw
+                                unconfirmedWithdraw = unconfirmedWithdraw.add(amount).add(fee);
+                            } else {
+                                unconfirmedBalance = unconfirmedBalance.add(amount).add(fee);
+                            }
                         }
                     }
                 }
             }
+            public void resetUnconfirmed() {
+                setUnconfirmedBalance(BigDecimal.ZERO);
+                setUnconfirmedWithdraw(BigDecimal.ZERO);
+            }
 
             private BigDecimal confirmedBalance = BigDecimal.ZERO;
             private BigDecimal unconfirmedBalance = BigDecimal.ZERO;
+            private BigDecimal unconfirmedWithdraw = BigDecimal.ZERO;
             private @NonNull String address;
         }
 
@@ -69,18 +80,27 @@ public class CryptoCoinWallet {
 
         private int confirmedTxCount = 0; // checkpoint
         public BigDecimal summaryConfirmedBalance() {
-            BigDecimal confirmed = BigDecimal.ZERO, unconfirmed = BigDecimal.ZERO;
+            BigDecimal confirmed = BigDecimal.ZERO, pendingWithdraw = BigDecimal.ZERO;
             synchronized (addressList) {
                 for(Address address : addressList.values()) {
-                    confirmed = confirmed.add(address.confirmedBalance);
-                    unconfirmed = unconfirmed.add(address.unconfirmedBalance);
-                }
-                if(unconfirmed.compareTo(BigDecimal.ZERO) < 0) {
-                    confirmed = confirmed.add(unconfirmed); // Lock withdrawal
+                    confirmed = confirmed.add(address.getConfirmedBalance());
+                    pendingWithdraw = pendingWithdraw.add(address.getUnconfirmedWithdraw());
                 }
             }
-            return confirmed;
+            return confirmed.add(pendingWithdraw);
         }
+
+        public BigDecimal summaryConfirmedBalance(final Set<String> addresses) {
+            BigDecimal confirmed = BigDecimal.ZERO, pendingWithdraw = BigDecimal.ZERO;
+            synchronized (addressList) {
+                for(Address address : addressList.values()) if(addresses.contains(address.getAddress())) {
+                    confirmed = confirmed.add(address.getConfirmedBalance());
+                    pendingWithdraw = pendingWithdraw.add(address.getUnconfirmedWithdraw());
+                }
+            }
+            return confirmed.add(pendingWithdraw);
+        }
+
         public void loadAddresses(final JsonRPC jsonRPC) throws Exception {
             List<Object> args = new ArrayList<Object>();
             args.add(this.getName());
@@ -95,7 +115,7 @@ public class CryptoCoinWallet {
         public void resetUnconfirmedBalance() {
             synchronized (addressList) {
                 for(Address address : addressList.values()) {
-                    address.setUnconfirmedBalance(BigDecimal.ZERO);
+                    address.resetUnconfirmed();
                 }
             }
         }
@@ -108,6 +128,7 @@ public class CryptoCoinWallet {
             List<Account.Address.Transaction> transactions = jsonRPC.executeRpcRequest("listtransactions", args, new TypeReference<JsonRPC.JsonRpcResponse<List<Account.Address.Transaction>>>(){});
 
             synchronized (addressList) {
+                resetUnconfirmedBalance();
                 Address address = null;
                 for(Address.Transaction transaction : transactions) {
                     if(address == null || !address.getAddress().equals(transaction.address)) {
@@ -133,29 +154,49 @@ public class CryptoCoinWallet {
             return jsonRPC.executeRpcRequest("importprivkey", args, new TypeReference<JsonRPC.JsonRpcResponse<Boolean>>() {});
         }
 
-        public String generateNewAddress(final JsonRPC jsonRPC) throws Exception {
+        public Address getRandomAddress() {
+            synchronized (addressList) {
+                for(Address address : addressList.values()) {
+                    return address;
+                }
+            }
+            return null;
+        }
+
+        public Address generateNewAddress(final JsonRPC jsonRPC) throws Exception {
             List<Object> args = new ArrayList<Object>();
             args.add(this.getName());
             String response = jsonRPC.executeRpcRequest("getnewaddress", args, new TypeReference<JsonRPC.JsonRpcResponse<String>>(){});
+            Address address = new Address(response);
             synchronized (addressList) {
-                addressList.put(response, new Address(response));
+                addressList.put(response, address);
             }
-            return response;
+            return address;
         }
 
-        public String sendToAddress(final JsonRPC jsonRPC, final String address, final BigDecimal amount) throws Exception {
+        public Address.Transaction sendToAddress(final JsonRPC jsonRPC, final String address, final BigDecimal amount) throws Exception {
             List<Object> args = new ArrayList<Object>();
             args.add(this.getName());
             args.add(address);
             args.add(amount);
-            return jsonRPC.executeRpcRequest("sendfrom", args, new TypeReference<JsonRPC.JsonRpcResponse<String>>(){});
+            synchronized (addressList) {
+                String txid = jsonRPC.executeRpcRequest("sendfrom", args, new TypeReference<JsonRPC.JsonRpcResponse<String>>(){});
+                loadTransactions(jsonRPC, 20); // Refresh balance
+                args.clear();
+                args.add(txid);
+                return jsonRPC.executeRpcRequest("gettransaction", args, new TypeReference<JsonRPC.JsonRpcResponse<Address.Transaction>>(){});
+            }
         }
     }
 
-    public static Account generateAccount(final JsonRPC jsonRPC) throws Exception {
-        String uuid = Account.generateUniqueAccountName();
+    public static Account generateAccount(final JsonRPC jsonRPC, String prefix) throws Exception {
+        final String uuid = String.format("%s-%s", prefix, Account.generateUniqueAccountName());
         final Account account = new Account(uuid);
         account.generateNewAddress(jsonRPC);
         return account;
+    }
+
+    public static Account getDefaultAccount() {
+        return new Account("");
     }
 }

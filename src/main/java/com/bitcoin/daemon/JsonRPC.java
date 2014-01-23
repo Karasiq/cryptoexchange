@@ -10,6 +10,7 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicCredentialsProvider;
@@ -61,13 +62,23 @@ public class JsonRPC {
         credentialsProvider.setCredentials(
                 new AuthScope(rpcHost, rpcPort),
                 new UsernamePasswordCredentials(rpcUsername, rpcPassword));
-        client = HttpClientBuilder.create().setDefaultCredentialsProvider(credentialsProvider).build();
+        int timeout = 20 * 1000;
+        RequestConfig.Builder requestBuilder = RequestConfig.custom()
+                .setSocketTimeout(timeout)
+                .setConnectTimeout(timeout)
+                .setConnectionRequestTimeout(timeout);
+        client = HttpClientBuilder.create()
+                .setDefaultRequestConfig(requestBuilder.build())
+                .setDefaultCredentialsProvider(credentialsProvider)
+                .build();
     }
     private HttpResponse postRequest(String url, String json) throws IOException {
         HttpPost request = new HttpPost(url);
         request.setEntity(new StringEntity(json));
         request.addHeader("Content-Type", "application/json");
-        return client.execute(request);
+        synchronized (client) {
+            return client.execute(request);
+        }
     }
     private static String getResponseString(HttpResponse response) throws IOException {
         BufferedReader rd = new BufferedReader(

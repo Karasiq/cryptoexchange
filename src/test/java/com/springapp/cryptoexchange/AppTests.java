@@ -51,11 +51,10 @@ public class AppTests {
         System.out.println(account.summaryConfirmedBalance());
 
         // New:
-        // CryptoCoinWallet.Account account1 = new CryptoCoinWallet.Account("e36783ef-2c28-4ec7-86e1-682697b93b4a");//CryptoCoinWallet.generateAccount(rpc);
-        // account1.loadAddresses(rpc);
+        CryptoCoinWallet.Account account1 = CryptoCoinWallet.generateAccount(rpc, "test");
+        account1.loadAddresses(rpc);
 
-        // System.out.println(account.sendToAddress(rpc, account.generateNewAddress(rpc), new BigDecimal(3.0)));
-       // System.out.println(account1);
-
+        System.out.println(account.sendToAddress(rpc, account1.generateNewAddress(rpc).getAddress(), new BigDecimal(3.0)));
+        System.out.println(account.summaryConfirmedBalance());
     }
 }
