@@ -2,7 +2,11 @@ package com.springapp.cryptoexchange;
 
 import com.bitcoin.daemon.CryptoCoinWallet;
 import com.bitcoin.daemon.JsonRPC;
-import org.junit.Before;
+import com.springapp.cryptoexchange.database.AccountManager;
+import com.springapp.cryptoexchange.database.SettingsManager;
+import com.springapp.cryptoexchange.database.model.Account;
+import com.springapp.cryptoexchange.database.model.Address;
+import com.springapp.cryptoexchange.database.model.Currency;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,16 +17,18 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.math.BigDecimal;
-
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
-import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup;
+import java.util.List;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @WebAppConfiguration
 @ContextConfiguration("file:src/main/webapp/WEB-INF/mvc-dispatcher-servlet.xml")
 public class AppTests {
+    @Autowired
+    SettingsManager settingsManager;
+
+    @Autowired
+    AccountManager accountManager;
+
     private MockMvc mockMvc;
 
     @SuppressWarnings("SpringJavaAutowiringInspection")
@@ -41,7 +47,7 @@ public class AppTests {
                 .andExpect(view().name("hello"));
     } */
 
-    @Test
+    //@Test
     public void jsonRpc() throws Exception {
         // Existing:
         JsonRPC rpc = new JsonRPC("localhost", 8779, "user", "password");
@@ -56,5 +62,16 @@ public class AppTests {
 
         System.out.println(account.sendToAddress(rpc, account1.generateNewAddress(rpc).getAddress(), new BigDecimal(3.0)));
         System.out.println(account.summaryConfirmedBalance());
+    }
+
+    @Test
+    public void accountTest() throws Exception {
+        JsonRPC rpc = new JsonRPC("localhost", 8779, "user", "password");
+        CryptoCoinWallet.Account walletAccount = new CryptoCoinWallet.Account("PZcojt26ozH2nh5u7zqG1DfuzG6FUuvbZ3");
+
+        List<Currency> currencyList = settingsManager.getCurrencyList();
+        Account account = accountManager.getAccount("username");
+        String address = accountManager.createWalletAddress(accountManager.getVirtualWallet(account, currencyList.get(0)), walletAccount, rpc);
+        System.out.println(address);
     }
 }

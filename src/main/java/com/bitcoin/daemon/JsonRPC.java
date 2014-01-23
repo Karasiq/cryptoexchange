@@ -3,9 +3,8 @@ package com.bitcoin.daemon;
 import lombok.Data;
 import lombok.NonNull;
 import org.apache.commons.logging.Log;
-import org.apache.http.HttpEntity;
+import org.apache.commons.logging.LogFactory;
 import org.apache.http.HttpResponse;
-import org.apache.http.NameValuePair;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
@@ -15,16 +14,17 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.message.BasicNameValuePair;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.map.ObjectMapper;
-
-import java.io.*;
-import java.util.List;
-import org.apache.commons.logging.LogFactory;
 import org.codehaus.jackson.type.TypeReference;
+
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.List;
 
 public class JsonRPC {
     public static class RPCDaemonException extends Exception {

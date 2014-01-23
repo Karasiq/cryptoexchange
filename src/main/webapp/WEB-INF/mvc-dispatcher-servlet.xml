@@ -5,7 +5,15 @@
         http://www.springframework.org/schema/beans/spring-beans.xsd
         http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
 
+
+    <context:annotation-config />
     <context:component-scan base-package="com.springapp.cryptoexchange"/>
+
+    <!-- Файл с настройками ресурсов для работы с данными (Data Access Resources) -->
+    <import resource="data.xml" />
+
+    <!-- Файл с настройками безопасности -->
+    <import resource="security.xml" />
 
     <bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
         <property name="prefix" value="/WEB-INF/pages/"/>

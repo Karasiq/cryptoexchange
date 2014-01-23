@@ -1,7 +1,9 @@
 package com.bitcoin.daemon;
 
 
-import lombok.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NonNull;
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.type.TypeReference;
 
@@ -46,7 +48,7 @@ public class CryptoCoinWallet {
                     return confirmations >= REQUIRED_CONFIRMATIONS;
                 }
             }
-            private final HashMap<Integer, Transaction> transactionList = new HashMap<Integer, Transaction>();
+            private final HashMap<Integer, Transaction> transactionList = new HashMap<>();
             public void addTransaction(Transaction transaction) {
                 synchronized (transactionList) {
                     int txHashCode = transaction.hashCode();
@@ -76,7 +78,7 @@ public class CryptoCoinWallet {
             private @NonNull String address;
         }
 
-        private final Map<String, Address> addressList = new HashMap<String, Address>();
+        private final Map<String, Address> addressList = new HashMap<>();
 
         private int confirmedTxCount = 0; // checkpoint
         public BigDecimal summaryConfirmedBalance() {
@@ -102,7 +104,7 @@ public class CryptoCoinWallet {
         }
 
         public void loadAddresses(final JsonRPC jsonRPC) throws Exception {
-            List<Object> args = new ArrayList<Object>();
+            List<Object> args = new ArrayList<>();
             args.add(this.getName());
             List<String> addresses = jsonRPC.executeRpcRequest("getaddressesbyaccount", args, new TypeReference<JsonRPC.JsonRpcResponse<List<String>>>(){});
             synchronized (addressList) {
@@ -120,7 +122,7 @@ public class CryptoCoinWallet {
             }
         }
         public void loadTransactions(final JsonRPC jsonRPC, int maxCount) throws Exception {
-            List<Object> args = new ArrayList<Object>();
+            List<Object> args = new ArrayList<>();
             args.add(this.getName());
             args.add(maxCount); // tx count
             args.add(confirmedTxCount); // tx from
@@ -148,7 +150,7 @@ public class CryptoCoinWallet {
         }
 
         public boolean importPrivateKey(final JsonRPC jsonRPC, final String privateKey) throws Exception {
-            List<Object> args = new ArrayList<Object>();
+            List<Object> args = new ArrayList<>();
             args.add(privateKey);
             args.add(this.getName());
             return jsonRPC.executeRpcRequest("importprivkey", args, new TypeReference<JsonRPC.JsonRpcResponse<Boolean>>() {});
@@ -164,7 +166,7 @@ public class CryptoCoinWallet {
         }
 
         public Address generateNewAddress(final JsonRPC jsonRPC) throws Exception {
-            List<Object> args = new ArrayList<Object>();
+            List<Object> args = new ArrayList<>();
             args.add(this.getName());
             String response = jsonRPC.executeRpcRequest("getnewaddress", args, new TypeReference<JsonRPC.JsonRpcResponse<String>>(){});
             Address address = new Address(response);
@@ -175,7 +177,7 @@ public class CryptoCoinWallet {
         }
 
         public Address.Transaction sendToAddress(final JsonRPC jsonRPC, final String address, final BigDecimal amount) throws Exception {
-            List<Object> args = new ArrayList<Object>();
+            List<Object> args = new ArrayList<>();
             args.add(this.getName());
             args.add(address);
             args.add(amount);
