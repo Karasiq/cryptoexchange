@@ -2,11 +2,9 @@ package com.springapp.cryptoexchange.database.model;
 
 
 import com.springapp.cryptoexchange.config.ServerSettings;
-import com.springapp.cryptoexchange.database.SettingsManager;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import lombok.NonNull;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.crypto.Mac;
@@ -15,7 +13,6 @@ import javax.persistence.*;
 import javax.xml.bind.DatatypeConverter;
 import java.io.Serializable;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 @Data

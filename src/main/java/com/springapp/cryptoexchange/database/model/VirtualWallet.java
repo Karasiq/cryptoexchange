@@ -2,7 +2,6 @@ package com.springapp.cryptoexchange.database.model;
 
 
 import com.bitcoin.daemon.CryptoCoinWallet;
-import com.bitcoin.daemon.JsonRPC;
 import lombok.*;
 import org.springframework.transaction.annotation.Transactional;
 

@@ -2,30 +2,22 @@ package com.springapp.cryptoexchange.database;
 
 import com.bitcoin.daemon.CryptoCoinWallet;
 import com.bitcoin.daemon.JsonRPC;
-import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.TradingPair;
-import com.springapp.cryptoexchange.database.model.VirtualWallet;
 import lombok.Getter;
-import lombok.NonNull;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 @Service
 @Transactional

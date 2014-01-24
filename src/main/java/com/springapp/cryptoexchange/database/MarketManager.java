@@ -1,21 +1,17 @@
 package com.springapp.cryptoexchange.database;
 
-import com.bitcoin.daemon.CryptoCoinWallet;
-import com.bitcoin.daemon.JsonRPC;
 import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.database.model.Currency;
-import com.springapp.cryptoexchange.database.model.Order;
 import lombok.NonNull;
 import lombok.experimental.NonFinal;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
-import org.hibernate.criterion.*;
+import org.hibernate.criterion.Restrictions;
+import org.joda.time.Period;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
@@ -41,10 +37,53 @@ public class MarketManager {
 
     private final Map<Long, Object> lockerMap = new HashMap<>();
 
+    private final Map<TradingPair, List<Candle>> historyMap = new HashMap<>();
+
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public List<Candle> getMarketChartData(TradingPair tradingPair, int max) {
+        Session session = sessionFactory.getCurrentSession();
+        return session.createCriteria(Candle.class)
+                .setMaxResults(max)
+                .add(Restrictions.eq("tradingPair", tradingPair))
+                .list();
+    }
+
+    private final Period chartPeriod = new Period(1, 0, 0, 0); // 1h
+
+    @Transactional
+    private void updateChartData(@NonNull TradingPair tradingPair, final BigDecimal lastPrice, final BigDecimal amount) {
+        List<Candle> history;
+        Candle lastCandle;
+        synchronized (historyMap) {
+            history = historyMap.get(tradingPair);
+            if (history == null) {
+                history = new ArrayList<>();
+                historyMap.put(tradingPair, history);
+            }
+        }
+        if (history.isEmpty()) {
+            lastCandle = new Candle(tradingPair);
+            history.add(lastCandle);
+        } else {
+            lastCandle = history.get(history.size() - 1);
+        }
+        lastCandle.update(lastPrice, amount);
+        if (lastCandle.isClosed(chartPeriod)) { // next
+            lastCandle.close();
+            sessionFactory.getCurrentSession().saveOrUpdate(lastCandle);
+
+            lastCandle = new Candle(tradingPair, lastPrice);
+            history.add(lastCandle);
+        }
+        sessionFactory.getCurrentSession().saveOrUpdate(lastCandle);
+    }
+
     public void init() {
         synchronized (lockerMap) {
             List<TradingPair> currencyList = settingsManager.getTradingPairs();
             for(TradingPair tradingPair : currencyList) {
+                historyMap.put(tradingPair, getMarketChartData(tradingPair, 24));
                 if(!lockerMap.containsKey(tradingPair.getId())) {
                     lockerMap.put(tradingPair.getId(), new Object());
                 }
@@ -109,6 +148,7 @@ public class MarketManager {
         tradingPair.setLastPrice(price);
         tradingPair.setVolume(volume);
         session.saveOrUpdate(tradingPair);
+        updateChartData(tradingPair, price, amount);
     }
 
     @SuppressWarnings("all")

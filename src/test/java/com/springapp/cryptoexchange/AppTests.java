@@ -116,5 +116,8 @@ public class AppTests {
 
         System.out.println(firstVallet.getVirtualBalance());
         System.out.println(secondWallet.getVirtualBalance());
+
+        List<Candle> history = marketManager.getMarketChartData(tradingPair, 24);
+        System.out.println(history);
     }
 }
