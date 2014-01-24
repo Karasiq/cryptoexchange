@@ -17,6 +17,9 @@ public class Currency {
     @Column(unique = true)
     private long id;
 
+    @Column(name = "enabled", nullable = false)
+    private boolean enabled = true;
+
     @Column(name = "code", nullable = false, unique = true)
     private @NonNull String currencyCode;
 

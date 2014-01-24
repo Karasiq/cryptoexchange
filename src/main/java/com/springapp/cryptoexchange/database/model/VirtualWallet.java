@@ -1,7 +1,7 @@
 package com.springapp.cryptoexchange.database.model;
 
 
-import com.bitcoin.daemon.CryptoCoinWallet;
+import com.bitcoin.daemon.AbstractWallet;
 import lombok.*;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,7 +51,7 @@ public class VirtualWallet implements Serializable {
     }
 
     @Transactional
-    public synchronized BigDecimal getBalance(@NonNull CryptoCoinWallet.Account wallet) {
+    public synchronized BigDecimal getBalance(@NonNull AbstractWallet wallet) throws Exception {
         BigDecimal result = virtualBalance;
         if(!addressList.isEmpty()) synchronized (addressList) {
             Set<String> strings = new HashSet<>();

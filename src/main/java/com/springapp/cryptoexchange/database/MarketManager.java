@@ -1,110 +1,51 @@
 package com.springapp.cryptoexchange.database;
 
+import com.springapp.cryptoexchange.Calculator;
 import com.springapp.cryptoexchange.database.model.*;
-import com.springapp.cryptoexchange.database.model.Currency;
 import lombok.NonNull;
 import lombok.experimental.NonFinal;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
+import org.joda.time.DateTime;
 import org.joda.time.Period;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.*;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 
 @Service
 @Transactional
-public class MarketManager {
-    public static class MarketError extends Exception {
-        public MarketError(String message) {
-            super(String.format("Market error: %s", message));
-        }
-        public MarketError(Throwable throwable) {
-            super(String.format("Market error (%s)", throwable.getLocalizedMessage()), throwable);
-        }
-    }
-
+public class MarketManager implements AbstractMarketManager {
     @Autowired
     SessionFactory sessionFactory;
 
     @Autowired
-    SettingsManager settingsManager;
+    AbstractDaemonManager daemonManager;
+
+    @Autowired
+    AbstractSettingsManager settingsManager;
+
+    @Autowired
+    AbstractHistoryManager historyManager;
 
     private final Map<Long, Object> lockerMap = new HashMap<>();
-
-    private final Map<TradingPair, List<Candle>> historyMap = new HashMap<>();
-
-    @Transactional
-    @SuppressWarnings("unchecked")
-    public List<Candle> getMarketChartData(TradingPair tradingPair, int max) {
-        Session session = sessionFactory.getCurrentSession();
-        return session.createCriteria(Candle.class)
-                .setMaxResults(max)
-                .add(Restrictions.eq("tradingPair", tradingPair))
-                .list();
-    }
-
-    private final Period chartPeriod = new Period(1, 0, 0, 0); // 1h
-
-    @Transactional
-    private void updateChartData(@NonNull TradingPair tradingPair, final BigDecimal lastPrice, final BigDecimal amount) {
-        List<Candle> history;
-        Candle lastCandle;
-        synchronized (historyMap) {
-            history = historyMap.get(tradingPair);
-            if (history == null) {
-                history = new ArrayList<>();
-                historyMap.put(tradingPair, history);
-            }
-        }
-        if (history.isEmpty()) {
-            lastCandle = new Candle(tradingPair);
-            history.add(lastCandle);
-        } else {
-            lastCandle = history.get(history.size() - 1);
-        }
-        lastCandle.update(lastPrice, amount);
-        if (lastCandle.isClosed(chartPeriod)) { // next
-            lastCandle.close();
-            sessionFactory.getCurrentSession().saveOrUpdate(lastCandle);
-
-            lastCandle = new Candle(tradingPair, lastPrice);
-            history.add(lastCandle);
-        }
-        sessionFactory.getCurrentSession().saveOrUpdate(lastCandle);
-    }
 
     public void init() {
         synchronized (lockerMap) {
             List<TradingPair> currencyList = settingsManager.getTradingPairs();
             for(TradingPair tradingPair : currencyList) {
-                historyMap.put(tradingPair, getMarketChartData(tradingPair, 24));
                 if(!lockerMap.containsKey(tradingPair.getId())) {
                     lockerMap.put(tradingPair.getId(), new Object());
                 }
             }
         }
-    }
-
-    private static final BigDecimal ONE_HUNDRED = new BigDecimal(100.0);
-    public BigDecimal withFee(BigDecimal amount) {
-        return amount.multiply(ONE_HUNDRED.add(settingsManager.getFeePercent())).divide(ONE_HUNDRED, 8, RoundingMode.FLOOR);
-    }
-    public BigDecimal withoutFee(BigDecimal amount) {
-        return amount.multiply(ONE_HUNDRED).divide(ONE_HUNDRED.add(settingsManager.getFeePercent()), 8, RoundingMode.FLOOR);
-    }
-
-    public BigDecimal buyTotal(final BigDecimal amount, final BigDecimal price) {
-        return amount.multiply(price);
-    }
-
-    public BigDecimal totalRequired(Order.Type orderType, BigDecimal amount, BigDecimal price) {
-        return orderType == Order.Type.BUY ? withFee(buyTotal(amount, price)) : amount;
     }
 
     private static void updateOrderStatus(@NonFinal Order order) {
@@ -121,7 +62,7 @@ public class MarketManager {
         Session session = sessionFactory.getCurrentSession();
         assert order.getStatus() == Order.Status.CANCELLED || order.getStatus() == Order.Status.COMPLETED;
         BigDecimal total = order.getTotal();
-        BigDecimal returnAmount = totalRequired(order.getType(), order.getAmount(), order.getPrice()).subtract(total);
+        BigDecimal returnAmount = Calculator.totalRequired(order.getType(), order.getAmount(), order.getPrice(), settingsManager.getFeePercent()).subtract(total);
         VirtualWallet wallet = order.getSourceWallet();
         wallet.addBalance(returnAmount);
         session.saveOrUpdate(wallet);
@@ -131,6 +72,13 @@ public class MarketManager {
     private void updateMarketInfo(@NonFinal TradingPair tradingPair, final BigDecimal price, final BigDecimal amount) {
         Session session = sessionFactory.getCurrentSession();
         session.update(tradingPair);
+
+        if(tradingPair.getLastReset() == null || DateTime.now().minus(Period.days(1)).isAfter(new DateTime(tradingPair.getLastReset()))) {
+            tradingPair.setLastReset(new Date());
+            tradingPair.setDayHigh(BigDecimal.ZERO);
+            tradingPair.setDayLow(BigDecimal.ZERO);
+            tradingPair.setVolume(BigDecimal.ZERO);
+        }
 
         BigDecimal low = tradingPair.getDayLow(), high = tradingPair.getDayHigh(), volume = tradingPair.getVolume();
         if(low == null || price.compareTo(low) < 0) {
@@ -148,18 +96,18 @@ public class MarketManager {
         tradingPair.setLastPrice(price);
         tradingPair.setVolume(volume);
         session.saveOrUpdate(tradingPair);
-        updateChartData(tradingPair, price, amount);
+        historyManager.updateChartData(tradingPair, price, amount);
     }
 
     @SuppressWarnings("all")
-    private void remapFunds(@NonFinal Order firstOrder, @NonFinal Order secondOrder, final BigDecimal amount) throws MarketError {
+    private void remapFunds(@NonFinal Order firstOrder, @NonFinal Order secondOrder, final BigDecimal amount) throws Exception {
         final Currency firstCurrency = firstOrder.getTradingPair().getFirstCurrency(), secondCurrency = firstOrder.getTradingPair().getSecondCurrency();
         assert firstOrder.getType() == Order.Type.SELL && secondOrder.getType() == Order.Type.BUY; // First sell, then buy
         // CryptoCoinWallet.Account firstCurrencyAccount = settingsManager.getAccount(firstCurrency), secondCurrencyAccount = settingsManager.getAccount(secondCurrency);
 
         BigDecimal price = firstOrder.getPrice();
 
-        BigDecimal firstCurrencySend = withoutFee(buyTotal(amount, price)), secondCurrencySend = withoutFee(amount);
+        BigDecimal firstCurrencySend = Calculator.withoutFee(Calculator.buyTotal(amount, price), settingsManager.getFeePercent()), secondCurrencySend = Calculator.withoutFee(amount, settingsManager.getFeePercent());
         firstOrder.addTotal(amount);
         firstOrder.addCompletedAmount(amount);
         secondOrder.addTotal(amount.multiply(price));
@@ -189,7 +137,7 @@ public class MarketManager {
 
     @Transactional
     @SuppressWarnings("unchecked")
-    public void cancelOrder(@NonNull Order order) {
+    public void cancelOrder(@NonNull Order order) throws Exception {
         assert order.getStatus() == Order.Status.OPEN || order.getStatus() == Order.Status.PARTIALLY_COMPLETED;
         synchronized (lockerMap.get(order.getTradingPair().getId())) {
             Session session = sessionFactory.getCurrentSession();
@@ -201,16 +149,16 @@ public class MarketManager {
 
     @Transactional
     @SuppressWarnings("unchecked")
-    public Order executeOrder(@NonNull Order newOrder) throws MarketError {
+    public Order executeOrder(@NonNull Order newOrder) throws Exception {
         synchronized (lockerMap.get(newOrder.getTradingPair().getId())) { // Critical
             Session session = sessionFactory.getCurrentSession();
             Order.Type orderType = newOrder.getType();
             VirtualWallet virtualWalletSource = newOrder.getSourceWallet(), virtualWalletDest = newOrder.getDestWallet();
             session.saveOrUpdate(virtualWalletSource);
             session.saveOrUpdate(virtualWalletDest);
-            BigDecimal balance = virtualWalletSource.getBalance(settingsManager.getAccount(virtualWalletSource.getCurrency()));
+            BigDecimal balance = virtualWalletSource.getBalance(daemonManager.getAccount(virtualWalletSource.getCurrency()));
             BigDecimal remainingAmount = newOrder.getRemainingAmount();
-            BigDecimal required = totalRequired(orderType, remainingAmount, newOrder.getPrice());
+            BigDecimal required = Calculator.totalRequired(orderType, remainingAmount, newOrder.getPrice(), settingsManager.getFeePercent());
 
             if(balance.compareTo(required) < 0) {
                 throw new MarketError("Insufficient funds");
@@ -254,17 +202,6 @@ public class MarketManager {
         return session.createCriteria(Order.class)
                 .add(Restrictions.eq("account", account))
                 .addOrder(org.hibernate.criterion.Order.desc("open_time"))
-                .list();
-    }
-
-    @Transactional
-    @SuppressWarnings("unchecked")
-    public List<Order> getMarketHistory(@NonNull TradingPair tradingPair, int max) {
-        Session session = sessionFactory.getCurrentSession();
-        return session.createCriteria(Order.class)
-                .add(Restrictions.eq("tradingPair", tradingPair))
-                .addOrder(org.hibernate.criterion.Order.desc("open_time"))
-                .setMaxResults(max)
                 .list();
     }
 }

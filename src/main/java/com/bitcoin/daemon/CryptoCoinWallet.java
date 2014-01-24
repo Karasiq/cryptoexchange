@@ -11,73 +11,14 @@ import java.math.BigDecimal;
 import java.util.*;
 
 public class CryptoCoinWallet {
-    private CryptoCoinWallet() {
-        // no instances
-    }
-    public static final int REQUIRED_CONFIRMATIONS = 6;
-
     public
     @Data
-    static class Account {
+    static class Account implements AbstractWallet {
         public static String generateUniqueAccountName() {
             return UUID.randomUUID().toString();
         }
 
         private @NonNull String name;
-
-        @Data public static class Address {
-            @Data
-            private static class TransactionDetails {
-                protected String account;
-                protected String address;
-                protected BigDecimal amount = BigDecimal.ZERO;
-                protected BigDecimal fee = BigDecimal.ZERO;
-                protected String category; // send/receive
-            }
-
-            @Data
-            @EqualsAndHashCode(exclude = {"details", "confirmations"}, callSuper = false)
-            @JsonIgnoreProperties(ignoreUnknown = true)
-            public static class Transaction extends TransactionDetails {
-                protected long time;
-                protected String txid;
-                protected int confirmations;
-                protected List<TransactionDetails> details;
-
-                public boolean isConfirmed() {
-                    return confirmations >= REQUIRED_CONFIRMATIONS;
-                }
-            }
-            private final HashMap<Integer, Transaction> transactionList = new HashMap<>();
-            public void addTransaction(Transaction transaction) {
-                synchronized (transactionList) {
-                    int txHashCode = transaction.hashCode();
-                    if(!transactionList.containsKey(txHashCode)) {
-                        BigDecimal amount = transaction.getAmount(), fee = transaction.getFee();
-                        if(transaction.isConfirmed()) {
-                            transactionList.put(txHashCode, transaction);
-                            confirmedBalance = confirmedBalance.add(amount).add(fee);
-                        } else {
-                            if(amount.compareTo(BigDecimal.ZERO) < 0) { // Withdraw
-                                unconfirmedWithdraw = unconfirmedWithdraw.add(amount).add(fee);
-                            } else {
-                                unconfirmedBalance = unconfirmedBalance.add(amount).add(fee);
-                            }
-                        }
-                    }
-                }
-            }
-            public void resetUnconfirmed() {
-                setUnconfirmedBalance(BigDecimal.ZERO);
-                setUnconfirmedWithdraw(BigDecimal.ZERO);
-            }
-
-            private BigDecimal confirmedBalance = BigDecimal.ZERO;
-            private BigDecimal unconfirmedBalance = BigDecimal.ZERO;
-            private BigDecimal unconfirmedWithdraw = BigDecimal.ZERO;
-            private @NonNull String address;
-        }
-
         private final Map<String, Address> addressList = new HashMap<>();
 
         private int confirmedTxCount = 0; // checkpoint
@@ -127,7 +68,7 @@ public class CryptoCoinWallet {
             args.add(maxCount); // tx count
             args.add(confirmedTxCount); // tx from
 
-            List<Account.Address.Transaction> transactions = jsonRPC.executeRpcRequest("listtransactions", args, new TypeReference<JsonRPC.JsonRpcResponse<List<Account.Address.Transaction>>>(){});
+            List<Address.Transaction> transactions = jsonRPC.executeRpcRequest("listtransactions", args, new TypeReference<JsonRPC.JsonRpcResponse<List<Address.Transaction>>>(){});
 
             synchronized (addressList) {
                 resetUnconfirmedBalance();
@@ -141,7 +82,7 @@ public class CryptoCoinWallet {
                             addressList.put(transaction.address, address);
                         }
                     }
-                    if(!address.transactionList.containsKey(transaction.hashCode()) && transaction.isConfirmed()) {
+                    if(!address.getTransactionList().containsKey(transaction.hashCode()) && transaction.isConfirmed()) {
                         confirmedTxCount++;
                     }
                     address.addTransaction(transaction);
@@ -199,6 +140,6 @@ public class CryptoCoinWallet {
     }
 
     public static Account getDefaultAccount() {
-        return new Account("exchange-default");
+        return new Account(Settings.DEFAULT_ACCOUNT);
     }
 }

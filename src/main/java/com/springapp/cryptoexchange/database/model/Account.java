@@ -33,6 +33,9 @@ public class Account implements Serializable {
     @Column(length = 200, name = "password")
     private String passwordHash;
 
+    @Column(name = "enabled", nullable = false)
+    private boolean enabled = true;
+
     @OneToMany(mappedBy = "account")
     final Set<VirtualWallet> virtualWalletMap = new HashSet<>();
 

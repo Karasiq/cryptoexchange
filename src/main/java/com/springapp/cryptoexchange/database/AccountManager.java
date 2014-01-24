@@ -1,7 +1,7 @@
 package com.springapp.cryptoexchange.database;
 
 
-import com.bitcoin.daemon.CryptoCoinWallet;
+import com.bitcoin.daemon.AbstractWallet;
 import com.bitcoin.daemon.JsonRPC;
 import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Address;
@@ -19,17 +19,19 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.List;
 
 @Service
 @Transactional
-public class AccountManager {
+public class AccountManager implements AbstractAccountManager {
     private Log log = LogFactory.getLog(AccountManager.class);
     @Autowired
-    SettingsManager settingsManager;
+    AbstractDaemonManager daemonManager;
 
-    public synchronized CryptoCoinWallet.Account.Address.Transaction withdrawFunds(VirtualWallet wallet, String address, BigDecimal amount) throws Exception {
-        final CryptoCoinWallet.Account account = settingsManager.getAccount(wallet.getCurrency());
+    @Autowired
+    AbstractSettingsManager settingsManager;
+
+    public synchronized com.bitcoin.daemon.Address.Transaction withdrawFunds(VirtualWallet wallet, String address, BigDecimal amount) throws Exception {
+        final AbstractWallet account = daemonManager.getAccount(wallet.getCurrency());
         BigDecimal balance = wallet.getBalance(account);
         BigDecimal required = amount.multiply(new BigDecimal(100).add(settingsManager.getWithdrawFeePercent()).divide(new BigDecimal(100), 8, RoundingMode.FLOOR));
         if(balance.compareTo(required) < 0) {
@@ -38,9 +40,9 @@ public class AccountManager {
 
         log.info(String.format("Funds withdraw requested: from %s to %s <%s>", wallet, address, amount));
 
-        CryptoCoinWallet.Account.Address.Transaction transaction;
+        com.bitcoin.daemon.Address.Transaction transaction;
         try {
-            transaction = account.sendToAddress(settingsManager.getDaemon(wallet.getCurrency()), address, amount);
+            transaction = account.sendToAddress(daemonManager.getDaemon(wallet.getCurrency()), address, amount);
             log.info(String.format("Funds withdraw success: %s", transaction));
         } catch (Exception e) {
             log.error(e);
@@ -51,26 +53,8 @@ public class AccountManager {
         wallet.addBalance(required.negate());
         return transaction;
     }
-
-    public static class AccountException extends Exception {
-        public AccountException(String message) {
-            super(String.format("Account exception: %s", message));
-        }
-        public AccountException(Throwable throwable) {
-            super(String.format("Account exception (%s)", throwable.getLocalizedMessage()), throwable);
-        }
-    }
-
     @Autowired
     private SessionFactory sessionFactory;
-
-    public boolean accountExists(Account account) {
-        try {
-            return getAccount(account.getLogin()) != null;
-        } catch (Exception e) {
-            return false;
-        }
-    }
 
     @Transactional
     public VirtualWallet getVirtualWallet(@NonNull Account account, @NonNull Currency currency) {
@@ -85,20 +69,10 @@ public class AccountManager {
     }
 
     @Transactional
-    public void accountAddTestFunds(@NonNull Account account) {
-        Session session = sessionFactory.getCurrentSession();
-        session.update(account);
-        List<Currency> currencyList = settingsManager.getCurrencyList();
-        for(Currency currency : currencyList) {
-            account.createVirtualWallet(currency).addBalance(new BigDecimal(10));
-        }
-    }
-
-    @Transactional
-    public String createWalletAddress(@NonNull VirtualWallet virtualWallet, @NonNull CryptoCoinWallet.Account account, @NonNull JsonRPC jsonRPC) throws Exception {
+    public String createWalletAddress(@NonNull VirtualWallet virtualWallet, @NonNull AbstractWallet account, @NonNull JsonRPC jsonRPC) throws Exception {
         Session session = sessionFactory.getCurrentSession();
         session.saveOrUpdate(virtualWallet);
-        CryptoCoinWallet.Account.Address newAddress = account.generateNewAddress(jsonRPC);
+        com.bitcoin.daemon.Address newAddress = account.generateNewAddress(jsonRPC);
         Address address = virtualWallet.addAddress(newAddress.getAddress());
         session.saveOrUpdate(address);
         return newAddress.getAddress();
