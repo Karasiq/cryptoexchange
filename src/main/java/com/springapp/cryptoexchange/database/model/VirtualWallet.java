@@ -17,7 +17,8 @@ import java.util.Set;
 @NoArgsConstructor
 @RequiredArgsConstructor
 @Table(name = "balances")
-@EqualsAndHashCode(exclude = "addressList")
+@EqualsAndHashCode(of = {"id", "currency"})
+@ToString(of = {"id", "currency", "virtualBalance"}, callSuper = false)
 @Transactional
 public class VirtualWallet implements Serializable {
     @Id
@@ -31,7 +32,7 @@ public class VirtualWallet implements Serializable {
     private Currency currency;
 
     @Column(name = "virtual_balance")
-    private BigDecimal virtualBalance = BigDecimal.ZERO;
+    private volatile BigDecimal virtualBalance = BigDecimal.ZERO;
 
     @OneToMany
     @JoinColumn(name = "addresses")
@@ -51,7 +52,7 @@ public class VirtualWallet implements Serializable {
     }
 
     @Transactional
-    public BigDecimal getBalance(@NonNull CryptoCoinWallet.Account wallet) {
+    public synchronized BigDecimal getBalance(@NonNull CryptoCoinWallet.Account wallet) {
         BigDecimal result = virtualBalance;
         if(!addressList.isEmpty()) synchronized (addressList) {
             Set<String> strings = new HashSet<>();
@@ -61,5 +62,9 @@ public class VirtualWallet implements Serializable {
             result = result.add(wallet.summaryConfirmedBalance(strings));
         }
         return result;
+    }
+
+    public synchronized void addBalance(final BigDecimal amount) {
+        setVirtualBalance(virtualBalance.add(amount));
     }
 }

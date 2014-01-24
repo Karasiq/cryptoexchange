@@ -199,6 +199,6 @@ public class CryptoCoinWallet {
     }
 
     public static Account getDefaultAccount() {
-        return new Account("");
+        return new Account("exchange-default");
     }
 }

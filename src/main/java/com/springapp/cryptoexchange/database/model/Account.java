@@ -64,7 +64,13 @@ public class Account implements Serializable {
     public VirtualWallet createVirtualWallet(Currency currency) {
         VirtualWallet v = new VirtualWallet(currency, this);
         synchronized (virtualWalletMap) {
-            virtualWalletMap.add(v);
+            if(!virtualWalletMap.contains(v)) {
+                virtualWalletMap.add(v);
+            } else {
+                for(VirtualWallet wallet : virtualWalletMap) if (wallet.equals(v)) {
+                    return wallet;
+                }
+            }
         }
         return v;
     }

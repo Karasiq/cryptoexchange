@@ -32,7 +32,7 @@ public class JsonRPC {
             super(String.format("Daemon RPC-api exception: %s", message));
         }
         public RPCDaemonException(Throwable throwable) {
-            super(String.format("Daemon RPC-api exception: %s", throwable.getLocalizedMessage()), throwable);
+            super(String.format("Daemon RPC-api exception (%s)", throwable.getLocalizedMessage()), throwable);
         }
     }
     private static @Data class JsonRpcRequest {
