@@ -66,7 +66,7 @@ public class MarketManager implements AbstractMarketManager {
         Session session = sessionFactory.getCurrentSession();
         assert order.getStatus() == Order.Status.CANCELLED || order.getStatus() == Order.Status.COMPLETED;
         BigDecimal total = order.getTotal();
-        BigDecimal returnAmount = Calculator.totalRequired(order.getType(), order.getAmount(), order.getPrice(), settingsManager.getFeePercent()).subtract(total);
+        BigDecimal returnAmount = Calculator.totalRequired(order.getType(), order.getAmount(), order.getPrice(), order.getTradingPair().getTradingFee()).subtract(total);
         VirtualWallet wallet = order.getSourceWallet();
         wallet.addBalance(returnAmount);
         session.saveOrUpdate(wallet);
@@ -105,13 +105,10 @@ public class MarketManager implements AbstractMarketManager {
 
     @SuppressWarnings("all")
     private void remapFunds(@NonFinal Order firstOrder, @NonFinal Order secondOrder, final BigDecimal amount) throws Exception {
-        final Currency firstCurrency = firstOrder.getTradingPair().getFirstCurrency(), secondCurrency = firstOrder.getTradingPair().getSecondCurrency();
         assert firstOrder.getType() == Order.Type.SELL && secondOrder.getType() == Order.Type.BUY; // First sell, then buy
-        // CryptoCoinWallet.Account firstCurrencyAccount = settingsManager.getAccount(firstCurrency), secondCurrencyAccount = settingsManager.getAccount(secondCurrency);
+        BigDecimal price = firstOrder.getPrice(), tradingFee = firstOrder.getTradingPair().getTradingFee();
 
-        BigDecimal price = firstOrder.getPrice();
-
-        BigDecimal firstCurrencySend = Calculator.withoutFee(Calculator.buyTotal(amount, price), settingsManager.getFeePercent()), secondCurrencySend = Calculator.withoutFee(amount, settingsManager.getFeePercent());
+        BigDecimal firstCurrencySend = Calculator.withoutFee(Calculator.buyTotal(amount, price), tradingFee), secondCurrencySend = Calculator.withoutFee(amount, tradingFee);
         firstOrder.addTotal(amount);
         firstOrder.addCompletedAmount(amount);
         secondOrder.addTotal(amount.multiply(price));
@@ -122,7 +119,7 @@ public class MarketManager implements AbstractMarketManager {
             updateMarketInfo(firstOrder.getTradingPair(), price, amount);
         }
 
-        VirtualWallet firstSource = firstOrder.getSourceWallet(), firstDest = firstOrder.getDestWallet(), secondSource = secondOrder.getSourceWallet(), secondDest = secondOrder.getDestWallet();
+        VirtualWallet firstDest = firstOrder.getDestWallet(), secondDest = secondOrder.getDestWallet();
 
         // firstSource.addBalance(secondCurrencySend.negate()); // already locked
         firstDest.addBalance(firstCurrencySend);
@@ -162,7 +159,7 @@ public class MarketManager implements AbstractMarketManager {
             session.saveOrUpdate(virtualWalletDest);
             BigDecimal balance = virtualWalletSource.getBalance(daemonManager.getAccount(virtualWalletSource.getCurrency()));
             BigDecimal remainingAmount = newOrder.getRemainingAmount();
-            BigDecimal required = Calculator.totalRequired(orderType, remainingAmount, newOrder.getPrice(), settingsManager.getFeePercent());
+            BigDecimal required = Calculator.totalRequired(orderType, remainingAmount, newOrder.getPrice(), newOrder.getTradingPair().getTradingFee());
 
             if(balance.compareTo(required) < 0) {
                 throw new MarketError("Insufficient funds");

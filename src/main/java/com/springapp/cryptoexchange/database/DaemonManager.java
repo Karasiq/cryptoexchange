@@ -22,7 +22,7 @@ import java.util.Map;
 @Transactional
 public class DaemonManager implements AbstractDaemonManager {
     @RequiredArgsConstructor
-    private class DaemonInfo {
+    private static class DaemonInfo {
         boolean enabled = true;
         @NonNull JsonRPC daemon;
         @NonNull AbstractWallet wallet;
@@ -51,7 +51,7 @@ public class DaemonManager implements AbstractDaemonManager {
         List<Currency> currencyList = settingsManager.getCurrencyList();
         for(Currency currency : currencyList) {
             if(!daemonMap.containsKey(currency)) {
-                daemonMap.put(currency, new DaemonInfo(new JsonRPC(currency.getDaemonHost(), currency.getDaemonPort(), currency.getDaemonLogin(), currency.getDaemonPassword()), settingsManager.getTestingMode() ? new TestingWallet() : CryptoCoinWallet.getDefaultAccount()));
+                daemonMap.put(currency, new DaemonInfo(new JsonRPC(currency.getDaemonHost(), currency.getDaemonPort(), currency.getDaemonLogin(), currency.getDaemonPassword()), settingsManager.isTestingMode() ? new TestingWallet() : CryptoCoinWallet.getDefaultAccount()));
             }
         }
     }

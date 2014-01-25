@@ -6,13 +6,14 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 import javax.persistence.*;
+import java.io.Serializable;
 
 @Data
 @NoArgsConstructor
 @RequiredArgsConstructor
 @Entity
 @Table(name = "addresses")
-public class Address {
+public class Address implements Serializable {
     @Id
     @GeneratedValue
     @Column(unique = true)

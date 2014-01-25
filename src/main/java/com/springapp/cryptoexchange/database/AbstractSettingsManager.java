@@ -9,10 +9,10 @@ import java.util.List;
 
 @Repository
 public interface AbstractSettingsManager {
-    public BigDecimal getFeePercent();
-    public BigDecimal getWithdrawFeePercent();
     public List<TradingPair> getTradingPairs();
     public List<Currency> getCurrencyList();
+    public TradingPair getTradingPair(long id);
+    public Currency getCurrency(long id);
     public void init();
     public void setTestingMode(boolean testingMode);
     public boolean isTestingMode();

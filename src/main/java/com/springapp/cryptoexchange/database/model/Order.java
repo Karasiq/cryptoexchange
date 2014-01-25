@@ -4,6 +4,7 @@ import com.springapp.cryptoexchange.database.MarketManager;
 import lombok.*;
 
 import javax.persistence.*;
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Date;
 
@@ -14,7 +15,7 @@ import java.util.Date;
 @Table(name = "orders")
 @ToString(of={"id", "type", "status", "amount", "price", "completedAmount", "total"})
 @EqualsAndHashCode(of={"id", "type", "status", "amount", "price", "completedAmount", "total"})
-public class Order {
+public class Order implements Serializable {
     public enum Status {
         OPEN, COMPLETED, PARTIALLY_COMPLETED, CANCELLED
     }

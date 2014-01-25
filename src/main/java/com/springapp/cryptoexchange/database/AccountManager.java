@@ -30,7 +30,7 @@ public class AccountManager implements AbstractAccountManager {
     public synchronized com.bitcoin.daemon.Address.Transaction withdrawFunds(VirtualWallet wallet, String address, BigDecimal amount) throws Exception {
         final AbstractWallet account = daemonManager.getAccount(wallet.getCurrency());
         BigDecimal balance = wallet.getBalance(account);
-        BigDecimal required = amount.multiply(new BigDecimal(100).add(settingsManager.getWithdrawFeePercent()).divide(new BigDecimal(100), 8, RoundingMode.FLOOR));
+        BigDecimal required = amount.multiply(new BigDecimal(100).add(wallet.getCurrency().getWithdrawFee()).divide(new BigDecimal(100), 8, RoundingMode.FLOOR));
         if(balance.compareTo(required) < 0 || account.summaryConfirmedBalance().compareTo(required) < 0) {
             throw new AccountException("Insufficient funds");
         }

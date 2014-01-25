@@ -81,15 +81,14 @@ public class JsonRPC {
         }
     }
     private static String getResponseString(HttpResponse response) throws IOException {
-        BufferedReader rd = new BufferedReader(
-                new InputStreamReader(response.getEntity().getContent()));
-
-        StringBuilder result = new StringBuilder();
-        String line;
-        while ((line = rd.readLine()) != null) {
-            result.append(line);
+        try(BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent()))) {
+            StringBuilder result = new StringBuilder();
+            String line;
+            while ((line = rd.readLine()) != null) {
+                result.append(line);
+            }
+            return result.toString();
         }
-        return result.toString();
     }
 
     private static String prepareJsonRequest(String method, List<Object> args) throws IOException {

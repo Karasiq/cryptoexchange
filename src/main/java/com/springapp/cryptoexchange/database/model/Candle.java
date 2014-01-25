@@ -5,6 +5,7 @@ import org.joda.time.DateTime;
 import org.joda.time.Period;
 
 import javax.persistence.*;
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Date;
 
@@ -14,7 +15,7 @@ import java.util.Date;
 @NoArgsConstructor
 @RequiredArgsConstructor
 @Table(name = "history")
-public class Candle {
+public class Candle implements Serializable {
     @Id
     @GeneratedValue
     @Column

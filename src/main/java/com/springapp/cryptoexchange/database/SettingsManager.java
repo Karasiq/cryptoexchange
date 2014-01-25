@@ -20,8 +20,6 @@ public class SettingsManager implements AbstractSettingsManager {
     @Autowired
     SessionFactory sessionFactory;
 
-    private @Getter final BigDecimal feePercent = new BigDecimal(0.2);  // just static
-    private @Getter final BigDecimal withdrawFeePercent = new BigDecimal(3);
     private @Getter List<Currency> currencyList = null;
     private @Getter List<TradingPair> tradingPairs = null;
     private @Getter @Setter boolean testingMode = false;
@@ -41,6 +39,24 @@ public class SettingsManager implements AbstractSettingsManager {
         Session session = sessionFactory.getCurrentSession();
         tradingPairs = session.createCriteria(TradingPair.class)
                 .add(Restrictions.eq("enabled", true)).list();
+    }
+
+    public TradingPair getTradingPair(long id) {
+        for(TradingPair tradingPair : tradingPairs) {
+            if(tradingPair.getId() == id) {
+                return tradingPair;
+            }
+        }
+        return null;
+    }
+
+    public Currency getCurrency(long id) {
+        for(Currency currency : currencyList) {
+            if(currency.getId() == id) {
+                return currency;
+            }
+        }
+        return null;
     }
 
     public synchronized void init() {

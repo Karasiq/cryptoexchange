@@ -3,6 +3,8 @@ package com.springapp.cryptoexchange.database.model;
 import lombok.*;
 
 import javax.persistence.*;
+import java.io.Serializable;
+import java.math.BigDecimal;
 
 @Data
 @NoArgsConstructor
@@ -11,7 +13,7 @@ import javax.persistence.*;
 @Table(name = "currency_types")
 @EqualsAndHashCode(of = {"currencyCode", "currencyName"})
 @ToString(of = {"id", "currencyCode", "currencyName"}, callSuper = false)
-public class Currency {
+public class Currency implements Serializable {
     @Id
     @GeneratedValue
     @Column(unique = true)
@@ -25,6 +27,11 @@ public class Currency {
 
     @Column(name = "name", nullable = false, unique = true)
     private @NonNull String currencyName;
+
+    @Column(name = "withdraw_fee", nullable = false)
+    private BigDecimal withdrawFee = new BigDecimal(3);
+
+    // Daemon:
 
     @Column(name = "daemon_host")
     private @NonNull String daemonHost = "localhost";
