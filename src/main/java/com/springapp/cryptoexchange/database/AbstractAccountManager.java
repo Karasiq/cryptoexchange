@@ -21,10 +21,9 @@ public interface AbstractAccountManager {
     }
     public String createWalletAddress(VirtualWallet virtualWallet, AbstractWallet account, JsonRPC jsonRPC) throws Exception;
     public VirtualWallet getVirtualWallet(Account account, Currency currency) throws Exception;
-    public Account addAccount(Account account);
+    public Account addAccount(Account account) throws Exception;
     public Account getAccount(String login);
-    public void removeAccount(long id);
-
+    public void setAccountEnabled(long id, boolean enabled);
     public com.bitcoin.daemon.Address.Transaction withdrawFunds(VirtualWallet wallet, String address, BigDecimal amount) throws Exception;
-
+    public void login(String login, String password, String ip, String browserFingerprint) throws Exception;
 }

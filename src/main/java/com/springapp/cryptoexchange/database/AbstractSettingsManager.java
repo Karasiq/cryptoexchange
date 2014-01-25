@@ -15,5 +15,5 @@ public interface AbstractSettingsManager {
     public List<Currency> getCurrencyList();
     public void init();
     public void setTestingMode(boolean testingMode);
-    public boolean getTestingMode();
+    public boolean isTestingMode();
 }

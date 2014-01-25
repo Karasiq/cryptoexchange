@@ -4,6 +4,8 @@ import com.springapp.cryptoexchange.Calculator;
 import com.springapp.cryptoexchange.database.model.*;
 import lombok.NonNull;
 import lombok.experimental.NonFinal;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -23,6 +25,8 @@ import java.util.Map;
 @Service
 @Transactional
 public class MarketManager implements AbstractMarketManager {
+    private Log log = LogFactory.getLog(MarketManager.class);
+
     @Autowired
     SessionFactory sessionFactory;
 
@@ -193,6 +197,15 @@ public class MarketManager implements AbstractMarketManager {
             session.saveOrUpdate(virtualWalletDest);
             return newOrder;
         }
+    }
+
+    @Transactional
+    public void setTradingPairEnabled(TradingPair tradingPair, boolean enabled) {
+        Session session = sessionFactory.getCurrentSession();
+        session.update(tradingPair);
+        tradingPair.setEnabled(enabled);
+        log.info(String.format("setTradingPairEnabled: %s", tradingPair));
+        session.save(tradingPair);
     }
 
     @Transactional

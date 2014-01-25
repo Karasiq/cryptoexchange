@@ -3,6 +3,7 @@ package com.springapp.cryptoexchange.database;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.TradingPair;
 import lombok.Getter;
+import lombok.Setter;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -23,14 +24,7 @@ public class SettingsManager implements AbstractSettingsManager {
     private @Getter final BigDecimal withdrawFeePercent = new BigDecimal(3);
     private @Getter List<Currency> currencyList = null;
     private @Getter List<TradingPair> tradingPairs = null;
-    private boolean testingMode = false;
-
-    public void setTestingMode(boolean testingMode) {
-        this.testingMode = testingMode;
-    }
-    public boolean getTestingMode() {
-        return testingMode;
-    }
+    private @Getter @Setter boolean testingMode = false;
 
 
     @Transactional

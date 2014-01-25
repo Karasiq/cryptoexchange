@@ -2,6 +2,7 @@ package com.springapp.cryptoexchange.database;
 
 import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Order;
+import com.springapp.cryptoexchange.database.model.TradingPair;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -19,5 +20,6 @@ public interface AbstractMarketManager {
     public Order executeOrder(Order newOrder) throws Exception;
     public void cancelOrder(Order order) throws Exception;
     public List<Order> getOrdersByAccount(Account account);
+    public void setTradingPairEnabled(TradingPair tradingPair, boolean enabled);
     public void init();
 }

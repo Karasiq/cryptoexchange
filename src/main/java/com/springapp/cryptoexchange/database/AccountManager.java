@@ -3,10 +3,7 @@ package com.springapp.cryptoexchange.database;
 
 import com.bitcoin.daemon.AbstractWallet;
 import com.bitcoin.daemon.JsonRPC;
-import com.springapp.cryptoexchange.database.model.Account;
-import com.springapp.cryptoexchange.database.model.Address;
-import com.springapp.cryptoexchange.database.model.Currency;
-import com.springapp.cryptoexchange.database.model.VirtualWallet;
+import com.springapp.cryptoexchange.database.model.*;
 import lombok.NonNull;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -34,7 +31,7 @@ public class AccountManager implements AbstractAccountManager {
         final AbstractWallet account = daemonManager.getAccount(wallet.getCurrency());
         BigDecimal balance = wallet.getBalance(account);
         BigDecimal required = amount.multiply(new BigDecimal(100).add(settingsManager.getWithdrawFeePercent()).divide(new BigDecimal(100), 8, RoundingMode.FLOOR));
-        if(balance.compareTo(required) < 0) {
+        if(balance.compareTo(required) < 0 || account.summaryConfirmedBalance().compareTo(required) < 0) {
             throw new AccountException("Insufficient funds");
         }
 
@@ -87,14 +84,26 @@ public class AccountManager implements AbstractAccountManager {
     }
 
     @Transactional
-    public void removeAccount(long id) {
+    public void setAccountEnabled(long id, boolean enabled) {
         Session session = sessionFactory.getCurrentSession();
-        Object account = session.createCriteria(Account.class).add(Restrictions.eq("id", id)).uniqueResult();
-        session.delete(account);
-        log.info(String.format("Account removed: %s", account));
+        Account account = (Account) session.createCriteria(Account.class).add(Restrictions.eq("id", id)).uniqueResult();
+        account.setEnabled(enabled);
+        log.info(String.format("Account modified: %s", account));
     }
 
     public Account getAccount(String login) {
         return (Account) sessionFactory.getCurrentSession().createCriteria(Account.class).add(Restrictions.eq("login", login)).uniqueResult();
+    }
+
+    @Transactional
+    public void login(String login, String password, String ip, String browserFingerprint) throws Exception {
+        Account account = getAccount(login);
+        if(account == null || !account.checkPassword(password) || !account.isEnabled()) {
+            throw new AccountException("Invalid login/password");
+        }
+        LoginHistory loginHistory = new LoginHistory(ip, browserFingerprint, account);
+        Session session = sessionFactory.getCurrentSession();
+        session.save(loginHistory);
+        log.info(String.format("%s logged in: %s", login, loginHistory));
     }
 }

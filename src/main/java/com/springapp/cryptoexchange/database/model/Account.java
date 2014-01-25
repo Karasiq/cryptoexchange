@@ -5,6 +5,7 @@ import com.springapp.cryptoexchange.config.ServerSettings;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.crypto.Mac;
@@ -20,6 +21,7 @@ import java.util.Set;
 @NoArgsConstructor
 @Table(name = "accounts")
 @EqualsAndHashCode(of={"id", "login", "passwordHash"})
+@ToString(of={"id", "enabled", "login", "passwordHash", "emailAddress"})
 @Transactional
 public class Account implements Serializable {
     @Id
@@ -32,6 +34,9 @@ public class Account implements Serializable {
 
     @Column(length = 200, name = "password")
     private String passwordHash;
+
+    @Column(length = 200, name = "email_address")
+    private String emailAddress;
 
     @Column(name = "enabled", nullable = false)
     private boolean enabled = true;
