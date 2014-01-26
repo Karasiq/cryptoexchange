@@ -4,6 +4,7 @@ import com.bitcoin.daemon.AbstractWallet;
 import com.bitcoin.daemon.CryptoCoinWallet;
 import com.bitcoin.daemon.JsonRPC;
 import com.bitcoin.daemon.TestingWallet;
+import com.springapp.cryptoexchange.Calculator;
 import com.springapp.cryptoexchange.database.model.Address;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.VirtualWallet;
@@ -17,6 +18,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -74,6 +77,33 @@ public class DaemonManager implements AbstractDaemonManager {
         Address address = virtualWallet.addAddress(newAddress.getAddress());
         session.saveOrUpdate(address);
         return newAddress.getAddress();
+    }
+
+    @Transactional
+    public synchronized void withdrawFunds(@NonNull VirtualWallet wallet, String address, BigDecimal amount) throws Exception {
+        final AbstractWallet abstractWallet = getAccount(wallet.getCurrency());
+        if(abstractWallet instanceof CryptoCoinWallet.Account) {
+            CryptoCoinWallet.Account account = (CryptoCoinWallet.Account) abstractWallet;
+            BigDecimal balance = wallet.getBalance(account);
+            BigDecimal required = amount.multiply(Calculator.ONE_HUNDRED.add(wallet.getCurrency().getWithdrawFee()).divide(Calculator.ONE_HUNDRED, 8, RoundingMode.FLOOR));
+            if(balance.compareTo(required) < 0 || account.summaryConfirmedBalance().compareTo(required) < 0) {
+                throw new AbstractAccountManager.AccountException("Insufficient funds");
+            }
+
+            log.info(String.format("Funds withdraw requested: from %s to %s <%s>", wallet, address, amount));
+
+            com.bitcoin.daemon.Address.Transaction transaction;
+            try {
+                transaction = account.sendToAddress(address, amount);
+                log.info(String.format("Funds withdraw success: %s", transaction));
+            } catch (Exception e) {
+                log.error(e);
+                throw new AbstractAccountManager.AccountException(e);
+            }
+
+            // if no errors:
+            wallet.addBalance(required.negate());
+        }
     }
 
     public void init() throws Exception {

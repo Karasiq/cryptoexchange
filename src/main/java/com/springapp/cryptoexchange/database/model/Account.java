@@ -2,10 +2,7 @@ package com.springapp.cryptoexchange.database.model;
 
 
 import com.springapp.cryptoexchange.config.ServerSettings;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
+import lombok.*;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.crypto.Mac;
@@ -13,6 +10,9 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.persistence.*;
 import javax.xml.bind.DatatypeConverter;
 import java.io.Serializable;
+import java.io.UnsupportedEncodingException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -21,7 +21,7 @@ import java.util.Set;
 @NoArgsConstructor
 @Table(name = "accounts")
 @EqualsAndHashCode(of={"id", "login", "passwordHash"})
-@ToString(of={"id", "enabled", "login", "passwordHash", "emailAddress"})
+@ToString(exclude = "virtualWalletMap")
 @Transactional
 public class Account implements Serializable {
     @Id
@@ -41,28 +41,25 @@ public class Account implements Serializable {
     @Column(name = "enabled", nullable = false)
     private boolean enabled = true;
 
-    @OneToMany(mappedBy = "account")
+    @OneToOne(fetch = FetchType.EAGER)
+    private Role role;
+
+    @OneToMany(mappedBy = "account", fetch = FetchType.LAZY)
     final Set<VirtualWallet> virtualWalletMap = new HashSet<>();
 
     public Account(final String login, final String password) throws Exception {
         this.login = login;
-        this.passwordHash = generatePasswordHash(password);
+        this.passwordHash = generatePasswordHash(login, password);
     }
 
-    public static boolean validate(String login, String password) {
-        return login.length() < 30 && login.length() > 0 && password.length() >= 8 && password.length() < 200;
-    }
-
-    public static String generatePasswordHash(String password) throws Exception {
-        final String hashingAlgorithm = "HmacSHA512";
-        SecretKeySpec key = new SecretKeySpec(ServerSettings.serverSettings.getHashingSalt().getBytes("UTF-8"), hashingAlgorithm);
-        Mac mac = Mac.getInstance(hashingAlgorithm);
-        mac.init(key);
-        return DatatypeConverter.printHexBinary(mac.doFinal(password.getBytes("UTF-8"))).toLowerCase();
+    public static String generatePasswordHash(String login, String password) throws NoSuchAlgorithmException, UnsupportedEncodingException {
+        final String hashingAlgorithm = "SHA-256";
+        MessageDigest md = MessageDigest.getInstance(hashingAlgorithm);
+        return DatatypeConverter.printHexBinary(md.digest((password + login).getBytes("UTF-8"))).toLowerCase();
     }
 
     public boolean checkPassword(String password) throws Exception {
-        return generatePasswordHash(password).equals(passwordHash);
+        return generatePasswordHash(this.login, password).equals(passwordHash);
     }
 
     @Transactional
