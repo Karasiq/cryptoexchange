@@ -16,11 +16,18 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.web.context.WebApplicationContext;
 
 import javax.transaction.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
+import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @WebAppConfiguration
@@ -52,19 +59,27 @@ public class AppTests {
 
     @Before
     public void setup() throws Exception {
-        // this.mockMvc = webAppContextSetup(this.wac).build();
+        this.mockMvc = webAppContextSetup(this.wac).build();
         settingsManager.setTestingMode(true);
         settingsManager.init();
         daemonManager.init();
         marketManager.init();
     }
 
-    /*@Test
-    public void simple() throws Exception {
+    @Test
+    public void mainPage() throws Exception {
         mockMvc.perform(get("/"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("hello"));
-    } */
+    }
+
+    @Test
+    public void jsonApi() throws Exception {
+        MvcResult result = mockMvc.perform(get("/rest-api/info/1"))
+                .andExpect(status().isOk())
+                .andReturn();
+        System.out.println(result.getResponse().getContentAsString());
+    }
 
     //@Test
     public void jsonRpc() throws Exception {

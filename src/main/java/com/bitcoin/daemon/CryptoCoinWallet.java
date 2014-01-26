@@ -1,11 +1,10 @@
 package com.bitcoin.daemon;
 
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NonNull;
-import org.codehaus.jackson.annotate.JsonIgnoreProperties;
-import org.codehaus.jackson.type.TypeReference;
 
 import java.math.BigDecimal;
 import java.util.*;

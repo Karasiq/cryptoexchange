@@ -2,13 +2,14 @@ package com.springapp.cryptoexchange.database;
 
 import com.springapp.cryptoexchange.Calculator;
 import com.springapp.cryptoexchange.database.model.*;
+import com.springapp.cryptoexchange.database.model.Order;
 import lombok.NonNull;
 import lombok.experimental.NonFinal;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
-import org.hibernate.criterion.Restrictions;
+import org.hibernate.criterion.*;
 import org.joda.time.DateTime;
 import org.joda.time.Period;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -151,6 +152,9 @@ public class MarketManager implements AbstractMarketManager {
     @Transactional
     @SuppressWarnings("unchecked")
     public Order executeOrder(@NonNull Order newOrder) throws Exception {
+        if (newOrder.getAmount().compareTo(newOrder.getTradingPair().getMinimalTradeAmount()) < 0) {
+            throw new MarketError(String.format("Minimal trading amount is %s", newOrder.getTradingPair().getMinimalTradeAmount()));
+        }
         synchronized (lockerMap.get(newOrder.getTradingPair().getId())) { // Critical
             Session session = sessionFactory.getCurrentSession();
             Order.Type orderType = newOrder.getType();
@@ -207,11 +211,25 @@ public class MarketManager implements AbstractMarketManager {
 
     @Transactional
     @SuppressWarnings("unchecked")
-    public List<Order> getOrdersByAccount(@NonNull Account account) { // only for information!!!
+    public List<Order> getOrdersByAccount(@NonNull Account account, int max) { // only for information!!!
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Order.class)
+                .setMaxResults(max)
                 .add(Restrictions.eq("account", account))
                 .addOrder(org.hibernate.criterion.Order.desc("open_time"))
+                .list();
+    }
+
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public List<Order> getOpenOrders(TradingPair tradingPair, Order.Type type, int max, boolean ascending) {
+        Session session = sessionFactory.getCurrentSession();
+        return session.createCriteria(Order.class)
+                .setMaxResults(max)
+                .add(Restrictions.eq("tradingPair", tradingPair))
+                .add(Restrictions.or(Restrictions.eq("status", Order.Status.OPEN), Restrictions.eq("status", Order.Status.PARTIALLY_COMPLETED)))
+                .add(Restrictions.eq("type", type))
+                .addOrder(ascending ? org.hibernate.criterion.Order.asc("price") : org.hibernate.criterion.Order.desc("price"))
                 .list();
     }
 }

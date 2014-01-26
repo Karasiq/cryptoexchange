@@ -52,7 +52,7 @@ public class TradingPair implements Serializable {
     BigDecimal dayLow = BigDecimal.ZERO;
 
     // Settings:
-    @Column(name = "min_trade_amount")
+    @Column(name = "min_trade_amount", nullable = false)
     BigDecimal minimalTradeAmount = BigDecimal.ZERO;
 
     @Column(name = "trading_fee", nullable = false)

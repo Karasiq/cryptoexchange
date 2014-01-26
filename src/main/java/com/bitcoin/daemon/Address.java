@@ -1,9 +1,9 @@
 package com.bitcoin.daemon;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NonNull;
-import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 
 import java.math.BigDecimal;
 import java.util.HashMap;

@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @Transactional
@@ -28,7 +29,7 @@ public class DaemonManager implements AbstractDaemonManager {
         @NonNull AbstractWallet wallet;
     }
     private Log log = LogFactory.getLog(DaemonManager.class);
-    private final Map<Currency, DaemonInfo> daemonMap = new HashMap<>();
+    private final Map<Currency, DaemonInfo> daemonMap = new ConcurrentHashMap<>();
 
     @Autowired
     SessionFactory sessionFactory;
@@ -56,13 +57,13 @@ public class DaemonManager implements AbstractDaemonManager {
         }
     }
 
-    public synchronized JsonRPC getDaemon(Currency currency) {
+    public JsonRPC getDaemon(Currency currency) {
         DaemonInfo daemonInfo = daemonMap.get(currency);
         assert daemonInfo.enabled;
         return daemonInfo.daemon;
     }
 
-    public synchronized AbstractWallet getAccount(Currency currency) {
+    public AbstractWallet getAccount(Currency currency) {
         DaemonInfo daemonInfo = daemonMap.get(currency);
         assert daemonInfo.enabled;
         return daemonInfo.wallet;

@@ -1,5 +1,10 @@
 package com.bitcoin.daemon;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 import lombok.NonNull;
 import org.apache.commons.logging.Log;
@@ -14,11 +19,6 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.codehaus.jackson.JsonFactory;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.annotate.JsonIgnoreProperties;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.type.TypeReference;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -93,7 +93,7 @@ public class JsonRPC {
 
     private static String prepareJsonRequest(String method, List<Object> args) throws IOException {
         ByteArrayOutputStream writer = new ByteArrayOutputStream();
-        JsonGenerator generator = jsonFactory.createJsonGenerator(writer);
+        JsonGenerator generator = jsonFactory.createGenerator(writer);
         ObjectMapper mapper = new ObjectMapper();
         mapper.writeValue(generator, new JsonRpcRequest(method, args));
         return writer.toString();

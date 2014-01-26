@@ -19,6 +19,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 @Transactional
@@ -31,47 +33,42 @@ public class HistoryManager implements AbstractHistoryManager {
     @Autowired
     SessionFactory sessionFactory;
 
-    private final Map<TradingPair, List<Candle>> historyMap = new HashMap<>();
+    private final Map<TradingPair, AtomicReference<List<Candle>>> historyMap = new ConcurrentHashMap<>();
     public void init() {
-        synchronized (historyMap) {
-            List<TradingPair> currencyList = settingsManager.getTradingPairs();
-            for(TradingPair tradingPair : currencyList) {
-                historyMap.put(tradingPair, getMarketChartData(tradingPair, 24));
-            }
+        List<TradingPair> currencyList = settingsManager.getTradingPairs();
+        for(TradingPair tradingPair : currencyList) {
+            historyMap.put(tradingPair, new AtomicReference<>(getMarketChartData(tradingPair, 24)));
         }
     }
 
     @Transactional
     public void updateChartData(@NonNull TradingPair tradingPair, final BigDecimal lastPrice, final BigDecimal amount) {
-        List<Candle> history;
+        AtomicReference<List<Candle>> historyAtomicRef = historyMap.get(tradingPair);
+        if (historyAtomicRef == null) {
+            historyAtomicRef = new AtomicReference<>((List<Candle>) new ArrayList<Candle>());
+            historyMap.put(tradingPair, historyAtomicRef);
+        }
+        List<Candle> history = historyAtomicRef.get();
         Candle lastCandle;
-        synchronized (historyMap) {
-            history = historyMap.get(tradingPair);
-            if (history == null) {
-                history = new ArrayList<>();
-                historyMap.put(tradingPair, history);
-            }
+        if (history.isEmpty()) {
+            lastCandle = new Candle(tradingPair);
+            history.add(lastCandle);
+        } else {
+            lastCandle = history.get(history.size() - 1);
         }
-        synchronized (history) {
-            if (history.isEmpty()) {
-                lastCandle = new Candle(tradingPair);
-                history.add(lastCandle);
-            } else {
-                lastCandle = history.get(history.size() - 1);
-            }
-            lastCandle.update(lastPrice, amount);
-            if (lastCandle.isClosed(chartPeriod)) { // next
-                lastCandle.close();
-                sessionFactory.getCurrentSession().saveOrUpdate(lastCandle);
-
-                lastCandle = new Candle(tradingPair, lastPrice);
-                history.add(lastCandle);
-            }
-            while (history.size() > 100) {
-                history.remove(0); // remove first (oldest) candle
-            }
+        lastCandle.update(lastPrice, amount);
+        if (lastCandle.isClosed(chartPeriod)) { // next
+            lastCandle.close();
             sessionFactory.getCurrentSession().saveOrUpdate(lastCandle);
+
+            lastCandle = new Candle(tradingPair, lastPrice);
+            history.add(lastCandle);
         }
+        while (history.size() > 100) {
+            history.remove(0); // remove first (oldest) candle
+        }
+        sessionFactory.getCurrentSession().saveOrUpdate(lastCandle);
+        historyAtomicRef.compareAndSet(history, history);
     }
 
     @Transactional
