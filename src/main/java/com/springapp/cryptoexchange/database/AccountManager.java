@@ -3,6 +3,7 @@ package com.springapp.cryptoexchange.database;
 
 import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Currency;
+import com.springapp.cryptoexchange.database.model.LoginHistory;
 import com.springapp.cryptoexchange.database.model.VirtualWallet;
 import lombok.NonNull;
 import lombok.extern.apachecommons.CommonsLog;
@@ -16,6 +17,11 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
+import javax.servlet.ServletRequest;
+import java.util.Date;
 
 
 @Service
@@ -63,10 +69,27 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
         return (Account) sessionFactory.getCurrentSession().createCriteria(Account.class).add(Restrictions.eq("login", login)).uniqueResult();
     }
 
+   @Transactional
+   private void logEntry(Account account) {
+       ServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
+       Session session = sessionFactory.getCurrentSession();
+       session.update(account);
+       LoginHistory loginHistory = new LoginHistory();
+       if(request != null) {
+           loginHistory.setIp(request.getRemoteAddr());
+           // loginHistory.setFingerprint(request.getParameter("fingerprint"));
+       }
+       loginHistory.setAccount(account);
+       loginHistory.setTime(new Date());
+       session.save(loginHistory);
+   }
+
+    @Transactional
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         Account user = getAccount(username);
         if (user != null) {
+            logEntry(user);
             return new User(user.getLogin(), user.getPasswordHash(), user.isEnabled(), false, false, !user.isEnabled(), user.getRole().getRoleClass().getGrantedAuthorities());
         } else {
             throw new UsernameNotFoundException("No user with username '" + username + "' found!");
