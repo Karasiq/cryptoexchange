@@ -1,5 +1,6 @@
 package com.springapp.cryptoexchange.database.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 
 import javax.persistence.*;
@@ -12,10 +13,12 @@ import java.util.Date;
 @EqualsAndHashCode(exclude = "account")
 @ToString(exclude = "account")
 @RequiredArgsConstructor
+@NoArgsConstructor
 public class LoginHistory implements Serializable { // Log
     @Id
     @GeneratedValue
     @Column(unique = true)
+    @JsonIgnore
     long id;
 
     @Column(name = "login_time")
@@ -25,8 +28,10 @@ public class LoginHistory implements Serializable { // Log
     @NonNull String ip;
 
     @Column(name = "browser_fingerprint")
+    @JsonIgnore
     @NonNull String fingerprint;
 
     @ManyToOne
+    @JsonIgnore
     @NonNull Account account;
 }

@@ -3,7 +3,6 @@ package com.springapp.cryptoexchange.webapi;
 import com.springapp.cryptoexchange.database.AbstractHistoryManager;
 import com.springapp.cryptoexchange.database.AbstractSettingsManager;
 import com.springapp.cryptoexchange.database.model.Order;
-import com.springapp.cryptoexchange.database.model.TradingPair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -18,9 +17,6 @@ public class ConvertService implements AbstractConvertService {
     @Autowired
     AbstractSettingsManager settingsManager;
 
-    public PriceInfo createPriceInfo(TradingPair tradingPair) {
-        return new PriceInfo(tradingPair);
-    }
     public Depth createDepth(List<Order> buyOrders, List<Order> sellOrders) {
         Depth depth = new Depth();
         Depth.DepthEntry depthEntry = new Depth.DepthEntry();

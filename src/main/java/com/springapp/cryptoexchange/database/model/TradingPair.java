@@ -1,5 +1,6 @@
 package com.springapp.cryptoexchange.database.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -19,12 +20,15 @@ public class TradingPair implements Serializable {
     long id;
 
     @Column(name = "enabled")
+    @JsonIgnore
     boolean enabled = true;
 
     @ManyToOne
+    @JsonIgnore
     Currency firstCurrency;
 
     @ManyToOne
+    @JsonIgnore
     Currency secondCurrency;
 
     // Basic:
@@ -37,6 +41,7 @@ public class TradingPair implements Serializable {
 
     // Transient:
     @Column(name = "last_reset")
+    @JsonIgnore
     Date lastReset = new Date();
 
     @Column(name = "volume")
@@ -56,7 +61,7 @@ public class TradingPair implements Serializable {
     BigDecimal minimalTradeAmount = BigDecimal.ZERO;
 
     @Column(name = "trading_fee", nullable = false)
-    BigDecimal tradingFee = new BigDecimal(0.2);
+    BigDecimal tradingFee = BigDecimal.valueOf(0.2);
 
     public TradingPair(Currency firstCurrency, Currency secondCurrency) {
         setName(String.format("%s/%s", firstCurrency.getCurrencyCode(), secondCurrency.getCurrencyCode()));

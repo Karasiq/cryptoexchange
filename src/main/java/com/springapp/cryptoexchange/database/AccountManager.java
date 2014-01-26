@@ -2,11 +2,14 @@ package com.springapp.cryptoexchange.database;
 
 
 import com.bitcoin.daemon.AbstractWallet;
-import com.bitcoin.daemon.JsonRPC;
-import com.springapp.cryptoexchange.database.model.*;
+import com.bitcoin.daemon.CryptoCoinWallet;
+import com.springapp.cryptoexchange.Calculator;
+import com.springapp.cryptoexchange.database.model.Account;
+import com.springapp.cryptoexchange.database.model.Currency;
+import com.springapp.cryptoexchange.database.model.LoginHistory;
+import com.springapp.cryptoexchange.database.model.VirtualWallet;
 import lombok.NonNull;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import lombok.extern.apachecommons.CommonsLog;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -19,36 +22,38 @@ import java.math.RoundingMode;
 
 @Service
 @Transactional
+@CommonsLog
 public class AccountManager implements AbstractAccountManager {
-    private Log log = LogFactory.getLog(AccountManager.class);
     @Autowired
     AbstractDaemonManager daemonManager;
 
     @Autowired
     AbstractSettingsManager settingsManager;
 
-    public synchronized com.bitcoin.daemon.Address.Transaction withdrawFunds(VirtualWallet wallet, String address, BigDecimal amount) throws Exception {
-        final AbstractWallet account = daemonManager.getAccount(wallet.getCurrency());
-        BigDecimal balance = wallet.getBalance(account);
-        BigDecimal required = amount.multiply(new BigDecimal(100).add(wallet.getCurrency().getWithdrawFee()).divide(new BigDecimal(100), 8, RoundingMode.FLOOR));
-        if(balance.compareTo(required) < 0 || account.summaryConfirmedBalance().compareTo(required) < 0) {
-            throw new AccountException("Insufficient funds");
+    public synchronized void withdrawFunds(VirtualWallet wallet, String address, BigDecimal amount) throws Exception {
+        final AbstractWallet abstractWallet = daemonManager.getAccount(wallet.getCurrency());
+        if(abstractWallet instanceof CryptoCoinWallet.Account) {
+            CryptoCoinWallet.Account account = (CryptoCoinWallet.Account) abstractWallet;
+            BigDecimal balance = wallet.getBalance(account);
+            BigDecimal required = amount.multiply(Calculator.ONE_HUNDRED.add(wallet.getCurrency().getWithdrawFee()).divide(Calculator.ONE_HUNDRED, 8, RoundingMode.FLOOR));
+            if(balance.compareTo(required) < 0 || account.summaryConfirmedBalance().compareTo(required) < 0) {
+                throw new AccountException("Insufficient funds");
+            }
+
+            log.info(String.format("Funds withdraw requested: from %s to %s <%s>", wallet, address, amount));
+
+            com.bitcoin.daemon.Address.Transaction transaction;
+            try {
+                transaction = account.sendToAddress(address, amount);
+                log.info(String.format("Funds withdraw success: %s", transaction));
+            } catch (Exception e) {
+                log.error(e);
+                throw new AccountException(e);
+            }
+
+            // if no errors:
+            wallet.addBalance(required.negate());
         }
-
-        log.info(String.format("Funds withdraw requested: from %s to %s <%s>", wallet, address, amount));
-
-        com.bitcoin.daemon.Address.Transaction transaction;
-        try {
-            transaction = account.sendToAddress(daemonManager.getDaemon(wallet.getCurrency()), address, amount);
-            log.info(String.format("Funds withdraw success: %s", transaction));
-        } catch (Exception e) {
-            log.error(e);
-            throw new AccountException(e);
-        }
-
-        // if no errors:
-        wallet.addBalance(required.negate());
-        return transaction;
     }
     @Autowired
     private SessionFactory sessionFactory;
@@ -63,16 +68,6 @@ public class AccountManager implements AbstractAccountManager {
             session.save(v);
         }
         return v;
-    }
-
-    @Transactional
-    public String createWalletAddress(@NonNull VirtualWallet virtualWallet, @NonNull AbstractWallet account, @NonNull JsonRPC jsonRPC) throws Exception {
-        Session session = sessionFactory.getCurrentSession();
-        session.saveOrUpdate(virtualWallet);
-        com.bitcoin.daemon.Address newAddress = account.generateNewAddress(jsonRPC);
-        Address address = virtualWallet.addAddress(newAddress.getAddress());
-        session.saveOrUpdate(address);
-        return newAddress.getAddress();
     }
 
     @Transactional

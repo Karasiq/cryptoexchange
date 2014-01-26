@@ -54,7 +54,7 @@ public class VirtualWallet implements Serializable {
     public synchronized BigDecimal getBalance(@NonNull AbstractWallet wallet) throws Exception {
         BigDecimal result = virtualBalance;
         if(!addressList.isEmpty()) synchronized (addressList) {
-            Set<String> strings = new HashSet<>();
+            Set<Object> strings = new HashSet<>();
             for(Address address : addressList) {
                 strings.add(address.getAddress());
             }

@@ -11,12 +11,12 @@ import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
 import org.joda.time.Period;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,6 +42,7 @@ public class HistoryManager implements AbstractHistoryManager {
     }
 
     @Transactional
+    @Async
     public void updateChartData(@NonNull TradingPair tradingPair, final BigDecimal lastPrice, final BigDecimal amount) {
         AtomicReference<List<Candle>> historyAtomicRef = historyMap.get(tradingPair);
         if (historyAtomicRef == null) {
@@ -77,14 +78,14 @@ public class HistoryManager implements AbstractHistoryManager {
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Order.class)
                 .add(Restrictions.eq("tradingPair", tradingPair))
-                .addOrder(org.hibernate.criterion.Order.desc("open_time"))
+                .addOrder(org.hibernate.criterion.Order.desc("update_time"))
                 .setMaxResults(max)
                 .list();
     }
 
     @Transactional
     @SuppressWarnings("unchecked")
-    public List<Candle> getMarketChartData(TradingPair tradingPair, int max) {
+    public List<Candle> getMarketChartData(@NonNull TradingPair tradingPair, int max) {
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Candle.class)
                 .setMaxResults(max)

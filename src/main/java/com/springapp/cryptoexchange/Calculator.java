@@ -7,7 +7,7 @@ import java.math.RoundingMode;
 
 // Just some math
 public class Calculator {
-    public static final BigDecimal ONE_HUNDRED = new BigDecimal(100.0);
+    public static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100.0);
 
     public static BigDecimal withFee(BigDecimal amount, BigDecimal feePercent) {
         return amount.multiply(ONE_HUNDRED.add(feePercent)).divide(ONE_HUNDRED, 8, RoundingMode.FLOOR);

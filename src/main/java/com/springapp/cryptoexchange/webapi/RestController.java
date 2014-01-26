@@ -1,17 +1,14 @@
-package com.springapp.cryptoexchange;
+package com.springapp.cryptoexchange.webapi;
 
 import com.springapp.cryptoexchange.database.AbstractHistoryManager;
 import com.springapp.cryptoexchange.database.AbstractMarketManager;
 import com.springapp.cryptoexchange.database.AbstractSettingsManager;
 import com.springapp.cryptoexchange.database.model.Order;
-import com.springapp.cryptoexchange.webapi.AbstractConvertService;
+import com.springapp.cryptoexchange.database.model.TradingPair;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.messaging.simp.annotation.SubscribeMapping;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.util.List;
@@ -31,10 +28,16 @@ public class RestController {
     @Autowired
     AbstractConvertService convertService;
 
+    @RequestMapping(value = "/info")
+    @ResponseBody
+    List<TradingPair> getTradingPairs() {
+        return settingsManager.getTradingPairs();
+    }
+
     @RequestMapping(value = "/info/{tradingPairId}")
     @ResponseBody
-    AbstractConvertService.PriceInfo getPrices(@PathVariable long tradingPairId) {
-        return convertService.createPriceInfo(settingsManager.getTradingPair(tradingPairId));
+    TradingPair getPrices(@PathVariable long tradingPairId) {
+        return settingsManager.getTradingPair(tradingPairId);
     }
 
     @RequestMapping("/history/{tradingPairId}")

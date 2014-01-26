@@ -1,5 +1,6 @@
 package com.springapp.cryptoexchange.database.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.springapp.cryptoexchange.database.MarketManager;
 import lombok.*;
 
@@ -32,6 +33,9 @@ public class Order implements Serializable {
     @Column(name = "open_time", nullable = false)
     Date openDate = new Date();
 
+    @Column(name = "update_time")
+    Date updateDate = new Date();
+
     @Column(name = "close_time")
     Date closeDate;
 
@@ -54,15 +58,19 @@ public class Order implements Serializable {
     @NonNull BigDecimal price;
 
     @ManyToOne
+    @JsonIgnore
     @NonNull TradingPair tradingPair;
 
     @ManyToOne
+    @JsonIgnore
     @NonNull VirtualWallet sourceWallet;
 
     @ManyToOne
+    @JsonIgnore
     @NonNull VirtualWallet destWallet;
 
     @ManyToOne
+    @JsonIgnore
     @NonNull Account account;
 
     public synchronized BigDecimal getRemainingAmount() {

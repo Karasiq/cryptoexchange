@@ -1,5 +1,6 @@
 package com.springapp.cryptoexchange.database.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 
 import javax.persistence.*;
@@ -29,19 +30,24 @@ public class Currency implements Serializable {
     private @NonNull String currencyName;
 
     @Column(name = "withdraw_fee", nullable = false)
-    private BigDecimal withdrawFee = new BigDecimal(3);
+    @JsonIgnore
+    private BigDecimal withdrawFee = BigDecimal.valueOf(3);
 
     // Daemon:
 
     @Column(name = "daemon_host")
+    @JsonIgnore
     private @NonNull String daemonHost = "localhost";
 
     @Column(name = "daemon_port")
+    @JsonIgnore
     private @NonNull Integer daemonPort;
 
     @Column(name = "daemon_login")
+    @JsonIgnore
     private @NonNull String daemonLogin;
 
     @Column(name = "daemon_password")
+    @JsonIgnore
     private @NonNull String daemonPassword;
 }

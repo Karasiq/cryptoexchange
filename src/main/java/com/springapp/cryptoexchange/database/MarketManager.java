@@ -1,18 +1,20 @@
 package com.springapp.cryptoexchange.database;
 
 import com.springapp.cryptoexchange.Calculator;
-import com.springapp.cryptoexchange.database.model.*;
+import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Order;
+import com.springapp.cryptoexchange.database.model.TradingPair;
+import com.springapp.cryptoexchange.database.model.VirtualWallet;
 import lombok.NonNull;
 import lombok.experimental.NonFinal;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import lombok.extern.apachecommons.CommonsLog;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
-import org.hibernate.criterion.*;
+import org.hibernate.criterion.Restrictions;
 import org.joda.time.DateTime;
 import org.joda.time.Period;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,9 +27,8 @@ import java.util.Map;
 
 @Service
 @Transactional
+@CommonsLog
 public class MarketManager implements AbstractMarketManager {
-    private Log log = LogFactory.getLog(MarketManager.class);
-
     @Autowired
     SessionFactory sessionFactory;
 
@@ -54,12 +55,14 @@ public class MarketManager implements AbstractMarketManager {
     }
 
     private static void updateOrderStatus(@NonFinal Order order) {
+        final Date now = new Date();
         if(order.getRemainingAmount().compareTo(BigDecimal.ZERO) == 0) {
             order.setStatus(Order.Status.COMPLETED);
-            order.setCloseDate(new Date());
+            order.setCloseDate(now);
         } else {
             order.setStatus(Order.Status.PARTIALLY_COMPLETED);
         }
+        order.setUpdateDate(now);
     }
 
     @Transactional
@@ -74,6 +77,7 @@ public class MarketManager implements AbstractMarketManager {
     }
 
     @Transactional
+    @Async
     private void updateMarketInfo(@NonFinal TradingPair tradingPair, final BigDecimal price, final BigDecimal amount) {
         Session session = sessionFactory.getCurrentSession();
         session.update(tradingPair);

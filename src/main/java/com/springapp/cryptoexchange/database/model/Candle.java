@@ -1,5 +1,6 @@
 package com.springapp.cryptoexchange.database.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import org.joda.time.DateTime;
 import org.joda.time.Period;
@@ -19,6 +20,7 @@ public class Candle implements Serializable {
     @Id
     @GeneratedValue
     @Column
+    @JsonIgnore
     long id;
 
     @Column(name = "open_time")
@@ -39,6 +41,7 @@ public class Candle implements Serializable {
     BigDecimal volume;
 
     @ManyToOne
+    @JsonIgnore
     @NonNull TradingPair tradingPair;
 
     public Candle(@NonNull final TradingPair tradingPair, @NonNull final BigDecimal lastPrice) { // open new candle
