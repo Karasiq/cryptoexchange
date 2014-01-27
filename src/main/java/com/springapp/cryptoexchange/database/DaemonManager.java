@@ -8,6 +8,7 @@ import com.springapp.cryptoexchange.Calculator;
 import com.springapp.cryptoexchange.database.model.Address;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.VirtualWallet;
+import lombok.Cleanup;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.apachecommons.CommonsLog;
@@ -18,6 +19,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
@@ -47,7 +49,12 @@ public class DaemonManager implements AbstractDaemonManager {
         for(Currency currency : currencyList) {
             final DaemonInfo daemonInfo = daemonMap.get(currency);
             if(daemonInfo.enabled && daemonInfo.wallet != null) {
-                daemonInfo.wallet.loadTransactions(max);
+                try {
+                    daemonInfo.wallet.loadTransactions(max);
+                }
+                catch (JsonRPC.RPCDaemonException exc) {
+                    log.error(exc);
+                }
             }
         }
     }
@@ -71,6 +78,7 @@ public class DaemonManager implements AbstractDaemonManager {
 
     @Transactional
     public String createWalletAddress(@NonNull VirtualWallet virtualWallet, @NonNull CryptoCoinWallet.Account account) throws Exception {
+        assert !settingsManager.isTestingMode();
         Session session = sessionFactory.getCurrentSession();
         session.saveOrUpdate(virtualWallet);
         com.bitcoin.daemon.Address newAddress = account.generateNewAddress();
@@ -81,6 +89,7 @@ public class DaemonManager implements AbstractDaemonManager {
 
     @Transactional
     public synchronized void withdrawFunds(@NonNull VirtualWallet wallet, String address, BigDecimal amount) throws Exception {
+        assert !settingsManager.isTestingMode();
         final AbstractWallet abstractWallet = getAccount(wallet.getCurrency());
         if(abstractWallet instanceof CryptoCoinWallet.Account) {
             CryptoCoinWallet.Account account = (CryptoCoinWallet.Account) abstractWallet;
@@ -106,7 +115,9 @@ public class DaemonManager implements AbstractDaemonManager {
         }
     }
 
+    @PostConstruct
     public void init() throws Exception {
+        @Cleanup Session session = sessionFactory.openSession();
         initDaemons();
         loadTransactions(20000);
     }

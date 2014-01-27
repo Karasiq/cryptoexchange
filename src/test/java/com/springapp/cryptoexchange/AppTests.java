@@ -58,9 +58,6 @@ public class AppTests {
     public void setup() throws Exception {
         this.mockMvc = webAppContextSetup(this.wac).build();
         settingsManager.setTestingMode(true);
-        settingsManager.init();
-        daemonManager.init();
-        marketManager.init();
     }
 
     @Test

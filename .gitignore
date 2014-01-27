@@ -2,5 +2,5 @@
 *.iml
 target/
 src/test/resources/jdbc.properties
-bower_components/
+webapp/
 trash/

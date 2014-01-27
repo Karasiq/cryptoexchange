@@ -2,6 +2,7 @@ package com.springapp.cryptoexchange.database;
 
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.TradingPair;
+import lombok.Cleanup;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.Session;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.PostConstruct;
 import java.util.List;
 
 @Service
@@ -26,16 +28,14 @@ public class SettingsManager implements AbstractSettingsManager {
 
     @Transactional
     @SuppressWarnings("unchecked")
-    public synchronized void loadCurrencies() {
-        Session session = sessionFactory.getCurrentSession();
+    public synchronized void loadCurrencies(Session session) {
         currencyList = session.createCriteria(Currency.class)
                 .add(Restrictions.eq("enabled", true)).list();
     }
 
     @Transactional
     @SuppressWarnings("unchecked")
-    public synchronized void loadTradingPairs() {
-        Session session = sessionFactory.getCurrentSession();
+    public synchronized void loadTradingPairs(Session session) {
         tradingPairs = session.createCriteria(TradingPair.class)
                 .add(Restrictions.eq("enabled", true)).list();
     }
@@ -58,8 +58,10 @@ public class SettingsManager implements AbstractSettingsManager {
         return null;
     }
 
+    @PostConstruct
     public synchronized void init() {
-        loadCurrencies();
-        loadTradingPairs();
+        @Cleanup Session session = sessionFactory.openSession();
+        loadCurrencies(session);
+        loadTradingPairs(session);
     }
 }

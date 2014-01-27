@@ -1,6 +1,8 @@
 package com.springapp.cryptoexchange.webapi;
 
 import com.springapp.cryptoexchange.database.model.Order;
+import com.springapp.cryptoexchange.database.model.TradingPair;
+import lombok.Data;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
@@ -9,7 +11,8 @@ import java.util.List;
 
 @Repository
 public interface AbstractConvertService {
-    static class MarketHistory {
+    @Data
+    public static class MarketHistory {
         public Order.Type type;
         public BigDecimal price;
         public BigDecimal amount;
@@ -21,7 +24,9 @@ public interface AbstractConvertService {
             time = order.getCloseDate();
         }
     }
-    static class Depth {
+
+    @Data
+    public static class Depth {
         static class DepthEntry implements Comparable<DepthEntry> {
             protected void addOrder(Order order) {
                 price = order.getPrice();
@@ -36,6 +41,8 @@ public interface AbstractConvertService {
         public List<DepthEntry> sellOrders;
         public List<DepthEntry> buyOrders;
     }
-    public Depth createDepth(List<Order> buyOrders, List<Order> sellOrders);
-    public List<MarketHistory> createHistory(List<Order> orders);
+    public Depth getMarketDepth(TradingPair tradingPair);
+    public List<MarketHistory> getMarketHistory(TradingPair tradingPair);
+    public void clearDepthCache();
+    public void clearHistoryCache();
 }

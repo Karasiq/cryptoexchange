@@ -5,6 +5,7 @@ import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
 import com.springapp.cryptoexchange.database.model.VirtualWallet;
+import com.springapp.cryptoexchange.webapi.AbstractConvertService;
 import lombok.NonNull;
 import lombok.experimental.NonFinal;
 import lombok.extern.apachecommons.CommonsLog;
@@ -18,6 +19,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.HashMap;
@@ -41,8 +43,12 @@ public class MarketManager implements AbstractMarketManager {
     @Autowired
     AbstractHistoryManager historyManager;
 
+    @Autowired
+    AbstractConvertService convertService;
+
     private final Map<Long, Object> lockerMap = new HashMap<>();
 
+    @PostConstruct
     public void init() {
         synchronized (lockerMap) {
             List<TradingPair> currencyList = settingsManager.getTradingPairs();
@@ -150,6 +156,7 @@ public class MarketManager implements AbstractMarketManager {
             order.setStatus(Order.Status.CANCELLED);
             session.saveOrUpdate(order);
             returnUnusedFunds(order);
+            convertService.clearDepthCache();
         }
     }
 
@@ -200,6 +207,8 @@ public class MarketManager implements AbstractMarketManager {
             session.saveOrUpdate(newOrder);
             session.saveOrUpdate(virtualWalletSource);
             session.saveOrUpdate(virtualWalletDest);
+            convertService.clearDepthCache();
+            convertService.clearHistoryCache();
             return newOrder;
         }
     }

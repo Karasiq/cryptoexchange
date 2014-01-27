@@ -78,7 +78,7 @@ public class HistoryManager implements AbstractHistoryManager {
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Order.class)
                 .add(Restrictions.eq("tradingPair", tradingPair))
-                .addOrder(org.hibernate.criterion.Order.desc("update_time"))
+                .addOrder(org.hibernate.criterion.Order.desc("updateDate"))
                 .setMaxResults(max)
                 .list();
     }

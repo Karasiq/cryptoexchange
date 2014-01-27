@@ -43,14 +43,12 @@ public class RestController {
     @RequestMapping("/history/{tradingPairId}")
     @ResponseBody
     List<AbstractConvertService.MarketHistory> getMarketHistory(@PathVariable long tradingPairId) {
-        List<Order> history = historyManager.getMarketHistory(settingsManager.getTradingPair(tradingPairId), 50);
-        return convertService.createHistory(history);
+        return convertService.getMarketHistory(settingsManager.getTradingPair(tradingPairId));
     }
 
     @RequestMapping("/depth/{tradingPairId}")
     @ResponseBody
     AbstractConvertService.Depth getMarketDepth(@PathVariable long tradingPairId) {
-        List<Order> buyOrders = marketManager.getOpenOrders(settingsManager.getTradingPair(tradingPairId), Order.Type.BUY, 100, false), sellOrders = marketManager.getOpenOrders(settingsManager.getTradingPair(tradingPairId), Order.Type.SELL, 100, true);
-        return convertService.createDepth(buyOrders, sellOrders);
+        return convertService.getMarketDepth(settingsManager.getTradingPair(tradingPairId));
     }
 }
