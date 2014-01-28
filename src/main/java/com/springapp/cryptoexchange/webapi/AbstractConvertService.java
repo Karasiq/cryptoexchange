@@ -43,6 +43,4 @@ public interface AbstractConvertService {
     }
     public Depth getMarketDepth(TradingPair tradingPair);
     public List<MarketHistory> getMarketHistory(TradingPair tradingPair);
-    public void clearDepthCache();
-    public void clearHistoryCache();
 }

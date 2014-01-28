@@ -85,5 +85,6 @@ public class SettingsManager implements AbstractSettingsManager {
         @Cleanup Session session = sessionFactory.openSession();
         loadCurrencies(session);
         loadTradingPairs(session);
+        marketManager.reloadTradingPairs();
     }
 }

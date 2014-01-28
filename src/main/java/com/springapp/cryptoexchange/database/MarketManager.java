@@ -15,6 +15,9 @@ import org.hibernate.criterion.Restrictions;
 import org.joda.time.DateTime;
 import org.joda.time.Period;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -58,11 +61,6 @@ public class MarketManager implements AbstractMarketManager {
                 }
             }
         }
-    }
-
-    @PostConstruct
-    public void init() {
-        reloadTradingPairs();
     }
 
     private static void updateOrderStatus(@NonFinal Order order) {
@@ -151,9 +149,9 @@ public class MarketManager implements AbstractMarketManager {
         // That's all !
     }
 
-
     @Transactional
     @SuppressWarnings("unchecked")
+    @Caching(evict = { @CacheEvict(value = "getMarketDepth", key = "#newOrder.tradingPair") })
     public void cancelOrder(@NonNull Order order) throws Exception {
         assert order.getStatus() == Order.Status.OPEN || order.getStatus() == Order.Status.PARTIALLY_COMPLETED;
         synchronized (lockerMap.get(order.getTradingPair().getId())) {
@@ -161,10 +159,10 @@ public class MarketManager implements AbstractMarketManager {
             order.setStatus(Order.Status.CANCELLED);
             session.saveOrUpdate(order);
             returnUnusedFunds(order);
-            convertService.clearDepthCache();
         }
     }
 
+    @Caching(evict = { @CacheEvict(value = "getMarketDepth", key = "#newOrder.tradingPair"), @CacheEvict(value = "getMarketHistory", key = "#newOrder.tradingPair") })
     @Transactional
     @SuppressWarnings("unchecked")
     public Order executeOrder(@NonNull Order newOrder) throws Exception {
@@ -212,8 +210,6 @@ public class MarketManager implements AbstractMarketManager {
             session.saveOrUpdate(newOrder);
             session.saveOrUpdate(virtualWalletSource);
             session.saveOrUpdate(virtualWalletDest);
-            convertService.clearDepthCache();
-            convertService.clearHistoryCache();
             return newOrder;
         }
     }

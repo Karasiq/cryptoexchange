@@ -6,6 +6,7 @@ import com.springapp.cryptoexchange.database.AbstractSettingsManager;
 import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -23,41 +24,14 @@ public class ConvertService implements AbstractConvertService { // Cache/convert
     @Autowired
     AbstractMarketManager marketManager;
 
-    private volatile List<MarketHistory> cachedHistory = null;
-    private volatile Depth cachedDepth = null;
-
-    private final Object depthLock = new Object(), historyLock = new Object();
-
-    @Async
-    public void clearDepthCache() {
-        synchronized (depthLock) {
-            cachedDepth = null;
-        }
-    }
-
-    @Async
-    public void clearHistoryCache() {
-        synchronized (historyLock) {
-            cachedHistory = null;
-        }
-    }
-
+    @Cacheable(value = "getMarketDepth", key = "#tradingPair")
     public Depth getMarketDepth(TradingPair tradingPair) {
-        synchronized (depthLock) {
-            if (cachedDepth == null) {
-                cachedDepth = createDepth(marketManager.getOpenOrders(tradingPair, Order.Type.BUY, 100, false), marketManager.getOpenOrders(tradingPair, Order.Type.SELL, 100, true));
-            }
-            return cachedDepth;
-        }
+        return createDepth(marketManager.getOpenOrders(tradingPair, Order.Type.BUY, 100, false), marketManager.getOpenOrders(tradingPair, Order.Type.SELL, 100, true));
     }
 
+    @Cacheable(value = "getMarketHistory", key = "#tradingPair")
     public List<MarketHistory> getMarketHistory(TradingPair tradingPair) {
-        synchronized (historyLock) {
-            if (cachedHistory == null) {
-                cachedHistory = createHistory(historyManager.getMarketHistory(tradingPair, 100));
-            }
-            return cachedHistory;
-        }
+        return createHistory(historyManager.getMarketHistory(tradingPair, 100));
     }
 
     private Depth createDepth(List<Order> buyOrders, List<Order> sellOrders) {
