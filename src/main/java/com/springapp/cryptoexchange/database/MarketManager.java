@@ -25,6 +25,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 @Service
@@ -46,10 +47,9 @@ public class MarketManager implements AbstractMarketManager {
     @Autowired
     AbstractConvertService convertService;
 
-    private final Map<Long, Object> lockerMap = new HashMap<>();
+    private final Map<Long, Object> lockerMap = new ConcurrentHashMap<>();
 
-    @PostConstruct
-    public void init() {
+    public void reloadTradingPairs() {
         synchronized (lockerMap) {
             List<TradingPair> currencyList = settingsManager.getTradingPairs();
             for(TradingPair tradingPair : currencyList) {
@@ -58,6 +58,11 @@ public class MarketManager implements AbstractMarketManager {
                 }
             }
         }
+    }
+
+    @PostConstruct
+    public void init() {
+        reloadTradingPairs();
     }
 
     private static void updateOrderStatus(@NonFinal Order order) {

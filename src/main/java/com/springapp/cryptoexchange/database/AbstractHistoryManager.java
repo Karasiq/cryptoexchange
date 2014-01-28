@@ -11,8 +11,8 @@ import java.util.List;
 
 @Repository
 public interface AbstractHistoryManager {
-    public List<Candle> getMarketChartData(TradingPair tradingPair, int max);
     public void updateChartData(TradingPair tradingPair, final BigDecimal lastPrice, final BigDecimal amount);
-    public List<Order> getMarketHistory(TradingPair tradingPair, int max);
-    public void init();
+
+    public List<Candle> getMarketChartData(TradingPair tradingPair, int max); // use ConvertService instead
+    public List<Order> getMarketHistory(TradingPair tradingPair, int max); // use ConvertService instead
 }

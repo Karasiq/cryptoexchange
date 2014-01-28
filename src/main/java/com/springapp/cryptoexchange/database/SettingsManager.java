@@ -21,14 +21,32 @@ public class SettingsManager implements AbstractSettingsManager {
     @Autowired
     SessionFactory sessionFactory;
 
+    @Autowired
+    AbstractMarketManager marketManager;
+
     private @Getter List<Currency> currencyList = null;
     private @Getter List<TradingPair> tradingPairs = null;
     private @Getter @Setter boolean testingMode = false;
 
 
     @Transactional
+    public void addTradingPair(TradingPair newTradingPair) {
+        synchronized (tradingPairs) {
+            tradingPairs.add(newTradingPair);
+            marketManager.reloadTradingPairs();
+        }
+    }
+
+    @Transactional
+    private void addCurrency(Currency newCurrency) {
+        synchronized (currencyList) {
+            currencyList.add(newCurrency);
+        }
+    }
+
+    @Transactional
     @SuppressWarnings("unchecked")
-    public synchronized void loadCurrencies(Session session) {
+    private void loadCurrencies(Session session) {
         currencyList = session.createCriteria(Currency.class)
                 .add(Restrictions.eq("enabled", true)).list();
     }
@@ -41,18 +59,22 @@ public class SettingsManager implements AbstractSettingsManager {
     }
 
     public TradingPair getTradingPair(long id) {
-        for(TradingPair tradingPair : tradingPairs) {
-            if(tradingPair.getId() == id) {
-                return tradingPair;
+        synchronized (tradingPairs) {
+            for(TradingPair tradingPair : tradingPairs) {
+                if(tradingPair.getId() == id) {
+                    return tradingPair;
+                }
             }
         }
         return null;
     }
 
     public Currency getCurrency(long id) {
-        for(Currency currency : currencyList) {
-            if(currency.getId() == id) {
-                return currency;
+        synchronized (currencyList) {
+            for(Currency currency : currencyList) {
+                if(currency.getId() == id) {
+                    return currency;
+                }
             }
         }
         return null;
