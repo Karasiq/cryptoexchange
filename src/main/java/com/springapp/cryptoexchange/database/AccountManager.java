@@ -90,7 +90,7 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
         Account user = getAccount(username);
         if (user != null) {
             logEntry(user);
-            return new User(user.getLogin(), user.getPasswordHash(), user.isEnabled(), false, false, !user.isEnabled(), user.getRole().getRoleClass().getGrantedAuthorities());
+            return new User(user.getLogin(), user.getPasswordHash(), user.isEnabled(), false, false, !user.isEnabled(), user.getRole().getGrantedAuthorities());
         } else {
             throw new UsernameNotFoundException("No user with username '" + username + "' found!");
         }

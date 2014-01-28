@@ -5,17 +5,23 @@ import com.springapp.cryptoexchange.database.AbstractMarketManager;
 import com.springapp.cryptoexchange.database.AbstractSettingsManager;
 import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
+import lombok.Value;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @Controller
 @RequestMapping("/rest-api")
 public class RestController {
+    public static class SessionInfo {
+        public String loggedAs = "";
+    }
+
     @Autowired
     AbstractSettingsManager settingsManager;
 
@@ -50,5 +56,20 @@ public class RestController {
     @ResponseBody
     AbstractConvertService.Depth getMarketDepth(@PathVariable long tradingPairId) {
         return convertService.getMarketDepth(settingsManager.getTradingPair(tradingPairId));
+    }
+
+    // Account:
+    @RequestMapping(value = "/session", method = RequestMethod.GET)
+    @ResponseBody
+    SessionInfo getSessionInfo(@RequestHeader("X-Ajax-Call") boolean ajaxCall) {
+        if(ajaxCall) {
+            SessionInfo sessionInfo = new SessionInfo();
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if(auth.isAuthenticated() && !auth.getName().equals("anonymous")) {
+                sessionInfo.loggedAs = auth.getName();
+            }
+            return sessionInfo;
+        }
+        else throw new AccessDeniedException("You shouldn't call this method directly");
     }
 }

@@ -3,6 +3,8 @@ package com.springapp.cryptoexchange.database.model;
 
 import com.springapp.cryptoexchange.config.ServerSettings;
 import lombok.*;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.crypto.Mac;
@@ -13,7 +15,9 @@ import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Data
@@ -24,6 +28,33 @@ import java.util.Set;
 @ToString(exclude = "virtualWalletMap")
 @Transactional
 public class Account implements Serializable {
+    public static enum RoleClass {
+        ANONYMOUS, USER, MODERATOR, ADMIN;
+        public List<GrantedAuthority> getGrantedAuthorities() {
+            List<GrantedAuthority> grantedAuthorities = new ArrayList<>();
+            switch (this) {
+                case ANONYMOUS:
+                    grantedAuthorities.add(new SimpleGrantedAuthority(ANONYMOUS.toString()));
+                    break;
+                case USER:
+                    grantedAuthorities.add(new SimpleGrantedAuthority(USER.toString()));
+                    break;
+                case MODERATOR:
+                    grantedAuthorities.add(new SimpleGrantedAuthority(USER.toString()));
+                    grantedAuthorities.add(new SimpleGrantedAuthority(MODERATOR.toString()));
+                    break;
+                case ADMIN:
+                    grantedAuthorities.add(new SimpleGrantedAuthority(USER.toString()));
+                    grantedAuthorities.add(new SimpleGrantedAuthority(MODERATOR.toString()));
+                    grantedAuthorities.add(new SimpleGrantedAuthority(ADMIN.toString()));
+                    break;
+                default:
+                    throw new IllegalArgumentException();
+            }
+            return grantedAuthorities;
+        }
+    }
+
     @Id
     @Column(unique = true)
     @GeneratedValue
@@ -41,8 +72,8 @@ public class Account implements Serializable {
     @Column(name = "enabled", nullable = false)
     private boolean enabled = true;
 
-    @OneToOne(fetch = FetchType.EAGER)
-    private Role role;
+    @Column(name = "role", nullable = false)
+    private RoleClass role = RoleClass.USER;
 
     @OneToMany(mappedBy = "account", fetch = FetchType.LAZY)
     final Set<VirtualWallet> virtualWalletMap = new HashSet<>();

@@ -31,4 +31,6 @@
           class="org.springframework.cache.ehcache.EhCacheCacheManager"
           p:cacheManager-ref="ehCacheManager" />
     <cache:annotation-driven cache-manager="cacheManager" />
+
+    <mvc:resources mapping="/static/**" location="/WEB-INF/static/" />
 </beans>
