@@ -6,23 +6,29 @@
                  http://www.springframework.org/schema/security
                  http://www.springframework.org/schema/security/spring-security-3.2.xsd">
 
-
-    <http access-denied-page="/error403.html" auto-config="true" use-expressions="true">
-        <intercept-url pattern="/account/*" access="USER"/>
-        <intercept-url pattern="/admin/*" access="ADMIN"/>
-        <form-login />
-        <logout />
-        <remember-me user-service-ref="accountManager"/>
-        <anonymous username="anonymous" granted-authority="ANONYMOUS"/>
-    </http>
-
-    <authentication-manager>
+    <authentication-manager alias="authenticationManager" >
         <authentication-provider user-service-ref="accountManager">
             <password-encoder hash="sha-256">
                 <salt-source user-property="username"/>
             </password-encoder>
         </authentication-provider>
     </authentication-manager>
+
+    <http access-denied-page="/static/403.html">
+        <intercept-url pattern="/account/*" access="ROLE_USER"/>
+        <intercept-url pattern="/rest/account.json*" access="ROLE_USER"/>
+        <intercept-url pattern="/admin/*" access="ROLE_ADMIN"/>
+        <form-login />
+        <logout />
+        <remember-me user-service-ref="accountManager"/>
+        <anonymous username="anonymousUser" granted-authority="ROLE_ANONYMOUS"/>
+        <form-login login-page="/login" authentication-failure-url="/"
+                    default-target-url="/"
+                    always-use-default-target="true"/>
+        <logout invalidate-session="true" logout-success-url="/" logout-url="/security/logout"/>
+    </http>
+
+
 
     <global-method-security secured-annotations="enabled" />
 </beans:beans>

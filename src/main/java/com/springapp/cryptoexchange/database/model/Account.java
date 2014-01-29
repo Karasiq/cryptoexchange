@@ -3,8 +3,11 @@ package com.springapp.cryptoexchange.database.model;
 
 import com.springapp.cryptoexchange.config.ServerSettings;
 import lombok.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.encoding.ShaPasswordEncoder;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.crypto.Mac;
@@ -28,8 +31,16 @@ import java.util.Set;
 @ToString(exclude = "virtualWalletMap")
 @Transactional
 public class Account implements Serializable {
+
+    @RequiredArgsConstructor
     public static enum RoleClass {
-        ANONYMOUS, USER, MODERATOR, ADMIN;
+        ANONYMOUS("ROLE_ANONYMOUS"), USER("ROLE_USER"), MODERATOR("ROLE_MODERATOR"), ADMIN("ROLE_ADMIN");
+        @NonNull private final String name;
+
+        @Override
+        public String toString() {
+            return this.name;
+        }
         public List<GrantedAuthority> getGrantedAuthorities() {
             List<GrantedAuthority> grantedAuthorities = new ArrayList<>();
             switch (this) {
@@ -78,15 +89,21 @@ public class Account implements Serializable {
     @OneToMany(mappedBy = "account", fetch = FetchType.LAZY)
     final Set<VirtualWallet> virtualWalletMap = new HashSet<>();
 
-    public Account(final String login, final String password) throws Exception {
+    public static boolean validate(final String login, final String password, final String emailAddress) {
+        return emailAddress.matches("[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}") &&
+                login.matches("[a-zA-Z][a-zA-Z0-9_-]{4,29}") &&
+                password.matches("[a-zA-Z0-9_!@#$%^&*]{6,200}");
+    }
+
+    public Account(final String login, final String emailAddress, final String password) throws Exception {
         this.login = login;
+        this.emailAddress = emailAddress;
         this.passwordHash = generatePasswordHash(login, password);
     }
 
     public static String generatePasswordHash(String login, String password) throws NoSuchAlgorithmException, UnsupportedEncodingException {
-        final String hashingAlgorithm = "SHA-256";
-        MessageDigest md = MessageDigest.getInstance(hashingAlgorithm);
-        return DatatypeConverter.printHexBinary(md.digest((password + login).getBytes("UTF-8"))).toLowerCase();
+        ShaPasswordEncoder passwordEncoder = new ShaPasswordEncoder(256);
+        return passwordEncoder.encodePassword(password, login);
     }
 
     public boolean checkPassword(String password) throws Exception {

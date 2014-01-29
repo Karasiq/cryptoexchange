@@ -16,11 +16,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Controller
-@RequestMapping("/rest-api")
+@RequestMapping("/rest/api.json")
 public class RestController {
-    public static class SessionInfo {
-        public String loggedAs = "";
-    }
 
     @Autowired
     AbstractSettingsManager settingsManager;
@@ -56,20 +53,5 @@ public class RestController {
     @ResponseBody
     AbstractConvertService.Depth getMarketDepth(@PathVariable long tradingPairId) {
         return convertService.getMarketDepth(settingsManager.getTradingPair(tradingPairId));
-    }
-
-    // Account:
-    @RequestMapping(value = "/session", method = RequestMethod.GET)
-    @ResponseBody
-    SessionInfo getSessionInfo(@RequestHeader("X-Ajax-Call") boolean ajaxCall) {
-        if(ajaxCall) {
-            SessionInfo sessionInfo = new SessionInfo();
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if(auth.isAuthenticated() && !auth.getName().equals("anonymous")) {
-                sessionInfo.loggedAs = auth.getName();
-            }
-            return sessionInfo;
-        }
-        else throw new AccessDeniedException("You shouldn't call this method directly");
     }
 }

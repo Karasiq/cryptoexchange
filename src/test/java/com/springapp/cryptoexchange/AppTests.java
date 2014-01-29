@@ -101,7 +101,7 @@ public class AppTests {
         List<Currency> currencyList = settingsManager.getCurrencyList();
         Account account = accountManager.getAccount("username");
         if(account == null) {
-            account = accountManager.addAccount(new Account("username", "password"));
+            account = accountManager.addAccount(new Account("username", "password", ""));
         }
         System.out.println(currencyList);
         System.out.println(account);
@@ -113,7 +113,7 @@ public class AppTests {
         Session session = sessionFactory.getCurrentSession();
         Account account = accountManager.getAccount("username");
         if(account == null) {
-            account = accountManager.addAccount(new Account("username", "password"));
+            account = accountManager.addAccount(new Account("username", "password", ""));
         }
         sessionFactory.getCurrentSession().update(account);
         TradingPair tradingPair = settingsManager.getTradingPairs().get(0);

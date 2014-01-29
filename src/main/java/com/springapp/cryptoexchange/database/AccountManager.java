@@ -66,7 +66,7 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
     }
 
     public Account getAccount(String login) {
-        return (Account) sessionFactory.getCurrentSession().createCriteria(Account.class).add(Restrictions.eq("login", login)).uniqueResult();
+        return (Account) sessionFactory.getCurrentSession().createCriteria(Account.class).add(Restrictions.or(Restrictions.eq("login", login), Restrictions.eq("login", login))).uniqueResult();
     }
 
    @Transactional
@@ -89,8 +89,8 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         Account user = getAccount(username);
         if (user != null) {
-            logEntry(user);
-            return new User(user.getLogin(), user.getPasswordHash(), user.isEnabled(), false, false, !user.isEnabled(), user.getRole().getGrantedAuthorities());
+            // logEntry(user);
+            return new User(user.getLogin(), user.getPasswordHash(), user.isEnabled(), true, true, user.isEnabled(), user.getRole().getGrantedAuthorities());
         } else {
             throw new UsernameNotFoundException("No user with username '" + username + "' found!");
         }
