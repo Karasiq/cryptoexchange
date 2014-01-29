@@ -9,6 +9,7 @@ import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +30,7 @@ public class SettingsManager implements AbstractSettingsManager {
     private @Getter @Setter boolean testingMode = false;
 
 
+    @CacheEvict("getTradingPairs")
     @Transactional
     public void addTradingPair(TradingPair newTradingPair) {
         synchronized (tradingPairs) {
@@ -51,6 +53,7 @@ public class SettingsManager implements AbstractSettingsManager {
                 .add(Restrictions.eq("enabled", true)).list();
     }
 
+    @CacheEvict("getTradingPairs")
     @Transactional
     @SuppressWarnings("unchecked")
     public synchronized void loadTradingPairs(Session session) {

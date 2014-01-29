@@ -87,6 +87,7 @@ public class MarketManager implements AbstractMarketManager {
 
     @Transactional
     @Async
+    @Caching(evict = {@CacheEvict(value = "getMarketPrices", key = "#tradingPair.id")})
     private void updateMarketInfo(@NonFinal TradingPair tradingPair, final BigDecimal price, final BigDecimal amount) {
         Session session = sessionFactory.getCurrentSession();
         session.update(tradingPair);
@@ -151,7 +152,7 @@ public class MarketManager implements AbstractMarketManager {
 
     @Transactional
     @SuppressWarnings("unchecked")
-    @Caching(evict = { @CacheEvict(value = "getMarketDepth", key = "#newOrder.tradingPair") })
+    @Caching(evict = { @CacheEvict(value = "getMarketDepth", key = "#newOrder.tradingPair.id") })
     public void cancelOrder(@NonNull Order order) throws Exception {
         assert order.getStatus() == Order.Status.OPEN || order.getStatus() == Order.Status.PARTIALLY_COMPLETED;
         synchronized (lockerMap.get(order.getTradingPair().getId())) {
@@ -162,7 +163,7 @@ public class MarketManager implements AbstractMarketManager {
         }
     }
 
-    @Caching(evict = { @CacheEvict(value = "getMarketDepth", key = "#newOrder.tradingPair"), @CacheEvict(value = "getMarketHistory", key = "#newOrder.tradingPair") })
+    @Caching(evict = { @CacheEvict(value = "getMarketDepth", key = "#newOrder.tradingPair.id"), @CacheEvict(value = "getMarketHistory", key = "#newOrder.tradingPair.id") })
     @Transactional
     @SuppressWarnings("unchecked")
     public Order executeOrder(@NonNull Order newOrder) throws Exception {
@@ -223,16 +224,6 @@ public class MarketManager implements AbstractMarketManager {
         session.save(tradingPair);
     }
 
-    @Transactional
-    @SuppressWarnings("unchecked")
-    public List<Order> getOrdersByAccount(@NonNull Account account, int max) { // only for information!!!
-        Session session = sessionFactory.getCurrentSession();
-        return session.createCriteria(Order.class)
-                .setMaxResults(max)
-                .add(Restrictions.eq("account", account))
-                .addOrder(org.hibernate.criterion.Order.desc("open_time"))
-                .list();
-    }
 
     @Transactional
     @SuppressWarnings("unchecked")

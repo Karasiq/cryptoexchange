@@ -19,7 +19,6 @@ public interface AbstractMarketManager {
     }
     public Order executeOrder(Order newOrder) throws Exception;
     public void cancelOrder(Order order) throws Exception;
-    public List<Order> getOrdersByAccount(Account account, int max);
     public List<Order> getOpenOrders(TradingPair tradingPair, Order.Type type, int max, boolean ascending); // use ConvertService instead
     public void setTradingPairEnabled(TradingPair tradingPair, boolean enabled);
     public void reloadTradingPairs();

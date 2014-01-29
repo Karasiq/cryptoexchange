@@ -58,7 +58,6 @@ public class Order implements Serializable {
     @NonNull BigDecimal price;
 
     @ManyToOne
-    @JsonIgnore
     @NonNull TradingPair tradingPair;
 
     @ManyToOne

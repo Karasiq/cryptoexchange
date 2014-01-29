@@ -1,20 +1,22 @@
 package com.springapp.cryptoexchange.webapi;
 
+import com.springapp.cryptoexchange.database.AbstractDaemonManager;
 import com.springapp.cryptoexchange.database.AbstractHistoryManager;
 import com.springapp.cryptoexchange.database.AbstractMarketManager;
 import com.springapp.cryptoexchange.database.AbstractSettingsManager;
-import com.springapp.cryptoexchange.database.model.Order;
-import com.springapp.cryptoexchange.database.model.TradingPair;
+import com.springapp.cryptoexchange.database.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 @Service
-public class ConvertService implements AbstractConvertService { // Cache/convert layer
+public class ConvertService implements AbstractConvertService { // Convert layer
     @Autowired
     AbstractHistoryManager historyManager;
 
@@ -24,17 +26,10 @@ public class ConvertService implements AbstractConvertService { // Cache/convert
     @Autowired
     AbstractMarketManager marketManager;
 
-    @Cacheable(value = "getMarketDepth", key = "#tradingPair")
-    public Depth getMarketDepth(TradingPair tradingPair) {
-        return createDepth(marketManager.getOpenOrders(tradingPair, Order.Type.BUY, 100, false), marketManager.getOpenOrders(tradingPair, Order.Type.SELL, 100, true));
-    }
+    @Autowired
+    AbstractDaemonManager daemonManager;
 
-    @Cacheable(value = "getMarketHistory", key = "#tradingPair")
-    public List<MarketHistory> getMarketHistory(TradingPair tradingPair) {
-        return createHistory(historyManager.getMarketHistory(tradingPair, 100));
-    }
-
-    private Depth createDepth(List<Order> buyOrders, List<Order> sellOrders) {
+    public Depth createDepth(List<Order> buyOrders, List<Order> sellOrders) throws Exception {
         Depth depth = new Depth();
         Depth.DepthEntry depthEntry = new Depth.DepthEntry();
         if(buyOrders != null && !buyOrders.isEmpty()) {
@@ -61,11 +56,27 @@ public class ConvertService implements AbstractConvertService { // Cache/convert
         }
         return depth;
     }
-    private List<MarketHistory> createHistory(List<Order> orders) {
+    public List<MarketHistory> createHistory(List<Order> orders) throws Exception {
         List<MarketHistory> marketHistoryList = new ArrayList<>();
         for(Order order : orders) {
             marketHistoryList.add(new MarketHistory(order));
         }
         return marketHistoryList;
+    }
+    public AccountBalanceInfo createAccountBalanceInfo(Account account) throws Exception {
+        List<Currency> currencyList = settingsManager.getCurrencyList();
+        AccountBalanceInfo accountBalanceInfo = new AccountBalanceInfo();
+        for(Currency currency : currencyList) {
+            VirtualWallet wallet = account.getBalance(currency);
+            BigDecimal balance = BigDecimal.ZERO;
+            Address address = null;
+            if(wallet != null) {
+                balance = wallet.getBalance(daemonManager.getAccount(currency));
+                Iterator<Address> iterator = wallet.getAddressList().iterator();
+                if(iterator.hasNext()) address = iterator.next();
+            }
+            accountBalanceInfo.add(currency, balance, address);
+        }
+        return accountBalanceInfo;
     }
 }

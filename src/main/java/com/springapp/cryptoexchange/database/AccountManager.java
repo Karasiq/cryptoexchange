@@ -1,10 +1,7 @@
 package com.springapp.cryptoexchange.database;
 
 
-import com.springapp.cryptoexchange.database.model.Account;
-import com.springapp.cryptoexchange.database.model.Currency;
-import com.springapp.cryptoexchange.database.model.LoginHistory;
-import com.springapp.cryptoexchange.database.model.VirtualWallet;
+import com.springapp.cryptoexchange.database.model.*;
 import lombok.NonNull;
 import lombok.extern.apachecommons.CommonsLog;
 import org.hibernate.Session;
@@ -22,6 +19,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import javax.servlet.ServletRequest;
 import java.util.Date;
+import java.util.List;
 
 
 @Service
@@ -94,5 +92,16 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
         } else {
             throw new UsernameNotFoundException("No user with username '" + username + "' found!");
         }
+    }
+
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public List<Order> getAccountOrders(@NonNull Account account, int max) { // only for information!!!
+        Session session = sessionFactory.getCurrentSession();
+        return session.createCriteria(Order.class)
+                .setMaxResults(max)
+                .add(Restrictions.eq("account", account))
+                .addOrder(org.hibernate.criterion.Order.desc("updateDate"))
+                .list();
     }
 }

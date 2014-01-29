@@ -24,11 +24,9 @@ public class TradingPair implements Serializable {
     boolean enabled = true;
 
     @ManyToOne
-    @JsonIgnore
     Currency firstCurrency;
 
     @ManyToOne
-    @JsonIgnore
     Currency secondCurrency;
 
     // Basic:

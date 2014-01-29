@@ -21,6 +21,7 @@ public class Currency implements Serializable {
     private long id;
 
     @Column(name = "enabled", nullable = false)
+    @JsonIgnore
     private boolean enabled = true;
 
     @Column(name = "code", nullable = false, unique = true)

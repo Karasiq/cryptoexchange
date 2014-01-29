@@ -14,8 +14,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import sun.rmi.runtime.Log;
+
+import javax.servlet.http.HttpServletRequest;
 
 
 @Controller
@@ -29,12 +33,6 @@ public class SessionController {
     public static class LoginStatus {
         private final boolean loggedIn;
         private final String username;
-        private final String error;
-    }
-
-    @Value
-    public static class RegisterStatus {
-        private final boolean success;
         private final String error;
     }
 
@@ -54,8 +52,9 @@ public class SessionController {
 
     @RequestMapping(method = RequestMethod.POST)
     @ResponseBody
-    public LoginStatus login(@RequestParam("j_username") String username, @RequestParam("j_password") String password) {
+    public LoginStatus login(@RequestParam("j_username") String username, @RequestParam("j_password") String password, HttpServletRequest request) {
         UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(username, password);
+        token.setDetails(new WebAuthenticationDetails(request));
         try {
             Authentication auth = authenticationManager.authenticate(token);
             SecurityContextHolder.getContext().setAuthentication(auth);
@@ -69,25 +68,24 @@ public class SessionController {
 
     @RequestMapping(value = "/register", method = RequestMethod.POST)
     @ResponseBody
-    public RegisterStatus register(@RequestParam String username, @RequestParam String password, @RequestParam String email) throws Exception {
+    public ApiDefs.ApiStatus<LoginStatus> register(@RequestParam String username, @RequestParam String password, @RequestParam String email, HttpServletRequest request) throws Exception {
         try {
             Account account = accountManager.getAccount(username);
             if(account != null) {
-                return new RegisterStatus(false, "Username already taken");
+                return new ApiDefs.ApiStatus<>(false, "Username already taken", null);
             }
             account = accountManager.getAccount(email);
             if(account != null) {
-                return new RegisterStatus(false, "E-mail already taken");
+                return new ApiDefs.ApiStatus<>(false, "E-mail already taken", null);
             }
             if(!Account.validate(username, password, email)) {
-                return new RegisterStatus(false, "Bad user credentials");
+                return new ApiDefs.ApiStatus<>(false, "Bad user credentials", null);
             }
             accountManager.addAccount(new Account(username, email, password));
-            login(username, password);
-            return new RegisterStatus(true, null);
+            return new ApiDefs.ApiStatus<>(true, null, login(username, password, request));
         } catch (Exception e) {
             log.warn(e);
-            return new RegisterStatus(false, e.getMessage());
+            return new ApiDefs.ApiStatus<>(false, e.getMessage(), null);
         }
     }
 }
