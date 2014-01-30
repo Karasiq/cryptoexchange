@@ -99,9 +99,8 @@ public class CryptoCoinWallet {
 
         public Address getRandomAddress() {
             synchronized (addressList) {
-                for(Address address : addressList.values()) {
-                    return address;
-                }
+                Iterator<Address> iterator = addressList.values().iterator();
+                if (iterator.hasNext()) return iterator.next();
             }
             return null;
         }

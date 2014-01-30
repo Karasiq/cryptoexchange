@@ -87,7 +87,7 @@ public class Account implements Serializable {
     private RoleClass role = RoleClass.USER;
 
     @OneToMany(mappedBy = "account", fetch = FetchType.LAZY)
-    final Set<VirtualWallet> virtualWalletMap = new HashSet<>();
+    final List<VirtualWallet> virtualWalletMap = new ArrayList<>();
 
     public static boolean validate(final String login, final String password, final String emailAddress) {
         return emailAddress.matches("[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}") &&

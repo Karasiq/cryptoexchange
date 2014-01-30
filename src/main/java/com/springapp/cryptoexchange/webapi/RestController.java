@@ -50,7 +50,7 @@ public class RestController {
     @Cacheable(value = "getMarketHistory", key = "#tradingPairId")
     @RequestMapping("/history/{tradingPairId}")
     @ResponseBody
-    List<AbstractConvertService.MarketHistory> getMarketHistory(@PathVariable long tradingPairId) {
+    List<AbstractConvertService.MarketHistory> getMarketHistory(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         return convertService.createHistory(historyManager.getMarketHistory(tradingPair, 100));
     }
@@ -58,7 +58,7 @@ public class RestController {
     @Cacheable(value = "getMarketDepth", key = "#tradingPairId")
     @RequestMapping("/depth/{tradingPairId}")
     @ResponseBody
-    AbstractConvertService.Depth getMarketDepth(@PathVariable long tradingPairId) {
+    AbstractConvertService.Depth getMarketDepth(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         return convertService.createDepth(marketManager.getOpenOrders(tradingPair, Order.Type.BUY, 100, false), marketManager.getOpenOrders(tradingPair, Order.Type.SELL, 100, true));
     }

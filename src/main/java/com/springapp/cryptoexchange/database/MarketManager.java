@@ -1,10 +1,7 @@
 package com.springapp.cryptoexchange.database;
 
 import com.springapp.cryptoexchange.Calculator;
-import com.springapp.cryptoexchange.database.model.Account;
-import com.springapp.cryptoexchange.database.model.Order;
-import com.springapp.cryptoexchange.database.model.TradingPair;
-import com.springapp.cryptoexchange.database.model.VirtualWallet;
+import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.webapi.AbstractConvertService;
 import lombok.NonNull;
 import lombok.experimental.NonFinal;
@@ -120,10 +117,15 @@ public class MarketManager implements AbstractMarketManager {
 
     @SuppressWarnings("all")
     private void remapFunds(@NonFinal Order firstOrder, @NonFinal Order secondOrder, final BigDecimal amount) throws Exception {
+        TradingPair tradingPair = firstOrder.getTradingPair();
         assert firstOrder.getType() == Order.Type.SELL && secondOrder.getType() == Order.Type.BUY; // First sell, then buy
-        BigDecimal price = firstOrder.getPrice(), tradingFee = firstOrder.getTradingPair().getTradingFee();
+        BigDecimal price = firstOrder.getPrice(), tradingFee = tradingPair.getTradingFee();
 
-        BigDecimal firstCurrencySend = Calculator.withoutFee(Calculator.buyTotal(amount, price), tradingFee), secondCurrencySend = Calculator.withoutFee(amount, tradingFee);
+        BigDecimal firstCurrencySend = Calculator.withoutFee(amount, tradingFee), secondCurrencySend = Calculator.withoutFee(Calculator.buyTotal(amount, price), tradingFee);
+
+        Currency firstCurrency = tradingPair.getFirstCurrency(), secondCurrency = tradingPair.getSecondCurrency();
+        log.debug(String.format("[MarketManager] Trade occured: %s %s @ %s %s (total %s %s)", amount, firstCurrency.getCurrencyCode(), price, secondCurrency.getCurrencyCode(), secondCurrencySend, secondCurrency.getCurrencyCode()));
+
         firstOrder.addTotal(amount);
         firstOrder.addCompletedAmount(amount);
         secondOrder.addTotal(amount.multiply(price));
@@ -135,7 +137,6 @@ public class MarketManager implements AbstractMarketManager {
         }
 
         VirtualWallet firstDest = firstOrder.getDestWallet(), secondDest = secondOrder.getDestWallet();
-
         // firstSource.addBalance(secondCurrencySend.negate()); // already locked
         firstDest.addBalance(firstCurrencySend);
         // secondSource.addBalance(firstCurrencySend.negate()); // already locked
@@ -156,6 +157,7 @@ public class MarketManager implements AbstractMarketManager {
     public void cancelOrder(@NonNull Order order) throws Exception {
         assert order.getStatus() == Order.Status.OPEN || order.getStatus() == Order.Status.PARTIALLY_COMPLETED;
         synchronized (lockerMap.get(order.getTradingPair().getId())) {
+            log.debug(String.format("[MarketManager] cancelOrder => %s", order));
             Session session = sessionFactory.getCurrentSession();
             order.setStatus(Order.Status.CANCELLED);
             session.saveOrUpdate(order);
@@ -171,6 +173,7 @@ public class MarketManager implements AbstractMarketManager {
             throw new MarketError(String.format("Minimal trading amount is %s", newOrder.getTradingPair().getMinimalTradeAmount()));
         }
         synchronized (lockerMap.get(newOrder.getTradingPair().getId())) { // Critical
+            log.debug(String.format("[MarketManager] executeOrder => %s", newOrder));
             Session session = sessionFactory.getCurrentSession();
             Order.Type orderType = newOrder.getType();
             VirtualWallet virtualWalletSource = newOrder.getSourceWallet(), virtualWalletDest = newOrder.getDestWallet();

@@ -72,8 +72,10 @@ public class ConvertService implements AbstractConvertService { // Convert layer
             Address address = null;
             if(wallet != null) {
                 balance = wallet.getBalance(daemonManager.getAccount(currency));
-                Iterator<Address> iterator = wallet.getAddressList().iterator();
-                if(iterator.hasNext()) address = iterator.next();
+                List<Address> addressList = wallet.getAddressList();
+                if (!addressList.isEmpty()) {
+                    address = addressList.get(0);
+                }
             }
             accountBalanceInfo.add(currency, balance, address);
         }

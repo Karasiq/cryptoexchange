@@ -8,7 +8,9 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Data
@@ -35,7 +37,7 @@ public class VirtualWallet implements Serializable {
 
     @OneToMany
     @JoinColumn(name = "addresses")
-    private final Set<Address> addressList = new HashSet<>();
+    private final List<Address> addressList = new ArrayList<>();
 
     @NonNull
     @ManyToOne(fetch = FetchType.LAZY)
