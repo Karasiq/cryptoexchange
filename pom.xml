@@ -10,6 +10,7 @@
     <properties>
         <spring.version>4.0.2.BUILD-SNAPSHOT</spring.version>
         <spring.security.version>3.2.1.CI-SNAPSHOT</spring.security.version>
+        <hibernate.version>4.3.0.Final</hibernate.version>
     </properties>
 
     <repositories>
@@ -42,13 +43,13 @@
         <dependency>
             <groupId>org.hibernate</groupId>
             <artifactId>hibernate-core</artifactId>
-            <version>4.3.0.Final</version>
+            <version>${hibernate.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.hibernate</groupId>
             <artifactId>hibernate-ehcache</artifactId>
-            <version>4.3.0.Final</version>
+            <version>${hibernate.version}</version>
         </dependency>
 
         <dependency>
@@ -154,6 +155,30 @@
             <artifactId>jstl</artifactId>
             <version>1.2</version>
         </dependency-->
+
+        <dependency>
+            <groupId>com.googlecode.ehcache-spring-annotations</groupId>
+            <artifactId>ehcache-spring-annotations</artifactId>
+            <version>1.2.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            <version>1.2.17</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <version>1.7.5</version>
+        </dependency>
+
+        <dependency>
+            <groupId>net.sourceforge.jwebunit</groupId>
+            <artifactId>jwebunit-core</artifactId>
+            <version>3.1</version>
+        </dependency>
 
         <dependency>
             <groupId>net.anotheria</groupId>

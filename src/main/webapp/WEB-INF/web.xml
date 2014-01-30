@@ -4,6 +4,10 @@
          version="3.0">
 
 <display-name>Spring MVC Application</display-name>
+    <context-param>
+        <param-name/>
+        <param-value/>
+    </context-param>
 
     <servlet>
 		<servlet-name>mvc-dispatcher</servlet-name>

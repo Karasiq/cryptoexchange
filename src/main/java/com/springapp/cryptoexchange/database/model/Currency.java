@@ -34,6 +34,10 @@ public class Currency implements Serializable {
     @JsonIgnore
     private BigDecimal withdrawFee = BigDecimal.valueOf(3);
 
+    @Column(name = "collected_fee")
+    @JsonIgnore
+    private BigDecimal collectedFee = BigDecimal.ZERO;
+
     // Daemon:
 
     @Column(name = "daemon_host")

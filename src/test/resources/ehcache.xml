@@ -1,0 +1,6 @@
+<ehcache>
+    <defaultCache maxElementsInMemory="500" eternal="false" timeToLiveSeconds="120"
+                  overflowToDisk="false" memoryStoreEvictionPolicy="LFU" />
+    <cache name="getMarketDepth"/>
+    <cache name="getMarketHistory"/>
+</ehcache>

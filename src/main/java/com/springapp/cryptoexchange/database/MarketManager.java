@@ -48,9 +48,9 @@ public class MarketManager implements AbstractMarketManager {
     AbstractHistoryManager historyManager;
 
     @Autowired
-    AbstractConvertService convertService;
+    AbstractFeeManager feeManager;
 
-    private final IdBasedLockManager<Long> lockManager = new SafeIdBasedLockManager<>();
+    private final IdBasedLockManager<TradingPair> lockManager = new SafeIdBasedLockManager<>();
 
     public void reloadTradingPairs() {
         // nothing
@@ -72,19 +72,16 @@ public class MarketManager implements AbstractMarketManager {
         Session session = sessionFactory.getCurrentSession();
         assert order.getStatus() == Order.Status.CANCELLED || order.getStatus() == Order.Status.COMPLETED;
         BigDecimal total = order.getTotal();
-        BigDecimal returnAmount = Calculator.totalRequired(order.getType(), order.getAmount(), order.getPrice(), order.getTradingPair().getTradingFee()).subtract(total);
+        BigDecimal returnAmount = Calculator.totalRequired(order.getType(), order.getAmount(), order.getPrice()).subtract(total);
         VirtualWallet wallet = order.getSourceWallet();
         wallet.addBalance(returnAmount);
         session.saveOrUpdate(wallet);
     }
 
-    @Transactional
-    @Async
     @Caching(evict = {@CacheEvict(value = "getMarketPrices", key = "#tradingPair.id")})
     private void updateMarketInfo(@NonFinal TradingPair tradingPair, final BigDecimal price, final BigDecimal amount) {
         Session session = sessionFactory.getCurrentSession();
-        session.update(tradingPair);
-
+        session.refresh(tradingPair);
         if(tradingPair.getLastReset() == null || DateTime.now().minus(Period.days(1)).isAfter(new DateTime(tradingPair.getLastReset()))) {
             tradingPair.setLastReset(new Date());
             tradingPair.setDayHigh(BigDecimal.ZERO);
@@ -107,20 +104,22 @@ public class MarketManager implements AbstractMarketManager {
         }
         tradingPair.setLastPrice(price);
         tradingPair.setVolume(volume);
-        session.saveOrUpdate(tradingPair);
         historyManager.updateChartData(tradingPair, price, amount);
     }
 
     @SuppressWarnings("all")
     private void remapFunds(@NonFinal Order firstOrder, @NonFinal Order secondOrder, final BigDecimal amount) throws Exception {
         TradingPair tradingPair = firstOrder.getTradingPair();
+        assert firstOrder.getSourceWallet().getCurrency().equals(tradingPair.getFirstCurrency()) && firstOrder.getDestWallet().getCurrency().equals(tradingPair.getSecondCurrency()) && secondOrder.getSourceWallet().getCurrency().equals(tradingPair.getSecondCurrency()) && secondOrder.getDestWallet().getCurrency().equals(tradingPair.getFirstCurrency());
         assert firstOrder.getType() == Order.Type.SELL && secondOrder.getType() == Order.Type.BUY; // First sell, then buy
         BigDecimal price = firstOrder.getPrice(), tradingFee = tradingPair.getTradingFee();
 
         BigDecimal firstCurrencySend = Calculator.withoutFee(amount, tradingFee), secondCurrencySend = Calculator.withoutFee(Calculator.buyTotal(amount, price), tradingFee);
+        feeManager.submitCollectedFee(tradingPair.getFirstCurrency(), Calculator.fee(amount, tradingFee));
+        feeManager.submitCollectedFee(tradingPair.getSecondCurrency(), Calculator.fee(Calculator.buyTotal(amount, price), tradingFee));
 
         Currency firstCurrency = tradingPair.getFirstCurrency(), secondCurrency = tradingPair.getSecondCurrency();
-        log.debug(String.format("[MarketManager] Trade occured: %s %s @ %s %s (total %s %s)", amount, firstCurrency.getCurrencyCode(), price, secondCurrency.getCurrencyCode(), secondCurrencySend, secondCurrency.getCurrencyCode()));
+        log.info(String.format("[MarketManager] Trade occured: %s %s @ %s %s (total %s %s)", amount, firstCurrency.getCurrencyCode(), price, secondCurrency.getCurrencyCode(), Calculator.buyTotal(amount, price), secondCurrency.getCurrencyCode()));
 
         firstOrder.addTotal(amount);
         firstOrder.addCompletedAmount(amount);
@@ -133,9 +132,7 @@ public class MarketManager implements AbstractMarketManager {
         }
 
         VirtualWallet firstDest = firstOrder.getDestWallet(), secondDest = secondOrder.getDestWallet();
-        // firstSource.addBalance(secondCurrencySend.negate()); // already locked
         firstDest.addBalance(firstCurrencySend);
-        // secondSource.addBalance(firstCurrencySend.negate()); // already locked
         secondDest.addBalance(secondCurrencySend);
 
         if(firstOrder.getStatus() == Order.Status.COMPLETED) {
@@ -149,19 +146,19 @@ public class MarketManager implements AbstractMarketManager {
 
     @Transactional
     @SuppressWarnings("unchecked")
-    @Caching(evict = { @CacheEvict(value = "getMarketDepth", key = "#newOrder.tradingPair.id") })
+    @Caching(evict = { @CacheEvict(value = "getMarketDepth", key = "#order.tradingPair.id") })
     public void cancelOrder(@NonNull Order order) throws Exception {
         assert order.getStatus() == Order.Status.OPEN || order.getStatus() == Order.Status.PARTIALLY_COMPLETED;
-        IdBasedLock<Long> lock = lockManager.obtainLock(order.getTradingPair().getId());
+        IdBasedLock<TradingPair> lock = lockManager.obtainLock(order.getTradingPair());
         lock.lock();
         try {
-            log.debug(String.format("[MarketManager] cancelOrder => %s", order));
+            log.info(String.format("[MarketManager] cancelOrder => %s", order));
             Session session = sessionFactory.getCurrentSession();
             order.setStatus(Order.Status.CANCELLED);
             session.saveOrUpdate(order);
             returnUnusedFunds(order);
         } catch (Exception e) {
-            log.fatal("cancelOrder error", e);
+            log.error("cancelOrder error", e);
             throw e;
         } finally {
             lock.unlock();
@@ -175,10 +172,10 @@ public class MarketManager implements AbstractMarketManager {
         if (newOrder.getAmount().compareTo(newOrder.getTradingPair().getMinimalTradeAmount()) < 0) {
             throw new MarketError(String.format("Minimal trading amount is %s", newOrder.getTradingPair().getMinimalTradeAmount()));
         }
-        IdBasedLock<Long> lock = lockManager.obtainLock(newOrder.getTradingPair().getId());
+        IdBasedLock<TradingPair> lock = lockManager.obtainLock(newOrder.getTradingPair());
         lock.lock();
         try {
-            log.debug(String.format("[MarketManager] executeOrder => %s", newOrder));
+            log.info(String.format("[MarketManager] executeOrder => %s", newOrder));
             Session session = sessionFactory.getCurrentSession();
             Order.Type orderType = newOrder.getType();
             VirtualWallet virtualWalletSource = newOrder.getSourceWallet(), virtualWalletDest = newOrder.getDestWallet();
@@ -186,7 +183,7 @@ public class MarketManager implements AbstractMarketManager {
             session.saveOrUpdate(virtualWalletDest);
             BigDecimal balance = virtualWalletSource.getBalance(daemonManager.getAccount(virtualWalletSource.getCurrency()));
             BigDecimal remainingAmount = newOrder.getRemainingAmount();
-            BigDecimal required = Calculator.totalRequired(orderType, remainingAmount, newOrder.getPrice(), newOrder.getTradingPair().getTradingFee());
+            BigDecimal required = Calculator.totalRequired(orderType, remainingAmount, newOrder.getPrice());
 
             if(balance.compareTo(required) < 0) {
                 throw new MarketError("Insufficient funds");
@@ -221,7 +218,7 @@ public class MarketManager implements AbstractMarketManager {
             session.saveOrUpdate(virtualWalletDest);
             return newOrder;
         } catch (Exception e) {
-            log.fatal("executeOrder error", e);
+            log.error("executeOrder error", e);
             throw e;
         } finally {
             lock.unlock();
@@ -231,10 +228,9 @@ public class MarketManager implements AbstractMarketManager {
     @Transactional
     public void setTradingPairEnabled(TradingPair tradingPair, boolean enabled) {
         Session session = sessionFactory.getCurrentSession();
-        session.update(tradingPair);
+        session.refresh(tradingPair);
         tradingPair.setEnabled(enabled);
         log.info(String.format("setTradingPairEnabled: %s", tradingPair));
-        session.save(tradingPair);
     }
 
 

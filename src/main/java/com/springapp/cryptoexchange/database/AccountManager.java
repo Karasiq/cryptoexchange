@@ -38,7 +38,7 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
     @Transactional
     public VirtualWallet getVirtualWallet(@NonNull Account account, @NonNull Currency currency) {
         Session session = sessionFactory.getCurrentSession();
-        session.update(account);
+        session.refresh(account);
         VirtualWallet v = account.getBalance(currency);
         if(v == null) {
             v = account.createVirtualWallet(currency);
@@ -71,7 +71,7 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
    private void logEntry(Account account) {
        ServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
        Session session = sessionFactory.getCurrentSession();
-       session.update(account);
+       session.refresh(account);
        LoginHistory loginHistory = new LoginHistory();
        if(request != null) {
            loginHistory.setIp(request.getRemoteAddr());
