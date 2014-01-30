@@ -6,6 +6,9 @@ import com.springapp.cryptoexchange.webapi.AbstractConvertService;
 import lombok.NonNull;
 import lombok.experimental.NonFinal;
 import lombok.extern.apachecommons.CommonsLog;
+import net.anotheria.idbasedlock.IdBasedLock;
+import net.anotheria.idbasedlock.IdBasedLockManager;
+import net.anotheria.idbasedlock.SafeIdBasedLockManager;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -47,17 +50,10 @@ public class MarketManager implements AbstractMarketManager {
     @Autowired
     AbstractConvertService convertService;
 
-    private final Map<Long, Object> lockerMap = new ConcurrentHashMap<>();
+    private final IdBasedLockManager<Long> lockManager = new SafeIdBasedLockManager<>();
 
     public void reloadTradingPairs() {
-        synchronized (lockerMap) {
-            List<TradingPair> currencyList = settingsManager.getTradingPairs();
-            for(TradingPair tradingPair : currencyList) {
-                if(!lockerMap.containsKey(tradingPair.getId())) {
-                    lockerMap.put(tradingPair.getId(), new Object());
-                }
-            }
-        }
+        // nothing
     }
 
     private static void updateOrderStatus(@NonFinal Order order) {
@@ -156,12 +152,19 @@ public class MarketManager implements AbstractMarketManager {
     @Caching(evict = { @CacheEvict(value = "getMarketDepth", key = "#newOrder.tradingPair.id") })
     public void cancelOrder(@NonNull Order order) throws Exception {
         assert order.getStatus() == Order.Status.OPEN || order.getStatus() == Order.Status.PARTIALLY_COMPLETED;
-        synchronized (lockerMap.get(order.getTradingPair().getId())) {
+        IdBasedLock<Long> lock = lockManager.obtainLock(order.getTradingPair().getId());
+        lock.lock();
+        try {
             log.debug(String.format("[MarketManager] cancelOrder => %s", order));
             Session session = sessionFactory.getCurrentSession();
             order.setStatus(Order.Status.CANCELLED);
             session.saveOrUpdate(order);
             returnUnusedFunds(order);
+        } catch (Exception e) {
+            log.fatal("cancelOrder error", e);
+            throw e;
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -172,7 +175,9 @@ public class MarketManager implements AbstractMarketManager {
         if (newOrder.getAmount().compareTo(newOrder.getTradingPair().getMinimalTradeAmount()) < 0) {
             throw new MarketError(String.format("Minimal trading amount is %s", newOrder.getTradingPair().getMinimalTradeAmount()));
         }
-        synchronized (lockerMap.get(newOrder.getTradingPair().getId())) { // Critical
+        IdBasedLock<Long> lock = lockManager.obtainLock(newOrder.getTradingPair().getId());
+        lock.lock();
+        try {
             log.debug(String.format("[MarketManager] executeOrder => %s", newOrder));
             Session session = sessionFactory.getCurrentSession();
             Order.Type orderType = newOrder.getType();
@@ -215,6 +220,11 @@ public class MarketManager implements AbstractMarketManager {
             session.saveOrUpdate(virtualWalletSource);
             session.saveOrUpdate(virtualWalletDest);
             return newOrder;
+        } catch (Exception e) {
+            log.fatal("executeOrder error", e);
+            throw e;
+        } finally {
+            lock.unlock();
         }
     }
 
