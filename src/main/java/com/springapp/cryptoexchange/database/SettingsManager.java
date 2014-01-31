@@ -30,7 +30,7 @@ public class SettingsManager implements AbstractSettingsManager {
     private @Getter @Setter boolean testingMode = false;
 
 
-    @CacheEvict("getTradingPairs")
+    @CacheEvict(value = "getTradingPairs", allEntries = true)
     @Transactional
     public void addTradingPair(TradingPair newTradingPair) {
         synchronized (tradingPairs) {
