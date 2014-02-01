@@ -18,7 +18,7 @@ import java.util.Date;
 @EqualsAndHashCode(of={"id", "type", "status", "amount", "price", "completedAmount", "total"})
 public class Order implements Serializable {
     public enum Status {
-        OPEN, COMPLETED, PARTIALLY_COMPLETED, CANCELLED
+        OPEN, COMPLETED, PARTIALLY_COMPLETED, CANCELLED, PARTIALLY_CANCELLED
     }
 
     public enum Type {
@@ -85,5 +85,17 @@ public class Order implements Serializable {
 
     public synchronized void addTotal(final @NonNull BigDecimal total) {
         this.total = this.total.add(total);
+    }
+
+    public void cancel() {
+        if (status.equals(Status.OPEN)) {
+            setStatus(Status.CANCELLED);
+        } else if (status.equals(Status.PARTIALLY_COMPLETED)) {
+            setStatus(Status.PARTIALLY_CANCELLED);
+        } else throw new IllegalArgumentException("Order already cancelled");
+    }
+
+    public boolean isActual() {
+        return status.equals(Status.OPEN) || status.equals(Status.PARTIALLY_COMPLETED);
     }
 }

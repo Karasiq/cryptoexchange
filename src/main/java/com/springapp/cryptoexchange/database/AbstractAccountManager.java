@@ -1,9 +1,6 @@
 package com.springapp.cryptoexchange.database;
 
-import com.springapp.cryptoexchange.database.model.Account;
-import com.springapp.cryptoexchange.database.model.Currency;
-import com.springapp.cryptoexchange.database.model.Order;
-import com.springapp.cryptoexchange.database.model.VirtualWallet;
+import com.springapp.cryptoexchange.database.model.*;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -23,4 +20,5 @@ public interface AbstractAccountManager {
     public Account getAccount(String login);
     public void setAccountEnabled(long id, boolean enabled);
     public List<Order> getAccountOrders(Account account, int max);
+    public List<Order> getAccountOrdersByPair(TradingPair tradingPair, Account account, int max);
 }

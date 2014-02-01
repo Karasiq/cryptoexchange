@@ -8,6 +8,8 @@ import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -63,8 +65,11 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
         log.info(String.format("Account modified: %s", account));
     }
 
+    @Transactional
     public Account getAccount(String login) {
-        return (Account) sessionFactory.getCurrentSession().createCriteria(Account.class).add(Restrictions.or(Restrictions.eq("login", login), Restrictions.eq("login", login))).uniqueResult();
+        return (Account) sessionFactory.getCurrentSession().createCriteria(Account.class)
+                .add(Restrictions.or(Restrictions.eq("login", login), Restrictions.eq("login", login)))
+                .uniqueResult();
     }
 
    @Transactional
@@ -96,10 +101,22 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
 
     @Transactional
     @SuppressWarnings("unchecked")
-    public List<Order> getAccountOrders(@NonNull Account account, int max) { // only for information!!!
+    public List<Order> getAccountOrders(@NonNull Account account, int max) {
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Order.class)
                 .setMaxResults(max)
+                .add(Restrictions.eq("account", account))
+                .addOrder(org.hibernate.criterion.Order.desc("updateDate"))
+                .list();
+    }
+
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public List<Order> getAccountOrdersByPair(@NonNull TradingPair tradingPair, @NonNull Account account, int max) {
+        Session session = sessionFactory.getCurrentSession();
+        return session.createCriteria(Order.class)
+                .setMaxResults(max)
+                .add(Restrictions.eq("tradingPair", tradingPair))
                 .add(Restrictions.eq("account", account))
                 .addOrder(org.hibernate.criterion.Order.desc("updateDate"))
                 .list();

@@ -3,7 +3,6 @@
        xmlns:context="http://www.springframework.org/schema/context"
        xmlns:mvc="http://www.springframework.org/schema/mvc"
        xmlns:cache="http://www.springframework.org/schema/cache"
-       xmlns:ehcache="http://ehcache-spring-annotations.googlecode.com/svn/schema/ehcache-spring"
        xmlns:p="http://www.springframework.org/schema/p"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
         http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
@@ -34,4 +33,5 @@
     <cache:annotation-driven cache-manager="cacheManager" />
 
     <mvc:resources mapping="/static/**" location="/WEB-INF/static/" />
+    <mvc:resources mapping="/bower_components/**" location="/WEB-INF/static/bower_components/" />
 </beans>

@@ -2,6 +2,7 @@ package com.springapp.cryptoexchange.database.model;
 
 
 import com.bitcoin.daemon.AbstractWallet;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,22 +26,23 @@ public class VirtualWallet implements Serializable {
     @Id
     @GeneratedValue
     @Column(unique = true)
+    @JsonIgnore
     private long id;
 
     @NonNull
     @ManyToOne
-    @JoinColumn(name = "currency")
     private Currency currency;
 
     @Column(name = "virtual_balance")
     private volatile BigDecimal virtualBalance = BigDecimal.ZERO;
 
     @OneToMany
-    @JoinColumn(name = "addresses")
+    @JsonIgnore
     private final List<Address> addressList = new ArrayList<>();
 
     @NonNull
     @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
     private Account account;
 
     @Transactional

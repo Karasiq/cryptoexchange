@@ -70,7 +70,7 @@ public class MarketManager implements AbstractMarketManager {
     @Transactional
     private void returnUnusedFunds(@NonNull final Order order) {
         Session session = sessionFactory.getCurrentSession();
-        assert order.getStatus() == Order.Status.CANCELLED || order.getStatus() == Order.Status.COMPLETED;
+        assert !order.isActual();
         BigDecimal total = order.getTotal();
         BigDecimal returnAmount = Calculator.totalRequired(order.getType(), order.getAmount(), order.getPrice()).subtract(total);
         VirtualWallet wallet = order.getSourceWallet();
@@ -107,19 +107,18 @@ public class MarketManager implements AbstractMarketManager {
         historyManager.updateChartData(tradingPair, price, amount);
     }
 
+    @Transactional
     @SuppressWarnings("all")
     private void remapFunds(@NonFinal Order firstOrder, @NonFinal Order secondOrder, final BigDecimal amount) throws Exception {
         TradingPair tradingPair = firstOrder.getTradingPair();
-        assert firstOrder.getSourceWallet().getCurrency().equals(tradingPair.getFirstCurrency()) && firstOrder.getDestWallet().getCurrency().equals(tradingPair.getSecondCurrency()) && secondOrder.getSourceWallet().getCurrency().equals(tradingPair.getSecondCurrency()) && secondOrder.getDestWallet().getCurrency().equals(tradingPair.getFirstCurrency());
         assert firstOrder.getType() == Order.Type.SELL && secondOrder.getType() == Order.Type.BUY; // First sell, then buy
-        BigDecimal price = firstOrder.getPrice(), tradingFee = tradingPair.getTradingFee();
+        assert firstOrder.getSourceWallet().getCurrency().equals(tradingPair.getFirstCurrency()) && firstOrder.getDestWallet().getCurrency().equals(tradingPair.getSecondCurrency()) && secondOrder.getSourceWallet().getCurrency().equals(tradingPair.getSecondCurrency()) && secondOrder.getDestWallet().getCurrency().equals(tradingPair.getFirstCurrency());
+        BigDecimal price = firstOrder.getPrice(), tradingFee = tradingPair.getTradingFee(), total = Calculator.buyTotal(amount, price);
 
-        BigDecimal firstCurrencySend = Calculator.withoutFee(amount, tradingFee), secondCurrencySend = Calculator.withoutFee(Calculator.buyTotal(amount, price), tradingFee);
-        feeManager.submitCollectedFee(tradingPair.getFirstCurrency(), Calculator.fee(amount, tradingFee));
-        feeManager.submitCollectedFee(tradingPair.getSecondCurrency(), Calculator.fee(Calculator.buyTotal(amount, price), tradingFee));
+        BigDecimal firstCurrencySend = Calculator.withoutFee(amount, tradingFee), secondCurrencySend = Calculator.withoutFee(total, tradingFee);
 
         Currency firstCurrency = tradingPair.getFirstCurrency(), secondCurrency = tradingPair.getSecondCurrency();
-        log.info(String.format("[MarketManager] Trade occured: %s %s @ %s %s (total %s %s)", amount, firstCurrency.getCurrencyCode(), price, secondCurrency.getCurrencyCode(), Calculator.buyTotal(amount, price), secondCurrency.getCurrencyCode()));
+        log.info(String.format("[MarketManager] Trade occured: %s %s @ %s %s (total %s %s)", amount, firstCurrency.getCurrencyCode(), price, secondCurrency.getCurrencyCode(), total, secondCurrency.getCurrencyCode()));
 
         firstOrder.addTotal(amount);
         firstOrder.addCompletedAmount(amount);
@@ -127,6 +126,8 @@ public class MarketManager implements AbstractMarketManager {
         secondOrder.addCompletedAmount(amount);
         updateOrderStatus(firstOrder);
         updateOrderStatus(secondOrder);
+        feeManager.submitCollectedFee(tradingPair.getFirstCurrency(), Calculator.fee(amount, tradingFee));
+        feeManager.submitCollectedFee(tradingPair.getSecondCurrency(), Calculator.fee(total, tradingFee));
         if(firstOrder.getStatus() == Order.Status.COMPLETED || secondOrder.getStatus() == Order.Status.COMPLETED) {
             updateMarketInfo(firstOrder.getTradingPair(), price, amount);
         }
@@ -141,20 +142,19 @@ public class MarketManager implements AbstractMarketManager {
         if(secondOrder.getStatus() == Order.Status.COMPLETED) {
             returnUnusedFunds(secondOrder);
         }
-        // That's all !
     }
 
     @Transactional
     @SuppressWarnings("unchecked")
     @Caching(evict = { @CacheEvict(value = "getMarketDepth", key = "#order.tradingPair.id") })
     public void cancelOrder(@NonNull Order order) throws Exception {
-        assert order.getStatus() == Order.Status.OPEN || order.getStatus() == Order.Status.PARTIALLY_COMPLETED;
+        assert order.isActual();
         IdBasedLock<TradingPair> lock = lockManager.obtainLock(order.getTradingPair());
         lock.lock();
         try {
             log.info(String.format("[MarketManager] cancelOrder => %s", order));
             Session session = sessionFactory.getCurrentSession();
-            order.setStatus(Order.Status.CANCELLED);
+            order.cancel();
             session.saveOrUpdate(order);
             returnUnusedFunds(order);
         } catch (Exception e) {

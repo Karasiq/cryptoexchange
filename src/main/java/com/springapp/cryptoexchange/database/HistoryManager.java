@@ -1,5 +1,6 @@
 package com.springapp.cryptoexchange.database;
 
+import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Candle;
 import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
@@ -77,6 +78,29 @@ public class HistoryManager implements AbstractHistoryManager {
     public List<Order> getMarketHistory(@NonNull TradingPair tradingPair, int max) {
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Order.class)
+                .add(Restrictions.eq("tradingPair", tradingPair))
+                .addOrder(org.hibernate.criterion.Order.desc("updateDate"))
+                .setMaxResults(max)
+                .list();
+    }
+
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public List<Order> getAccountHistory(@NonNull Account account, int max) {
+        Session session = sessionFactory.getCurrentSession();
+        return session.createCriteria(Order.class)
+                .add(Restrictions.eq("account", account))
+                .addOrder(org.hibernate.criterion.Order.desc("updateDate"))
+                .setMaxResults(max)
+                .list();
+    }
+
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public List<Order> getAccountHistoryByPair(@NonNull TradingPair tradingPair, @NonNull Account account, int max) {
+        Session session = sessionFactory.getCurrentSession();
+        return session.createCriteria(Order.class)
+                .add(Restrictions.eq("account", account))
                 .add(Restrictions.eq("tradingPair", tradingPair))
                 .addOrder(org.hibernate.criterion.Order.desc("updateDate"))
                 .setMaxResults(max)

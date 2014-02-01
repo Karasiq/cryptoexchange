@@ -2,15 +2,14 @@ package com.springapp.cryptoexchange.webapi;
 
 import com.springapp.cryptoexchange.database.AbstractDaemonManager;
 import com.springapp.cryptoexchange.database.model.*;
+import com.springapp.cryptoexchange.database.model.Currency;
 import lombok.Data;
+import lombok.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Repository
 public interface AbstractConvertService {
@@ -47,11 +46,15 @@ public interface AbstractConvertService {
 
     @Data
     public static class AccountBalanceInfo {
-        private final Map<String, BigDecimal> balances = new HashMap<>();
-        private final Map<String, String> addresses = new HashMap<>();
+        @Value
+        public static class AccountBalance {
+            private final Currency currency;
+            private final BigDecimal balance;
+            private final String address;
+        }
+        private final List<AccountBalance> accountBalances = new ArrayList<>();
         public void add(Currency currency, BigDecimal balance, Address address) {
-            balances.put(currency.getCurrencyCode(), balance);
-            addresses.put(currency.getCurrencyCode(), address.getAddress());
+            accountBalances.add(new AccountBalance(currency, balance, address.getAddress()));
         }
     }
     public Depth createDepth(List<Order> buyOrders, List<Order> sellOrders) throws Exception;

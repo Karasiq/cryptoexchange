@@ -22,7 +22,7 @@ public class FeeManager implements AbstractFeeManager {
     SessionFactory sessionFactory;
 
     @Autowired
-    DaemonManager daemonManager;
+    AbstractDaemonManager daemonManager;
 
     private final IdBasedLockManager<Currency> lockManager = new SafeIdBasedLockManager<>();
 
