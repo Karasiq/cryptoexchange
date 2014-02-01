@@ -1,5 +1,6 @@
 package com.springapp.cryptoexchange.database;
 
+import com.bitcoin.daemon.CryptoCoinWallet;
 import com.springapp.cryptoexchange.database.model.Currency;
 import lombok.extern.apachecommons.CommonsLog;
 import net.anotheria.idbasedlock.IdBasedLock;
@@ -20,10 +21,13 @@ public class FeeManager implements AbstractFeeManager {
     @Autowired
     SessionFactory sessionFactory;
 
+    @Autowired
+    DaemonManager daemonManager;
+
     private final IdBasedLockManager<Currency> lockManager = new SafeIdBasedLockManager<>();
 
     @Transactional
-    public void submitCollectedFee(Currency currency, BigDecimal feeAmount) {
+    public void submitCollectedFee(Currency currency, BigDecimal feeAmount) throws Exception {
         Session session = sessionFactory.getCurrentSession();
         session.refresh(currency);
         IdBasedLock<Currency> lock = lockManager.obtainLock(currency);
@@ -49,5 +53,27 @@ public class FeeManager implements AbstractFeeManager {
         Session session = sessionFactory.getCurrentSession();
         session.refresh(currency);
         return currency.getCollectedFee();
+    }
+
+    @Transactional
+    public void withdrawFee(Currency currency, BigDecimal amount, Object receiverInfo) throws Exception {
+        assert receiverInfo instanceof String; // Address
+        Session session = sessionFactory.getCurrentSession();
+        session.refresh(currency);
+        IdBasedLock<Currency> lock = lockManager.obtainLock(currency);
+        lock.lock();
+        try {
+            BigDecimal current = currency.getCollectedFee();
+            assert current.compareTo(amount) >= 0;
+            String address = (String) receiverInfo;
+            CryptoCoinWallet.Account cryptoCoinWallet = (CryptoCoinWallet.Account) daemonManager.getAccount(currency);
+            cryptoCoinWallet.sendToAddress(address, amount);
+            currency.setCollectedFee(current.subtract(amount));
+        } catch (Exception e) {
+            log.fatal(e);
+            throw e;
+        } finally {
+            lock.unlock();
+        }
     }
 }

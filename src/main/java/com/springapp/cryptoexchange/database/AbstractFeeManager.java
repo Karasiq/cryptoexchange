@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 
 @Repository
 public interface AbstractFeeManager {
-    void submitCollectedFee(Currency currency, BigDecimal feeAmount);
+    void submitCollectedFee(Currency currency, BigDecimal feeAmount) throws Exception;
     BigDecimal getCollectedFee(Currency currency);
+    void withdrawFee(Currency currency, BigDecimal amount, Object receiverInfo) throws Exception;
 }
