@@ -7,8 +7,6 @@ import lombok.NonNull;
 import lombok.experimental.NonFinal;
 import lombok.extern.apachecommons.CommonsLog;
 import net.anotheria.idbasedlock.IdBasedLock;
-import net.anotheria.idbasedlock.IdBasedLockManager;
-import net.anotheria.idbasedlock.SafeIdBasedLockManager;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -50,7 +48,11 @@ public class MarketManager implements AbstractMarketManager {
     @Autowired
     AbstractFeeManager feeManager;
 
-    private final IdBasedLockManager<TradingPair> lockManager = new SafeIdBasedLockManager<>();
+    @Autowired
+    AbstractAccountManager accountManager;
+
+    @Autowired
+    LockManager lockManager;
 
     public void reloadTradingPairs() {
         // nothing
@@ -149,7 +151,7 @@ public class MarketManager implements AbstractMarketManager {
     @Caching(evict = { @CacheEvict(value = "getMarketDepth", key = "#order.tradingPair.id") })
     public void cancelOrder(@NonNull Order order) throws Exception {
         assert order.isActual();
-        IdBasedLock<TradingPair> lock = lockManager.obtainLock(order.getTradingPair());
+        IdBasedLock<TradingPair> lock = lockManager.getTradingPairLockManager().obtainLock(order.getTradingPair());
         lock.lock();
         try {
             log.info(String.format("[MarketManager] cancelOrder => %s", order));
@@ -172,7 +174,7 @@ public class MarketManager implements AbstractMarketManager {
         if (newOrder.getAmount().compareTo(newOrder.getTradingPair().getMinimalTradeAmount()) < 0) {
             throw new MarketError(String.format("Minimal trading amount is %s", newOrder.getTradingPair().getMinimalTradeAmount()));
         }
-        IdBasedLock<TradingPair> lock = lockManager.obtainLock(newOrder.getTradingPair());
+        IdBasedLock<TradingPair> lock = lockManager.getTradingPairLockManager().obtainLock(newOrder.getTradingPair());
         lock.lock();
         try {
             log.info(String.format("[MarketManager] executeOrder => %s", newOrder));
@@ -181,7 +183,7 @@ public class MarketManager implements AbstractMarketManager {
             VirtualWallet virtualWalletSource = newOrder.getSourceWallet(), virtualWalletDest = newOrder.getDestWallet();
             session.saveOrUpdate(virtualWalletSource);
             session.saveOrUpdate(virtualWalletDest);
-            BigDecimal balance = virtualWalletSource.getBalance(daemonManager.getAccount(virtualWalletSource.getCurrency()));
+            BigDecimal balance = accountManager.getVirtualWalletBalance(virtualWalletSource);
             BigDecimal remainingAmount = newOrder.getRemainingAmount();
             BigDecimal required = Calculator.totalRequired(orderType, remainingAmount, newOrder.getPrice());
 

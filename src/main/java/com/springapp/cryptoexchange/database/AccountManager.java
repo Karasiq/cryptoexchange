@@ -1,15 +1,15 @@
 package com.springapp.cryptoexchange.database;
 
 
+import com.bitcoin.daemon.AbstractWallet;
 import com.springapp.cryptoexchange.database.model.*;
 import lombok.NonNull;
 import lombok.extern.apachecommons.CommonsLog;
+import net.anotheria.idbasedlock.IdBasedLock;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -20,8 +20,11 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import javax.servlet.ServletRequest;
+import java.math.BigDecimal;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 
 @Service
@@ -37,6 +40,9 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
     @Autowired
     private SessionFactory sessionFactory;
 
+    @Autowired
+    private LockManager lockManager;
+
     @Transactional
     public VirtualWallet getVirtualWallet(@NonNull Account account, @NonNull Currency currency) {
         Session session = sessionFactory.getCurrentSession();
@@ -47,6 +53,56 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
             session.save(v);
         }
         return v;
+    }
+
+    @Transactional
+    @SuppressWarnings("unchecked")
+    private List<Address> getAddressList(VirtualWallet wallet) {
+        Session session = sessionFactory.getCurrentSession();
+        return session.createCriteria(Address.class)
+                .add(Restrictions.eq("virtualWallet", wallet))
+                .list();
+    }
+
+    @Transactional
+    private BigDecimal getCryptoBalance(VirtualWallet virtualWallet) throws Exception {
+        final AbstractWallet wallet = daemonManager.getAccount(virtualWallet.getCurrency());
+        final List<Address> addressList = getAddressList(virtualWallet);
+        if(!addressList.isEmpty()) {
+            Set<Object> strings = new HashSet<>();
+            for(Address address : addressList) {
+                strings.add(address.getAddress());
+            }
+            return wallet.summaryConfirmedBalance(strings);
+        } else {
+            return BigDecimal.ZERO;
+        }
+    }
+
+    @Transactional
+    @Override
+    public BigDecimal getVirtualWalletBalance(VirtualWallet wallet) throws Exception {
+        BigDecimal resultBalance = wallet.getVirtualBalance();
+        IdBasedLock<VirtualWallet> lock = lockManager.getVirtualWalletLockManager().obtainLock(wallet);
+        lock.lock();
+        try {
+            Currency currency = wallet.getCurrency();
+            switch (currency.getCurrencyType()) {
+                case CRYPTO:
+                    resultBalance = resultBalance.add(getCryptoBalance(wallet));
+                    break;
+                case PURE_VIRTUAL:
+                    break;
+                default:
+                    throw new IllegalArgumentException();
+            }
+        } catch (Exception e) {
+            log.error(e);
+            throw e;
+        } finally {
+            lock.unlock();
+        }
+        return resultBalance;
     }
 
     @Transactional

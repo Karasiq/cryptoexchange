@@ -4,8 +4,6 @@ import com.bitcoin.daemon.CryptoCoinWallet;
 import com.springapp.cryptoexchange.database.model.Currency;
 import lombok.extern.apachecommons.CommonsLog;
 import net.anotheria.idbasedlock.IdBasedLock;
-import net.anotheria.idbasedlock.IdBasedLockManager;
-import net.anotheria.idbasedlock.SafeIdBasedLockManager;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,13 +22,14 @@ public class FeeManager implements AbstractFeeManager {
     @Autowired
     AbstractDaemonManager daemonManager;
 
-    private final IdBasedLockManager<Currency> lockManager = new SafeIdBasedLockManager<>();
+    @Autowired
+    LockManager lockManager;
 
     @Transactional
     public void submitCollectedFee(Currency currency, BigDecimal feeAmount) throws Exception {
         Session session = sessionFactory.getCurrentSession();
         session.refresh(currency);
-        IdBasedLock<Currency> lock = lockManager.obtainLock(currency);
+        IdBasedLock<Currency> lock = lockManager.getCurrencyLockManager().obtainLock(currency);
         lock.lock();
         try {
             BigDecimal newTotal = currency.getCollectedFee();
@@ -60,7 +59,7 @@ public class FeeManager implements AbstractFeeManager {
         assert receiverInfo instanceof String; // Address
         Session session = sessionFactory.getCurrentSession();
         session.refresh(currency);
-        IdBasedLock<Currency> lock = lockManager.obtainLock(currency);
+        IdBasedLock<Currency> lock = lockManager.getCurrencyLockManager().obtainLock(currency);
         lock.lock();
         try {
             BigDecimal current = currency.getCollectedFee();

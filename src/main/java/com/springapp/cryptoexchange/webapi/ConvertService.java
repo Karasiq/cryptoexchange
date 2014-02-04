@@ -1,9 +1,6 @@
 package com.springapp.cryptoexchange.webapi;
 
-import com.springapp.cryptoexchange.database.AbstractDaemonManager;
-import com.springapp.cryptoexchange.database.AbstractHistoryManager;
-import com.springapp.cryptoexchange.database.AbstractMarketManager;
-import com.springapp.cryptoexchange.database.AbstractSettingsManager;
+import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
@@ -28,6 +25,9 @@ public class ConvertService implements AbstractConvertService { // Convert layer
 
     @Autowired
     AbstractDaemonManager daemonManager;
+
+    @Autowired
+    AbstractAccountManager accountManager;
 
     public Depth createDepth(List<Order> buyOrders, List<Order> sellOrders) throws Exception {
         Depth depth = new Depth();
@@ -71,7 +71,7 @@ public class ConvertService implements AbstractConvertService { // Convert layer
             BigDecimal balance = BigDecimal.ZERO;
             Address address = null;
             if(wallet != null) {
-                balance = wallet.getBalance(daemonManager.getAccount(currency));
+                balance = accountManager.getVirtualWalletBalance(wallet);
                 List<Address> addressList = wallet.getAddressList();
                 if (!addressList.isEmpty()) {
                     address = addressList.get(0);

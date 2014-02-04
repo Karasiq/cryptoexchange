@@ -36,36 +36,10 @@ public class VirtualWallet implements Serializable {
     @Column(name = "virtual_balance")
     private volatile BigDecimal virtualBalance = BigDecimal.ZERO;
 
-    @OneToMany
-    @JsonIgnore
-    private final List<Address> addressList = new ArrayList<>();
-
     @NonNull
     @ManyToOne(fetch = FetchType.LAZY)
     @JsonIgnore
     private Account account;
-
-    @Transactional
-    public Address addAddress(@NonNull String address) {
-        Address newAddress = new Address(address, this);
-        synchronized (addressList) {
-            addressList.add(newAddress);
-        }
-        return newAddress;
-    }
-
-    @Transactional
-    public synchronized BigDecimal getBalance(@NonNull AbstractWallet wallet) throws Exception {
-        BigDecimal result = virtualBalance;
-        if(!addressList.isEmpty()) synchronized (addressList) {
-            Set<Object> strings = new HashSet<>();
-            for(Address address : addressList) {
-                strings.add(address.getAddress());
-            }
-            result = result.add(wallet.summaryConfirmedBalance(strings));
-        }
-        return result;
-    }
 
     public synchronized void addBalance(final BigDecimal amount) {
         setVirtualBalance(virtualBalance.add(amount));

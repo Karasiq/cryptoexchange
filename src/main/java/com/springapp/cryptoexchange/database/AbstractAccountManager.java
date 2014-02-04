@@ -3,6 +3,7 @@ package com.springapp.cryptoexchange.database;
 import com.springapp.cryptoexchange.database.model.*;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Repository
@@ -16,6 +17,7 @@ public interface AbstractAccountManager {
         }
     }
     public VirtualWallet getVirtualWallet(Account account, Currency currency) throws Exception;
+    public BigDecimal getVirtualWalletBalance(VirtualWallet wallet) throws Exception;
     public Account addAccount(Account account) throws Exception;
     public Account getAccount(String login);
     public void setAccountEnabled(long id, boolean enabled);

@@ -11,10 +11,13 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @RequiredArgsConstructor
 @Entity
-@Table(name = "currency_types")
+@Table(name = "currencies")
 @EqualsAndHashCode(of = {"currencyCode", "currencyName"})
 @ToString(of = {"id", "currencyCode", "currencyName"}, callSuper = false)
 public class Currency implements Serializable {
+    public static enum CurrencyType {
+        PURE_VIRTUAL, CRYPTO
+    }
     @Id
     @GeneratedValue
     @Column(unique = true)
@@ -38,21 +41,6 @@ public class Currency implements Serializable {
     @JsonIgnore
     private BigDecimal collectedFee = BigDecimal.ZERO;
 
-    // Daemon:
-
-    @Column(name = "daemon_host")
-    @JsonIgnore
-    private @NonNull String daemonHost = "localhost";
-
-    @Column(name = "daemon_port")
-    @JsonIgnore
-    private @NonNull Integer daemonPort;
-
-    @Column(name = "daemon_login")
-    @JsonIgnore
-    private @NonNull String daemonLogin;
-
-    @Column(name = "daemon_password")
-    @JsonIgnore
-    private @NonNull String daemonPassword;
+    @Column(name = "type")
+    private CurrencyType currencyType = CurrencyType.CRYPTO;
 }
