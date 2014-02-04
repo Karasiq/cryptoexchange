@@ -49,10 +49,10 @@ public class Order implements Serializable {
     @NonNull BigDecimal amount;
 
     @Column(name = "completed_amount")
-    @NonNull BigDecimal completedAmount = BigDecimal.ZERO;
+    BigDecimal completedAmount = BigDecimal.ZERO;
 
     @Column(name = "total_sum")
-    @NonNull BigDecimal total = BigDecimal.ZERO;
+    BigDecimal total = BigDecimal.ZERO;
 
     @Column(name = "price")
     @NonNull BigDecimal price;

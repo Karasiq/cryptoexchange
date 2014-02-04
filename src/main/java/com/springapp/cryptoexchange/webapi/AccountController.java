@@ -116,9 +116,10 @@ public class AccountController {
     @RequestMapping(value = "/address/{currencyId}", method = RequestMethod.POST)
     @ResponseBody
     public ApiDefs.ApiStatus<String> generateDepositAddress(@PathVariable long currencyId, Principal principal) throws Exception {
+        Currency currency = settingsManager.getCurrency(currencyId);
+        Account account = accountManager.getAccount(principal.getName());
         try {
-            Currency currency = settingsManager.getCurrency(currencyId);
-            Account account = accountManager.getAccount(principal.getName());
+            assert currency != null && account != null & currency.isEnabled() && account.isEnabled();
             VirtualWallet virtualWallet = accountManager.getVirtualWallet(account, currency);
             List<Address> addressList = daemonManager.getAddressList(virtualWallet);
             String address;
@@ -141,15 +142,17 @@ public class AccountController {
         Currency currency = settingsManager.getCurrency(currencyId);
         Account account = accountManager.getAccount(principal.getName());
         try {
+            assert currency != null && account != null & currency.isEnabled() && account.isEnabled();
             VirtualWallet virtualWallet = accountManager.getVirtualWallet(account, currency);
             if (currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
                 daemonManager.withdrawFunds(virtualWallet, address, amount);
                 return new ApiDefs.ApiStatus(true, null, null);
+            } else {
+                throw new IllegalArgumentException();
             }
         } catch (Exception e) {
             log.error(e);
             return new ApiDefs.ApiStatus(false, e.getLocalizedMessage(), null);
         }
-        return new ApiDefs.ApiStatus(false, "Unknown error", null);
     }
 }

@@ -147,6 +147,12 @@ public class MarketManager implements AbstractMarketManager {
     }
 
     @Transactional
+    public Order getOrder(long orderId) {
+        return (Order) sessionFactory.getCurrentSession().createCriteria(Order.class)
+                .add(Restrictions.eq("id", orderId)).uniqueResult();
+    }
+
+    @Transactional
     @SuppressWarnings("unchecked")
     @Caching(evict = { @CacheEvict(value = "getMarketDepth", key = "#order.tradingPair.id") })
     public void cancelOrder(@NonNull Order order) throws Exception {
@@ -171,6 +177,7 @@ public class MarketManager implements AbstractMarketManager {
     @Transactional
     @SuppressWarnings("unchecked")
     public Order executeOrder(@NonNull Order newOrder) throws Exception {
+        assert newOrder.getTradingPair() != null && newOrder.getTradingPair().isEnabled();
         if (newOrder.getAmount().compareTo(newOrder.getTradingPair().getMinimalTradeAmount()) < 0) {
             throw new MarketError(String.format("Minimal trading amount is %s", newOrder.getTradingPair().getMinimalTradeAmount()));
         }
