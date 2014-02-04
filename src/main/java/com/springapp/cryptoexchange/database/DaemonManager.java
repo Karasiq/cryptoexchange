@@ -107,8 +107,8 @@ public class DaemonManager implements AbstractDaemonManager {
     }
 
     @Transactional
-    public void withdrawFunds(@NonNull VirtualWallet wallet, String address, BigDecimal amount) throws Exception {
-        assert !settingsManager.isTestingMode() && wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO);
+    public void withdrawFunds(@NonNull VirtualWallet wallet, @NonNull String address, @NonNull BigDecimal amount) throws Exception {
+        assert !settingsManager.isTestingMode() && wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO) && address.length() > 0 && amount.compareTo(BigDecimal.ZERO) > 0;
         IdBasedLock<VirtualWallet> lock = lockManager.getVirtualWalletLockManager().obtainLock(wallet);
         lock.lock();
         try {
@@ -127,7 +127,7 @@ public class DaemonManager implements AbstractDaemonManager {
                 log.info(String.format("Funds withdraw success: %s", transaction));
             } catch (Exception e) {
                 log.error(e);
-                throw new AbstractAccountManager.AccountException(e);
+                throw e;
             }
 
             // if no errors:
