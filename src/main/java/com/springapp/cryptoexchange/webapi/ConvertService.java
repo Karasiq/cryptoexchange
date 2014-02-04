@@ -69,12 +69,14 @@ public class ConvertService implements AbstractConvertService { // Convert layer
         for(Currency currency : currencyList) {
             VirtualWallet wallet = account.getBalance(currency);
             BigDecimal balance = BigDecimal.ZERO;
-            Address address = null;
+            String address = null;
             if(wallet != null) {
                 balance = accountManager.getVirtualWalletBalance(wallet);
-                List<Address> addressList = wallet.getAddressList();
-                if (!addressList.isEmpty()) {
-                    address = addressList.get(0);
+                    if(wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
+                    List<Address> addressList = daemonManager.getAddressList(wallet);
+                    if (!addressList.isEmpty()) {
+                        address = addressList.get(0).getAddress();
+                    }
                 }
             }
             accountBalanceInfo.add(currency, balance, address);

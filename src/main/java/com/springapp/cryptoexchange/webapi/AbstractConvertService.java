@@ -53,8 +53,8 @@ public interface AbstractConvertService {
             private final String address;
         }
         private final List<AccountBalance> accountBalances = new ArrayList<>();
-        public void add(Currency currency, BigDecimal balance, Address address) {
-            accountBalances.add(new AccountBalance(currency, balance, address.getAddress()));
+        public void add(Currency currency, BigDecimal balance, String address) {
+            accountBalances.add(new AccountBalance(currency, balance, address));
         }
     }
     public Depth createDepth(List<Order> buyOrders, List<Order> sellOrders) throws Exception;

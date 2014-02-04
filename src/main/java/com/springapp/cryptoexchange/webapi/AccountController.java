@@ -1,19 +1,16 @@
 package com.springapp.cryptoexchange.webapi;
 
 import com.springapp.cryptoexchange.database.AbstractAccountManager;
+import com.springapp.cryptoexchange.database.AbstractDaemonManager;
 import com.springapp.cryptoexchange.database.AbstractHistoryManager;
 import com.springapp.cryptoexchange.database.AbstractSettingsManager;
-import com.springapp.cryptoexchange.database.model.Account;
-import com.springapp.cryptoexchange.database.model.Order;
-import com.springapp.cryptoexchange.database.model.TradingPair;
+import com.springapp.cryptoexchange.database.model.*;
 import lombok.extern.apachecommons.CommonsLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
@@ -34,6 +31,9 @@ public class AccountController {
 
     @Autowired
     AbstractHistoryManager historyManager;
+
+    @Autowired
+    AbstractDaemonManager daemonManager;
 
     @Cacheable(value = "getAccountBalanceInfo", key = "#principal.name")
     @RequestMapping("/balance")
@@ -109,6 +109,23 @@ public class AccountController {
             e.printStackTrace();
             log.error(e);
             return new ApiDefs.ApiStatus<>(false, e.getMessage(), null);
+        }
+    }
+
+    @RequestMapping(value = "/address/{currencyId}", method = RequestMethod.POST)
+    @ResponseBody
+    public String generateDepositAddress(@PathVariable long currencyId, Principal principal) throws Exception {
+        Currency currency = settingsManager.getCurrency(currencyId);
+        if(!currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
+            throw new IllegalArgumentException();
+        }
+        Account account = accountManager.getAccount(principal.getName());
+        VirtualWallet virtualWallet = accountManager.getVirtualWallet(account, currency);
+        List<Address> addressList = daemonManager.getAddressList(virtualWallet);
+        if(addressList.isEmpty()) {
+            return daemonManager.createWalletAddress(virtualWallet);
+        } else {
+            return addressList.get(0).getAddress();
         }
     }
 }

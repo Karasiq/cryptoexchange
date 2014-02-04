@@ -56,18 +56,9 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
     }
 
     @Transactional
-    @SuppressWarnings("unchecked")
-    private List<Address> getAddressList(VirtualWallet wallet) {
-        Session session = sessionFactory.getCurrentSession();
-        return session.createCriteria(Address.class)
-                .add(Restrictions.eq("virtualWallet", wallet))
-                .list();
-    }
-
-    @Transactional
     private BigDecimal getCryptoBalance(VirtualWallet virtualWallet) throws Exception {
         final AbstractWallet wallet = daemonManager.getAccount(virtualWallet.getCurrency());
-        final List<Address> addressList = getAddressList(virtualWallet);
+        final List<Address> addressList = daemonManager.getAddressList(virtualWallet);
         if(!addressList.isEmpty()) {
             Set<Object> strings = new HashSet<>();
             for(Address address : addressList) {

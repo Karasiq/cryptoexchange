@@ -95,10 +95,11 @@ public class DaemonManager implements AbstractDaemonManager {
     }
 
     @Transactional
-    public String createWalletAddress(@NonNull VirtualWallet virtualWallet, @NonNull CryptoCoinWallet.Account account) throws Exception {
+    public String createWalletAddress(@NonNull VirtualWallet virtualWallet) throws Exception {
         assert !settingsManager.isTestingMode() && virtualWallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO);
         Session session = sessionFactory.getCurrentSession();
         session.saveOrUpdate(virtualWallet);
+        CryptoCoinWallet.Account account = (CryptoCoinWallet.Account) getAccount(virtualWallet.getCurrency());
         com.bitcoin.daemon.Address newAddress = account.generateNewAddress();
         Address address = new Address(newAddress.getAddress(), virtualWallet);
         session.saveOrUpdate(address);
@@ -137,6 +138,15 @@ public class DaemonManager implements AbstractDaemonManager {
         } finally {
             lock.unlock();
         }
+    }
+
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public List<Address> getAddressList(@NonNull VirtualWallet wallet) {
+        Session session = sessionFactory.getCurrentSession();
+        return session.createCriteria(Address.class)
+                .add(Restrictions.eq("virtualWallet", wallet))
+                .list();
     }
 
     @PostConstruct
