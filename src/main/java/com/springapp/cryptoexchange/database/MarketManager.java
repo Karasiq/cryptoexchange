@@ -177,7 +177,9 @@ public class MarketManager implements AbstractMarketManager {
     @Transactional
     @SuppressWarnings("unchecked")
     public Order executeOrder(@NonNull Order newOrder) throws Exception {
-        assert newOrder.getTradingPair() != null && newOrder.getTradingPair().isEnabled();
+        newOrder.setAmount(newOrder.getAmount().setScale(8, BigDecimal.ROUND_FLOOR));
+        newOrder.setPrice(newOrder.getPrice().setScale(8, BigDecimal.ROUND_FLOOR));
+        assert newOrder.getTradingPair() != null && newOrder.getTradingPair().isEnabled() && newOrder.getPrice().compareTo(BigDecimal.ZERO) > 0 && newOrder.getPrice().compareTo(BigDecimal.ZERO) > 0;
         if (newOrder.getAmount().compareTo(newOrder.getTradingPair().getMinimalTradeAmount()) < 0) {
             throw new MarketError(String.format("Minimal trading amount is %s", newOrder.getTradingPair().getMinimalTradeAmount()));
         }

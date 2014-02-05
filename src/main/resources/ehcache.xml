@@ -9,4 +9,5 @@
     <cache name="getAccountOrdersByPair" timeToLiveSeconds="20" maxElementsInMemory="500" eternal="false" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
     <cache name="getAccountHistory" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="120" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
     <cache name="getAccountHistoryByPair" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="120" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getTransactions" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="300" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
 </ehcache>

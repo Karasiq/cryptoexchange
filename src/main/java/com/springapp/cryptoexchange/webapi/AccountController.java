@@ -1,10 +1,12 @@
 package com.springapp.cryptoexchange.webapi;
 
+import com.bitcoin.daemon.*;
 import com.springapp.cryptoexchange.database.AbstractAccountManager;
 import com.springapp.cryptoexchange.database.AbstractDaemonManager;
 import com.springapp.cryptoexchange.database.AbstractHistoryManager;
 import com.springapp.cryptoexchange.database.AbstractSettingsManager;
 import com.springapp.cryptoexchange.database.model.*;
+import com.springapp.cryptoexchange.database.model.Address;
 import lombok.extern.apachecommons.CommonsLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
@@ -14,7 +16,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.security.Principal;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Controller
 @RequestMapping(value = "/rest/account.json", headers = "X-Ajax-Call=true")
@@ -113,6 +117,27 @@ public class AccountController {
         }
     }
 
+    @Cacheable(value = "getTransactions", key = "#principal.getName() + #currencyId")
+    @RequestMapping(value = "/transactions/{currencyId}")
+    @ResponseBody
+    @SuppressWarnings("unchecked")
+    public ApiDefs.ApiStatus<List<com.bitcoin.daemon.Address.Transaction>> getTransactions(@PathVariable long currencyId, Principal principal) {
+        Currency currency = settingsManager.getCurrency(currencyId);
+        Account account = accountManager.getAccount(principal.getName());
+        try {
+            assert currency != null && account != null & currency.isEnabled() && account.isEnabled();
+            Set<Object> addressSet = new HashSet<>();
+            List<Address> addressList = daemonManager.getAddressList(accountManager.getVirtualWallet(account, currency));
+            for(Address address : addressList) {
+                addressSet.add(address.getAddress());
+            }
+            return new ApiDefs.ApiStatus(true, null, ((CryptoCoinWallet.Account) daemonManager.getAccount(currency)).getTransactions(addressSet));
+        } catch (Exception e) {
+            log.error(e);
+            return new ApiDefs.ApiStatus(false, e.getLocalizedMessage(), null);
+        }
+    }
+
     @RequestMapping(value = "/address/{currencyId}", method = RequestMethod.POST)
     @ResponseBody
     public ApiDefs.ApiStatus<String> generateDepositAddress(@PathVariable long currencyId, Principal principal) throws Exception {
@@ -128,6 +153,7 @@ public class AccountController {
             } else {
                 address = addressList.get(0).getAddress();
             }
+            log.info("Address generated: " + address);
             return new ApiDefs.ApiStatus<>(true, null, address);
         } catch (Exception e) {
             log.error(e);
@@ -146,6 +172,7 @@ public class AccountController {
             VirtualWallet virtualWallet = accountManager.getVirtualWallet(account, currency);
             if (currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
                 daemonManager.withdrawFunds(virtualWallet, address, amount);
+                log.info(String.format("Withdraw success: %s %s => %s", amount, currency.getCurrencyCode(), address));
                 return new ApiDefs.ApiStatus(true, null, null);
             } else {
                 throw new IllegalArgumentException();

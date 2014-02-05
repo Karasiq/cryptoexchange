@@ -20,7 +20,6 @@ public class CryptoCoinWallet {
         private @NonNull String name;
         private final Map<String, Address> addressList = new HashMap<>();
 
-        private int confirmedTxCount = 0; // checkpoint
         public BigDecimal summaryConfirmedBalance() {
             BigDecimal confirmed = BigDecimal.ZERO, pendingWithdraw = BigDecimal.ZERO;
             synchronized (addressList) {
@@ -30,6 +29,17 @@ public class CryptoCoinWallet {
                 }
             }
             return confirmed.add(pendingWithdraw);
+        }
+
+        public List<Address.Transaction> getTransactions(final Set<Object> addresses) {
+            BigDecimal confirmed = BigDecimal.ZERO, pendingWithdraw = BigDecimal.ZERO;
+            List<Address.Transaction> transactionList = new ArrayList<>();
+            synchronized (addressList) {
+                for(Address address : addressList.values()) if(addresses.contains(address.getAddress())) {
+                    transactionList.addAll(address.getTransactionList().values());
+                }
+            }
+            return transactionList;
         }
 
         public BigDecimal summaryConfirmedBalance(final Set<Object> addresses) {
@@ -54,26 +64,18 @@ public class CryptoCoinWallet {
             }
         }
 
-        public void resetUnconfirmedBalance() {
-            synchronized (addressList) {
-                for(Address address : addressList.values()) {
-                    address.resetUnconfirmed();
-                }
-            }
-        }
-        public void loadTransactions(int maxCount) throws Exception {
+        public void loadTransactions(int maxCount, boolean onlyReceive) throws Exception { // Expensive
             loadAddresses();
             List<Object> args = new ArrayList<>();
             args.add(this.getName());
             args.add(maxCount); // tx count
-            args.add(confirmedTxCount); // tx from
+            // args.add(confirmedTxCount); // tx from
 
             List<Address.Transaction> transactions = jsonRPC.executeRpcRequest("listtransactions", args, new TypeReference<JsonRPC.JsonRpcResponse<List<Address.Transaction>>>(){});
 
             synchronized (addressList) {
-                resetUnconfirmedBalance();
                 Address address = null;
-                for(Address.Transaction transaction : transactions) {
+                for(Address.Transaction transaction : transactions) if (!onlyReceive || transaction.getCategory().equals("receive")) {
                     if(address == null || !address.getAddress().equals(transaction.address)) {
                         if(addressList.containsKey(transaction.address)) {
                             address = addressList.get(transaction.address);
@@ -82,10 +84,10 @@ public class CryptoCoinWallet {
                             addressList.put(transaction.address, address);
                         }
                     }
-                    if(!address.getTransactionList().containsKey(transaction.hashCode()) && transaction.isConfirmed()) {
-                        confirmedTxCount++;
-                    }
                     address.addTransaction(transaction);
+                }
+                for(Address updateAddress : addressList.values()) {
+                    updateAddress.reset();
                 }
             }
         }
@@ -123,7 +125,6 @@ public class CryptoCoinWallet {
             args.add(amount);
             synchronized (addressList) {
                 String txid = jsonRPC.executeRpcRequest("sendfrom", args, new TypeReference<JsonRPC.JsonRpcResponse<String>>(){});
-                loadTransactions(20); // Refresh balance
                 args.clear();
                 args.add(txid);
                 return jsonRPC.executeRpcRequest("gettransaction", args, new TypeReference<JsonRPC.JsonRpcResponse<Address.Transaction>>(){});

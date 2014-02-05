@@ -8,6 +8,8 @@ import lombok.NonNull;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Data
 public class Address {
@@ -21,7 +23,7 @@ public class Address {
     }
 
     @Data
-    @EqualsAndHashCode(exclude = {"details", "confirmations"}, callSuper = false)
+    @EqualsAndHashCode(exclude = {"details", "confirmations"}, callSuper = true)
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Transaction extends TransactionDetails {
         protected long time;
@@ -33,33 +35,28 @@ public class Address {
             return confirmations >= Settings.REQUIRED_CONFIRMATIONS;
         }
     }
-    private final HashMap<Integer, Transaction> transactionList = new HashMap<>();
-    public void addTransaction(Transaction transaction) {
-        synchronized (transactionList) {
-            int txHashCode = transaction.hashCode();
-            if(!transactionList.containsKey(txHashCode)) {
-                BigDecimal amount = transaction.getAmount(), fee = transaction.getFee();
-                if(transaction.isConfirmed()) {
-                    transactionList.put(txHashCode, transaction);
-                    confirmedBalance = confirmedBalance.add(amount).add(fee);
-                } else {
-                    if(amount.compareTo(BigDecimal.ZERO) < 0) { // Withdraw
-                        unconfirmedWithdraw = unconfirmedWithdraw.add(amount).add(fee);
-                    } else {
-                        unconfirmedBalance = unconfirmedBalance.add(amount).add(fee);
-                    }
-                }
+    private final Map<Integer, Transaction> transactionList = new ConcurrentHashMap<>();
+    public synchronized void reset() {
+        confirmedBalance = BigDecimal.ZERO;
+        unconfirmedBalance = BigDecimal.ZERO;
+        unconfirmedWithdraw = BigDecimal.ZERO;
+        for(Transaction transaction : transactionList.values()) {
+            if(transaction.isConfirmed()) {
+                confirmedBalance = confirmedBalance.add(transaction.amount);
+            } else if(transaction.amount.compareTo(BigDecimal.ZERO) < 0) { // Send
+                unconfirmedWithdraw = unconfirmedWithdraw.add(transaction.amount);
+            } else {
+                unconfirmedBalance = unconfirmedBalance.add(transaction.amount);
             }
         }
     }
-    public void resetUnconfirmed() {
-        setUnconfirmedBalance(BigDecimal.ZERO);
-        setUnconfirmedWithdraw(BigDecimal.ZERO);
+
+    public void addTransaction(Transaction transaction) {
+        transactionList.put(transaction.hashCode(), transaction);
     }
 
-    private BigDecimal confirmedBalance = BigDecimal.ZERO;
-    private BigDecimal unconfirmedBalance = BigDecimal.ZERO;
-    private BigDecimal unconfirmedWithdraw = BigDecimal.ZERO;
-    private @NonNull
-    String address;
+    private volatile BigDecimal confirmedBalance = BigDecimal.ZERO;
+    private volatile BigDecimal unconfirmedBalance = BigDecimal.ZERO;
+    private volatile BigDecimal unconfirmedWithdraw = BigDecimal.ZERO;
+    private @NonNull String address;
 }

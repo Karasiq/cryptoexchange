@@ -2,11 +2,14 @@ package com.springapp.cryptoexchange.webapi;
 
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import javax.transaction.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -28,6 +31,9 @@ public class ConvertService implements AbstractConvertService { // Convert layer
 
     @Autowired
     AbstractAccountManager accountManager;
+
+    @Autowired
+    SessionFactory sessionFactory;
 
     public Depth createDepth(List<Order> buyOrders, List<Order> sellOrders) throws Exception {
         Depth depth = new Depth();
@@ -63,7 +69,11 @@ public class ConvertService implements AbstractConvertService { // Convert layer
         }
         return marketHistoryList;
     }
+
+    @Transactional
     public AccountBalanceInfo createAccountBalanceInfo(Account account) throws Exception {
+        Session session = sessionFactory.getCurrentSession();
+        session.refresh(account);
         List<Currency> currencyList = settingsManager.getCurrencyList();
         AccountBalanceInfo accountBalanceInfo = new AccountBalanceInfo();
         for(Currency currency : currencyList) {

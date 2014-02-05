@@ -60,14 +60,15 @@ public class DaemonManager implements AbstractDaemonManager {
                 .uniqueResult();
     }
 
-    @Scheduled(fixedDelay = 1000 * 60 * 5) // Every 5m
-    private synchronized void loadTransactions(final int max) throws Exception {
+    @Scheduled(fixedDelay = 20000) // Every 5m
+    private synchronized void loadTransactions() throws Exception {
+        log.info("Reloading transactions...");
         List<Currency> currencyList = settingsManager.getCurrencyList();
         for(Currency currency : currencyList) {
             final DaemonInfo daemonInfo = daemonMap.get(currency);
             if(daemonInfo.enabled && daemonInfo.wallet != null) {
                 try {
-                    daemonInfo.wallet.loadTransactions(max);
+                    daemonInfo.wallet.loadTransactions(1000, true); // All withdrawals stored in virtual balance
                 }
                 catch (JsonRPC.RPCDaemonException exc) {
                     log.error(exc);
@@ -153,6 +154,6 @@ public class DaemonManager implements AbstractDaemonManager {
     public void init() throws Exception {
         @Cleanup Session session = sessionFactory.openSession();
         initDaemons();
-        loadTransactions(20000);
+        loadTransactions();
     }
 }

@@ -88,7 +88,7 @@ public class AppTests {
         JsonRPC rpc = new JsonRPC("localhost", 8779, "user", "password");
         CryptoCoinWallet.Account account = new CryptoCoinWallet.Account(rpc, "PZcojt26ozH2nh5u7zqG1DfuzG6FUuvbZ3");
 
-        account.loadTransactions(1000);
+        account.loadTransactions(1000, true);
         System.out.println(account.summaryConfirmedBalance());
 
         // New:
