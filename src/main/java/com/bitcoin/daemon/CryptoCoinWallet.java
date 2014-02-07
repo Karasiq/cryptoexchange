@@ -20,19 +20,21 @@ public class CryptoCoinWallet {
         private @NonNull String name;
         private final Map<String, Address> addressList = new HashMap<>();
 
-        public BigDecimal summaryConfirmedBalance() {
-            BigDecimal confirmed = BigDecimal.ZERO, pendingWithdraw = BigDecimal.ZERO;
-            synchronized (addressList) {
-                for(Address address : addressList.values()) {
-                    confirmed = confirmed.add(address.getConfirmedBalance());
-                    pendingWithdraw = pendingWithdraw.add(address.getUnconfirmedWithdraw());
-                }
-            }
-            return confirmed.add(pendingWithdraw);
+        public BigDecimal summaryConfirmedBalance() throws Exception {
+            List<Object> args = new ArrayList<>();
+            args.add(getName());
+            args.add(Settings.REQUIRED_CONFIRMATIONS);
+            return jsonRPC.executeRpcRequest("getreceivedbyaccount", args, new TypeReference<JsonRPC.JsonRpcResponse<BigDecimal>>(){});
+        }
+
+        public BigDecimal getReceivedByAddress(String address) throws Exception {
+            final List<Object> args = new ArrayList<>();
+            args.add(address);
+            args.add(Settings.REQUIRED_CONFIRMATIONS);
+            return jsonRPC.executeRpcRequest("getreceivedbyaddress", args, new TypeReference<JsonRPC.JsonRpcResponse<BigDecimal>>(){});
         }
 
         public List<Address.Transaction> getTransactions(final Set<Object> addresses) {
-            BigDecimal confirmed = BigDecimal.ZERO, pendingWithdraw = BigDecimal.ZERO;
             List<Address.Transaction> transactionList = new ArrayList<>();
             synchronized (addressList) {
                 for(Address address : addressList.values()) if(addresses.contains(address.getAddress())) {
@@ -42,15 +44,14 @@ public class CryptoCoinWallet {
             return transactionList;
         }
 
-        public BigDecimal summaryConfirmedBalance(final Set<Object> addresses) {
-            BigDecimal confirmed = BigDecimal.ZERO, pendingWithdraw = BigDecimal.ZERO;
+        public BigDecimal summaryConfirmedBalance(final Set<Object> addresses) throws Exception {
+            BigDecimal confirmed = BigDecimal.ZERO;
             synchronized (addressList) {
                 for(Address address : addressList.values()) if(addresses.contains(address.getAddress())) {
-                    confirmed = confirmed.add(address.getConfirmedBalance());
-                    pendingWithdraw = pendingWithdraw.add(address.getUnconfirmedWithdraw());
+                    confirmed = confirmed.add(getReceivedByAddress(address.getAddress()));
                 }
             }
-            return confirmed.add(pendingWithdraw);
+            return confirmed;
         }
 
         public void loadAddresses() throws Exception {
@@ -64,7 +65,7 @@ public class CryptoCoinWallet {
             }
         }
 
-        public void loadTransactions(int maxCount, boolean onlyReceive) throws Exception { // Expensive
+        public void loadTransactions(int maxCount) throws Exception { // Expensive
             loadAddresses();
             List<Object> args = new ArrayList<>();
             args.add(this.getName());
@@ -75,7 +76,7 @@ public class CryptoCoinWallet {
 
             synchronized (addressList) {
                 Address address = null;
-                for(Address.Transaction transaction : transactions) if (!onlyReceive || transaction.getCategory().equals("receive")) {
+                for(Address.Transaction transaction : transactions) {
                     if(address == null || !address.getAddress().equals(transaction.address)) {
                         if(addressList.containsKey(transaction.address)) {
                             address = addressList.get(transaction.address);
@@ -85,9 +86,6 @@ public class CryptoCoinWallet {
                         }
                     }
                     address.addTransaction(transaction);
-                }
-                for(Address updateAddress : addressList.values()) {
-                    updateAddress.reset();
                 }
             }
         }
@@ -102,9 +100,8 @@ public class CryptoCoinWallet {
         public Address getRandomAddress() {
             synchronized (addressList) {
                 Iterator<Address> iterator = addressList.values().iterator();
-                if (iterator.hasNext()) return iterator.next();
+                return iterator.hasNext() ? iterator.next() : null;
             }
-            return null;
         }
 
         public Address generateNewAddress() throws Exception {

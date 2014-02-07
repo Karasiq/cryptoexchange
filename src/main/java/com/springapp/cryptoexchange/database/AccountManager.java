@@ -55,7 +55,6 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
         return v;
     }
 
-    @Transactional
     private BigDecimal getCryptoBalance(VirtualWallet virtualWallet) throws Exception {
         final AbstractWallet wallet = daemonManager.getAccount(virtualWallet.getCurrency());
         final List<Address> addressList = daemonManager.getAddressList(virtualWallet);
@@ -151,6 +150,7 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
     public List<Order> getAccountOrders(@NonNull Account account, int max) {
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Order.class)
+                .add(Restrictions.not(Restrictions.eq("status", Order.Status.CANCELLED)))
                 .setMaxResults(max)
                 .add(Restrictions.eq("account", account))
                 .addOrder(org.hibernate.criterion.Order.desc("updateDate"))
@@ -163,6 +163,7 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Order.class)
                 .setMaxResults(max)
+                .add(Restrictions.not(Restrictions.eq("status", Order.Status.CANCELLED)))
                 .add(Restrictions.eq("tradingPair", tradingPair))
                 .add(Restrictions.eq("account", account))
                 .addOrder(org.hibernate.criterion.Order.desc("updateDate"))

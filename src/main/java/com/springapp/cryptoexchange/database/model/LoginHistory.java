@@ -10,7 +10,6 @@ import java.util.Date;
 @Entity
 @Table(name = "login_history")
 @Data
-@EqualsAndHashCode(exclude = "account")
 @ToString(exclude = "account")
 @RequiredArgsConstructor
 @NoArgsConstructor

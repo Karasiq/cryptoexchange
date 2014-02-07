@@ -42,16 +42,16 @@ public class TradingPair implements Serializable {
     @JsonIgnore
     Date lastReset = new Date();
 
-    @Column(name = "volume")
+    @Column(name = "volume", precision = 38, scale = 2)
     BigDecimal volume = BigDecimal.ZERO;
 
-    @Column(name = "last_price")
+    @Column(name = "last_price", precision = 38, scale = 8)
     BigDecimal lastPrice = BigDecimal.ZERO;
 
-    @Column(name = "high_price")
+    @Column(name = "high_price", precision = 38, scale = 8)
     BigDecimal dayHigh = BigDecimal.ZERO;
 
-    @Column(name = "low_price")
+    @Column(name = "low_price", precision = 38, scale = 8)
     BigDecimal dayLow = BigDecimal.ZERO;
 
     // Settings:

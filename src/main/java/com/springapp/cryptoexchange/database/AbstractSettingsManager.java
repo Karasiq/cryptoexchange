@@ -12,6 +12,4 @@ public interface AbstractSettingsManager {
     public List<Currency> getCurrencyList();
     public TradingPair getTradingPair(long id);
     public Currency getCurrency(long id);
-    public void setTestingMode(boolean testingMode);
-    public boolean isTestingMode();
 }

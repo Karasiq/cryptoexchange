@@ -1,33 +1,23 @@
 package com.springapp.cryptoexchange.database.model;
 
 
-import com.springapp.cryptoexchange.config.ServerSettings;
 import lombok.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.encoding.ShaPasswordEncoder;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.transaction.annotation.Transactional;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import javax.persistence.*;
-import javax.xml.bind.DatatypeConverter;
+import javax.transaction.Transactional;
 import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 @Data
 @Entity
 @NoArgsConstructor
 @Table(name = "accounts")
-@EqualsAndHashCode(of={"id", "login", "passwordHash"})
 @ToString(exclude = "virtualWalletMap")
 @Transactional
 public class Account implements Serializable {

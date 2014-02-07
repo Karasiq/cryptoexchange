@@ -1,6 +1,5 @@
 package com.springapp.cryptoexchange.database;
 
-import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
 import org.springframework.stereotype.Repository;
@@ -22,5 +21,4 @@ public interface AbstractMarketManager {
     public Order getOrder(long orderId);
     public List<Order> getOpenOrders(TradingPair tradingPair, Order.Type type, int max, boolean ascending); // use ConvertService instead
     public void setTradingPairEnabled(TradingPair tradingPair, boolean enabled);
-    public void reloadTradingPairs();
 }

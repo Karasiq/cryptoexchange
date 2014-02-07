@@ -1,8 +1,11 @@
 package com.springapp.cryptoexchange.database;
 
+import com.springapp.cryptoexchange.CacheCleaner;
 import com.springapp.cryptoexchange.Calculator;
-import com.springapp.cryptoexchange.database.model.*;
-import com.springapp.cryptoexchange.webapi.AbstractConvertService;
+import com.springapp.cryptoexchange.database.model.Currency;
+import com.springapp.cryptoexchange.database.model.Order;
+import com.springapp.cryptoexchange.database.model.TradingPair;
+import com.springapp.cryptoexchange.database.model.VirtualWallet;
 import lombok.NonNull;
 import lombok.experimental.NonFinal;
 import lombok.extern.apachecommons.CommonsLog;
@@ -14,19 +17,14 @@ import org.joda.time.DateTime;
 import org.joda.time.Period;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 
 @Service
@@ -52,13 +50,12 @@ public class MarketManager implements AbstractMarketManager {
     AbstractAccountManager accountManager;
 
     @Autowired
+    CacheCleaner cacheCleaner;
+
+    @Autowired
     LockManager lockManager;
 
-    public void reloadTradingPairs() {
-        // nothing
-    }
-
-    private static void updateOrderStatus(@NonFinal Order order) {
+    private void updateOrderStatus(@NonFinal Order order) {
         final Date now = new Date();
         if(order.getRemainingAmount().compareTo(BigDecimal.ZERO) == 0) {
             order.setStatus(Order.Status.COMPLETED);
@@ -69,25 +66,28 @@ public class MarketManager implements AbstractMarketManager {
         order.setUpdateDate(now);
     }
 
-    @Transactional
-    private void returnUnusedFunds(@NonNull final Order order) {
+    private void returnUnusedFunds(@NonNull Order order) {
         Session session = sessionFactory.getCurrentSession();
         assert !order.isActual();
-        BigDecimal total = order.getTotal();
-        BigDecimal returnAmount = Calculator.totalRequired(order.getType(), order.getAmount(), order.getPrice()).subtract(total);
-        VirtualWallet wallet = order.getSourceWallet();
-        wallet.addBalance(returnAmount);
-        session.saveOrUpdate(wallet);
+        BigDecimal returnAmount = Calculator.totalRequired(order.getType(), order.getAmount(), order.getPrice()).subtract(order.getTotal());
+        if (returnAmount.compareTo(BigDecimal.ZERO) != 0) {
+            VirtualWallet wallet = order.getSourceWallet();
+            session.refresh(wallet);
+            wallet.addBalance(returnAmount);
+            session.update(wallet);
+            log.info(String.format("[MarketManager] Returned unspent money (#%d): %s", order.getId(), returnAmount));
+            cacheCleaner.balancesEvict(order.getAccount());
+        }
     }
 
-    @Caching(evict = {@CacheEvict(value = "getMarketPrices", key = "#tradingPair.id")})
+    @Async
     private void updateMarketInfo(@NonFinal TradingPair tradingPair, final BigDecimal price, final BigDecimal amount) {
         Session session = sessionFactory.getCurrentSession();
-        session.refresh(tradingPair);
+        tradingPair = (TradingPair) session.merge(tradingPair);
         if(tradingPair.getLastReset() == null || DateTime.now().minus(Period.days(1)).isAfter(new DateTime(tradingPair.getLastReset()))) {
             tradingPair.setLastReset(new Date());
-            tradingPair.setDayHigh(BigDecimal.ZERO);
-            tradingPair.setDayLow(BigDecimal.ZERO);
+            tradingPair.setDayHigh(null);
+            tradingPair.setDayLow(null);
             tradingPair.setVolume(BigDecimal.ZERO);
         }
 
@@ -98,23 +98,18 @@ public class MarketManager implements AbstractMarketManager {
         if(high == null || price.compareTo(high) > 0) {
             tradingPair.setDayHigh(price);
         }
-        if(volume == null) {
-            volume = amount;
-        }
-        else {
-            volume = volume.add(amount);
-        }
         tradingPair.setLastPrice(price);
-        tradingPair.setVolume(volume);
+        tradingPair.setVolume(volume == null ? amount : volume.add(amount));
         historyManager.updateChartData(tradingPair, price, amount);
+        session.update(tradingPair);
+        cacheCleaner.marketPricesEvict(tradingPair);
     }
 
-    @Transactional
     @SuppressWarnings("all")
     private void remapFunds(@NonFinal Order firstOrder, @NonFinal Order secondOrder, final BigDecimal amount) throws Exception {
         TradingPair tradingPair = firstOrder.getTradingPair();
         assert firstOrder.getType() == Order.Type.SELL && secondOrder.getType() == Order.Type.BUY; // First sell, then buy
-        assert firstOrder.getSourceWallet().getCurrency().equals(tradingPair.getFirstCurrency()) && firstOrder.getDestWallet().getCurrency().equals(tradingPair.getSecondCurrency()) && secondOrder.getSourceWallet().getCurrency().equals(tradingPair.getSecondCurrency()) && secondOrder.getDestWallet().getCurrency().equals(tradingPair.getFirstCurrency());
+        assert firstOrder.isActual() && secondOrder.isActual() && firstOrder.getSourceWallet().getCurrency().equals(tradingPair.getFirstCurrency()) && firstOrder.getDestWallet().getCurrency().equals(tradingPair.getSecondCurrency()) && secondOrder.getSourceWallet().getCurrency().equals(tradingPair.getSecondCurrency()) && secondOrder.getDestWallet().getCurrency().equals(tradingPair.getFirstCurrency());
         BigDecimal price = firstOrder.getPrice(), tradingFee = tradingPair.getTradingFee(), total = Calculator.buyTotal(amount, price);
 
         BigDecimal firstCurrencySend = Calculator.withoutFee(amount, tradingFee), secondCurrencySend = Calculator.withoutFee(total, tradingFee);
@@ -124,14 +119,13 @@ public class MarketManager implements AbstractMarketManager {
 
         firstOrder.addTotal(amount);
         firstOrder.addCompletedAmount(amount);
-        secondOrder.addTotal(amount.multiply(price));
+        secondOrder.addTotal(total);
         secondOrder.addCompletedAmount(amount);
         updateOrderStatus(firstOrder);
         updateOrderStatus(secondOrder);
-        feeManager.submitCollectedFee(tradingPair.getFirstCurrency(), Calculator.fee(amount, tradingFee));
-        feeManager.submitCollectedFee(tradingPair.getSecondCurrency(), Calculator.fee(total, tradingFee));
+
         if(firstOrder.getStatus() == Order.Status.COMPLETED || secondOrder.getStatus() == Order.Status.COMPLETED) {
-            updateMarketInfo(firstOrder.getTradingPair(), price, amount);
+            updateMarketInfo(tradingPair, price, amount);
         }
 
         VirtualWallet firstDest = firstOrder.getDestWallet(), secondDest = secondOrder.getDestWallet();
@@ -144,6 +138,10 @@ public class MarketManager implements AbstractMarketManager {
         if(secondOrder.getStatus() == Order.Status.COMPLETED) {
             returnUnusedFunds(secondOrder);
         }
+
+        feeManager.submitCollectedFee(tradingPair.getFirstCurrency(), Calculator.fee(amount, tradingFee));
+        feeManager.submitCollectedFee(tradingPair.getSecondCurrency(), Calculator.fee(total, tradingFee));
+        cacheCleaner.orderExecutionEvict(firstOrder, secondOrder);
     }
 
     @Transactional
@@ -154,7 +152,12 @@ public class MarketManager implements AbstractMarketManager {
 
     @Transactional
     @SuppressWarnings("unchecked")
-    @Caching(evict = { @CacheEvict(value = "getMarketDepth", key = "#order.tradingPair.id") })
+    @Caching(evict = {
+            @CacheEvict(value = "getAccountOrdersByPair", key = "#order.account.login + #order.tradingPair.id"),
+            @CacheEvict(value = "getAccountOrders", key = "#order.account.login"),
+            @CacheEvict(value = "getAccountBalances", key = "#order.account.login"),
+            @CacheEvict(value = "getMarketDepth", key = "#order.tradingPair.id")
+    })
     public void cancelOrder(@NonNull Order order) throws Exception {
         assert order.isActual();
         IdBasedLock<TradingPair> lock = lockManager.getTradingPairLockManager().obtainLock(order.getTradingPair());
@@ -163,8 +166,8 @@ public class MarketManager implements AbstractMarketManager {
             log.info(String.format("[MarketManager] cancelOrder => %s", order));
             Session session = sessionFactory.getCurrentSession();
             order.cancel();
-            session.saveOrUpdate(order);
             returnUnusedFunds(order);
+            session.update(order);
         } catch (Exception e) {
             log.error("cancelOrder error", e);
             throw e;
@@ -173,7 +176,13 @@ public class MarketManager implements AbstractMarketManager {
         }
     }
 
-    @Caching(evict = { @CacheEvict(value = "getMarketDepth", key = "#newOrder.tradingPair.id"), @CacheEvict(value = "getMarketHistory", key = "#newOrder.tradingPair.id") })
+    @Caching(evict = {
+            @CacheEvict(value = "getMarketDepth", key = "#newOrder.tradingPair.id"),
+            @CacheEvict(value = "getMarketHistory", key = "#newOrder.tradingPair.id"),
+            @CacheEvict(value = "getAccountOrdersByPair", key = "#newOrder.account.login + #newOrder.tradingPair.id"),
+            @CacheEvict(value = "getAccountOrders", key = "#newOrder.account.login"),
+            @CacheEvict(value = "getAccountBalances", key = "#newOrder.account.login")
+    })
     @Transactional
     @SuppressWarnings("unchecked")
     public Order executeOrder(@NonNull Order newOrder) throws Exception {
@@ -186,12 +195,12 @@ public class MarketManager implements AbstractMarketManager {
         IdBasedLock<TradingPair> lock = lockManager.getTradingPairLockManager().obtainLock(newOrder.getTradingPair());
         lock.lock();
         try {
-            log.info(String.format("[MarketManager] executeOrder => %s", newOrder));
             Session session = sessionFactory.getCurrentSession();
+            log.info(String.format("[MarketManager] executeOrder => %s", newOrder));
             Order.Type orderType = newOrder.getType();
             VirtualWallet virtualWalletSource = newOrder.getSourceWallet(), virtualWalletDest = newOrder.getDestWallet();
-            session.saveOrUpdate(virtualWalletSource);
-            session.saveOrUpdate(virtualWalletDest);
+            session.refresh(virtualWalletSource);
+            session.refresh(virtualWalletDest);
             BigDecimal balance = accountManager.getVirtualWalletBalance(virtualWalletSource);
             BigDecimal remainingAmount = newOrder.getRemainingAmount();
             BigDecimal required = Calculator.totalRequired(orderType, remainingAmount, newOrder.getPrice());
@@ -205,9 +214,10 @@ public class MarketManager implements AbstractMarketManager {
             List<Order> orders = session.createCriteria(Order.class)
                     .addOrder(orderType == Order.Type.BUY ? org.hibernate.criterion.Order.asc("price") : org.hibernate.criterion.Order.desc("price"))
                     .addOrder(org.hibernate.criterion.Order.asc("openDate"))
-                    .add(Restrictions.and(Restrictions.ne("status", Order.Status.CANCELLED), Restrictions.ne("status", Order.Status.COMPLETED)))
+                    .add(Restrictions.in("status", new Order.Status[]{Order.Status.OPEN, Order.Status.PARTIALLY_COMPLETED}))
                     .add(Restrictions.eq("tradingPair", newOrder.getTradingPair()))
                     .add(orderType == Order.Type.BUY ? Restrictions.le("price", newOrder.getPrice()) : Restrictions.ge("price", newOrder.getPrice()))
+                    .add(Restrictions.eq("type", orderType.equals(Order.Type.BUY) ? Order.Type.SELL : Order.Type.BUY))
                     .list();
             for(Order order : orders) {
                 BigDecimal orderRemainingAmount = order.getRemainingAmount();
@@ -219,14 +229,16 @@ public class MarketManager implements AbstractMarketManager {
                 else {
                     remapFunds(newOrder, order, tradeAmount);
                 }
-                session.saveOrUpdate(order);
+                session.update(order);
+                session.update(order.getSourceWallet());
+                session.update(order.getDestWallet());
                 if(newOrder.getStatus().equals(Order.Status.COMPLETED)) {
                     break; // Order executed
                 }
             }
-            session.saveOrUpdate(newOrder);
-            session.saveOrUpdate(virtualWalletSource);
-            session.saveOrUpdate(virtualWalletDest);
+            session.save(newOrder);
+            session.update(virtualWalletSource);
+            session.update(virtualWalletDest);
             return newOrder;
         } catch (Exception e) {
             log.error("executeOrder error", e);
@@ -239,8 +251,8 @@ public class MarketManager implements AbstractMarketManager {
     @Transactional
     public void setTradingPairEnabled(TradingPair tradingPair, boolean enabled) {
         Session session = sessionFactory.getCurrentSession();
-        session.refresh(tradingPair);
         tradingPair.setEnabled(enabled);
+        session.update(tradingPair);
         log.info(String.format("setTradingPairEnabled: %s", tradingPair));
     }
 
@@ -252,7 +264,7 @@ public class MarketManager implements AbstractMarketManager {
         return session.createCriteria(Order.class)
                 .setMaxResults(max)
                 .add(Restrictions.eq("tradingPair", tradingPair))
-                .add(Restrictions.or(Restrictions.eq("status", Order.Status.OPEN), Restrictions.eq("status", Order.Status.PARTIALLY_COMPLETED)))
+                .add(Restrictions.in("status", new Order.Status[] { Order.Status.OPEN, Order.Status.PARTIALLY_COMPLETED }))
                 .add(Restrictions.eq("type", type))
                 .addOrder(ascending ? org.hibernate.criterion.Order.asc("price") : org.hibernate.criterion.Order.desc("price"))
                 .list();

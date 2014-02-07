@@ -22,72 +22,45 @@ public class SettingsManager implements AbstractSettingsManager {
     @Autowired
     SessionFactory sessionFactory;
 
-    @Autowired
-    AbstractMarketManager marketManager;
-
-    private @Getter List<Currency> currencyList = null;
-    private @Getter List<TradingPair> tradingPairs = null;
-    private @Getter @Setter boolean testingMode = false;
-
-
     @CacheEvict(value = "getTradingPairs", allEntries = true)
     @Transactional
     public void addTradingPair(TradingPair newTradingPair) {
-        synchronized (tradingPairs) {
-            tradingPairs.add(newTradingPair);
-            marketManager.reloadTradingPairs();
-        }
+        Session session = sessionFactory.getCurrentSession();
+        session.saveOrUpdate(newTradingPair);
     }
 
     @Transactional
     private void addCurrency(Currency newCurrency) {
-        synchronized (currencyList) {
-            currencyList.add(newCurrency);
-        }
+        Session session = sessionFactory.getCurrentSession();
+        session.saveOrUpdate(newCurrency);
     }
 
-    @Transactional
+    @Override
     @SuppressWarnings("unchecked")
-    private void loadCurrencies(Session session) {
-        currencyList = session.createCriteria(Currency.class)
+    public List<TradingPair> getTradingPairs() {
+        return sessionFactory.getCurrentSession().createCriteria(TradingPair.class)
                 .add(Restrictions.eq("enabled", true)).list();
     }
 
-    @CacheEvict("getTradingPairs")
+    @Override
     @Transactional
     @SuppressWarnings("unchecked")
-    public synchronized void loadTradingPairs(Session session) {
-        tradingPairs = session.createCriteria(TradingPair.class)
+    public List<Currency> getCurrencyList() {
+        return sessionFactory.getCurrentSession().createCriteria(Currency.class)
                 .add(Restrictions.eq("enabled", true)).list();
     }
 
+    @Transactional
+    @Override
     public TradingPair getTradingPair(long id) {
-        synchronized (tradingPairs) {
-            for(TradingPair tradingPair : tradingPairs) {
-                if(tradingPair.getId() == id) {
-                    return tradingPair;
-                }
-            }
-        }
-        return null;
+        return (TradingPair) sessionFactory.getCurrentSession().createCriteria(TradingPair.class)
+                .add(Restrictions.eq("id", id))
+                .add(Restrictions.eq("enabled", true)).uniqueResult();
     }
 
     public Currency getCurrency(long id) {
-        synchronized (currencyList) {
-            for(Currency currency : currencyList) {
-                if(currency.getId() == id) {
-                    return currency;
-                }
-            }
-        }
-        return null;
-    }
-
-    @PostConstruct
-    public synchronized void init() {
-        @Cleanup Session session = sessionFactory.openSession();
-        loadCurrencies(session);
-        loadTradingPairs(session);
-        marketManager.reloadTradingPairs();
+        return (Currency) sessionFactory.getCurrentSession().createCriteria(Currency.class)
+                .add(Restrictions.eq("id", id))
+                .add(Restrictions.eq("enabled", true)).uniqueResult();
     }
 }

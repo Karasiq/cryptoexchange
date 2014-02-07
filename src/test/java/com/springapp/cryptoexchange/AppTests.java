@@ -4,6 +4,7 @@ import com.bitcoin.daemon.CryptoCoinWallet;
 import com.bitcoin.daemon.JsonRPC;
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
+import lombok.extern.apachecommons.CommonsLog;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.logging.impl.LogFactoryImpl;
 import org.hibernate.Session;
@@ -17,9 +18,9 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 
-import javax.transaction.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.logging.Logger;
@@ -32,6 +33,7 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppC
 @RunWith(SpringJUnit4ClassRunner.class)
 @WebAppConfiguration
 @ContextConfiguration("file:src/main/webapp/WEB-INF/mvc-dispatcher-servlet.xml")
+@CommonsLog
 public class AppTests {
     @Autowired
     SessionFactory sessionFactory;
@@ -60,7 +62,6 @@ public class AppTests {
     @Before
     public void setup() throws Exception {
         this.mockMvc = webAppContextSetup(this.wac).build();
-        settingsManager.setTestingMode(true);
     }
 
     //@Test
@@ -82,19 +83,19 @@ public class AppTests {
         System.out.println(result.getResponse().getContentAsString());
     }
 
-    //@Test
+    @Test
     public void jsonRpc() throws Exception {
         // Existing:
         JsonRPC rpc = new JsonRPC("localhost", 8779, "user", "password");
         CryptoCoinWallet.Account account = new CryptoCoinWallet.Account(rpc, "PZcojt26ozH2nh5u7zqG1DfuzG6FUuvbZ3");
 
-        account.loadTransactions(1000, true);
-        System.out.println(account.summaryConfirmedBalance());
+        account.loadTransactions(1000);
+        log.info(String.format("Account balance: %s", account.summaryConfirmedBalance()));
 
         // New:
-        CryptoCoinWallet.Account account1 = CryptoCoinWallet.generateAccount(rpc, "test");
-        System.out.println(account.sendToAddress(account1.generateNewAddress().getAddress(), BigDecimal.valueOf(3.0)));
-        System.out.println(account.summaryConfirmedBalance());
+        //CryptoCoinWallet.Account account1 = CryptoCoinWallet.generateAccount(rpc, "test");
+        //System.out.println(account.sendToAddress(account1.generateNewAddress().getAddress(), BigDecimal.valueOf(3.0)));
+        //System.out.println(account.summaryConfirmedBalance());
     }
 
     @Test
@@ -121,17 +122,21 @@ public class AppTests {
             secondAccount = accountManager.addAccount(new Account("seller", "password", ""));
         }
         TradingPair tradingPair = settingsManager.getTradingPairs().get(0);
-        VirtualWallet firstBuyWallet = firstAccount.createVirtualWallet(tradingPair.getFirstCurrency()),
-                secondBuyWallet = firstAccount.createVirtualWallet(tradingPair.getSecondCurrency()),
-                firstSellWallet = secondAccount.createVirtualWallet(tradingPair.getFirstCurrency()),
-                secondSellWallet = secondAccount.createVirtualWallet(tradingPair.getSecondCurrency());
+        VirtualWallet firstBuyWallet = accountManager.getVirtualWallet(firstAccount, tradingPair.getFirstCurrency()),
+                secondBuyWallet = accountManager.getVirtualWallet(firstAccount, tradingPair.getSecondCurrency()),
+                firstSellWallet = accountManager.getVirtualWallet(secondAccount, tradingPair.getFirstCurrency()),
+                secondSellWallet = accountManager.getVirtualWallet(secondAccount, tradingPair.getSecondCurrency());
 
         secondBuyWallet.setVirtualBalance(BigDecimal.valueOf(10));
         firstSellWallet.setVirtualBalance(BigDecimal.valueOf(10));
+        session.saveOrUpdate(secondBuyWallet);
+        session.saveOrUpdate(firstSellWallet);
+
+        Order sellOrder = marketManager.executeOrder(new Order(Order.Type.SELL, BigDecimal.valueOf(2), BigDecimal.valueOf(3), tradingPair, firstSellWallet, secondSellWallet, firstAccount));
 
         Order buyOrder = marketManager.executeOrder(new Order(Order.Type.BUY, BigDecimal.valueOf(1), BigDecimal.valueOf(5), tradingPair, secondBuyWallet, firstBuyWallet, firstAccount));
 
-        Order sellOrder = marketManager.executeOrder(new Order(Order.Type.SELL, BigDecimal.valueOf(2), BigDecimal.valueOf(3), tradingPair, firstSellWallet, secondSellWallet, firstAccount));
+
         System.out.println(sellOrder);
         marketManager.cancelOrder(sellOrder);
 

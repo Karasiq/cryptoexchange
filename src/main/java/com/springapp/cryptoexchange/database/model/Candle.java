@@ -29,15 +29,15 @@ public class Candle implements Serializable {
     @Column(name = "close_time")
     Date closeTime;
 
-    @Column(name = "open")
+    @Column(name = "open", precision = 38, scale = 8)
     BigDecimal open;
-    @Column(name = "high")
+    @Column(name = "high", precision = 38, scale = 8)
     BigDecimal high;
-    @Column(name = "low")
+    @Column(name = "low", precision = 38, scale = 8)
     BigDecimal low;
-    @Column(name = "close")
+    @Column(name = "close", precision = 38, scale = 8)
     BigDecimal close;
-    @Column(name = "volume")
+    @Column(name = "volume", precision = 38, scale = 2)
     BigDecimal volume;
 
     @ManyToOne

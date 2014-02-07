@@ -6,9 +6,10 @@ import lombok.EqualsAndHashCode;
 import lombok.NonNull;
 
 import java.math.BigDecimal;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Data
@@ -36,27 +37,10 @@ public class Address {
         }
     }
     private final Map<Integer, Transaction> transactionList = new ConcurrentHashMap<>();
-    public synchronized void reset() {
-        confirmedBalance = BigDecimal.ZERO;
-        unconfirmedBalance = BigDecimal.ZERO;
-        unconfirmedWithdraw = BigDecimal.ZERO;
-        for(Transaction transaction : transactionList.values()) {
-            if(transaction.isConfirmed()) {
-                confirmedBalance = confirmedBalance.add(transaction.amount);
-            } else if(transaction.amount.compareTo(BigDecimal.ZERO) < 0) { // Send
-                unconfirmedWithdraw = unconfirmedWithdraw.add(transaction.amount);
-            } else {
-                unconfirmedBalance = unconfirmedBalance.add(transaction.amount);
-            }
-        }
-    }
 
     public void addTransaction(Transaction transaction) {
         transactionList.put(transaction.hashCode(), transaction);
     }
 
-    private volatile BigDecimal confirmedBalance = BigDecimal.ZERO;
-    private volatile BigDecimal unconfirmedBalance = BigDecimal.ZERO;
-    private volatile BigDecimal unconfirmedWithdraw = BigDecimal.ZERO;
     private @NonNull String address;
 }

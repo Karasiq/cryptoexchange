@@ -24,7 +24,7 @@ public class TestingWallet implements AbstractWallet {
     public void resetUnconfirmedBalance() throws Exception {
         // nothing
     }
-    public void loadTransactions(int maxCount, boolean onlyReceive) throws Exception {
+    public void loadTransactions(int maxCount) throws Exception {
         // nothing
     }
 }

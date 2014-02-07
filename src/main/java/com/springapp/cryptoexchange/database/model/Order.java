@@ -15,7 +15,6 @@ import java.util.Date;
 @RequiredArgsConstructor
 @Table(name = "orders")
 @ToString(of={"id", "type", "status", "amount", "price", "completedAmount", "total"})
-@EqualsAndHashCode(of={"id", "type", "status", "amount", "price", "completedAmount", "total"})
 public class Order implements Serializable {
     public enum Status {
         OPEN, COMPLETED, PARTIALLY_COMPLETED, CANCELLED, PARTIALLY_CANCELLED
@@ -45,16 +44,16 @@ public class Order implements Serializable {
     @Column(name = "type")
     @NonNull Type type;
 
-    @Column(name = "amount")
+    @Column(name = "amount", precision = 38, scale = 8)
     @NonNull BigDecimal amount;
 
-    @Column(name = "completed_amount")
+    @Column(name = "completed_amount", precision = 38, scale = 8)
     BigDecimal completedAmount = BigDecimal.ZERO;
 
-    @Column(name = "total_sum")
+    @Column(name = "total_sum", precision = 38, scale = 8)
     BigDecimal total = BigDecimal.ZERO;
 
-    @Column(name = "price")
+    @Column(name = "price", precision = 38, scale = 8)
     @NonNull BigDecimal price;
 
     @ManyToOne

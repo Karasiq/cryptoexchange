@@ -52,6 +52,9 @@ public class DaemonManager implements AbstractDaemonManager {
     @Autowired
     LockManager lockManager;
 
+    @Autowired
+    AbstractFeeManager feeManager;
+
     private Daemon getDaemonSettings(@NonNull Currency currency) {
         assert currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO);
         @Cleanup Session session = sessionFactory.openSession();
@@ -60,15 +63,15 @@ public class DaemonManager implements AbstractDaemonManager {
                 .uniqueResult();
     }
 
-    @Scheduled(fixedDelay = 20000) // Every 5m
-    private synchronized void loadTransactions() throws Exception {
+    @Scheduled(fixedDelay = 5 * 60 * 1000) // Every 5m
+    public synchronized void loadTransactions() throws Exception {
         log.info("Reloading transactions...");
         List<Currency> currencyList = settingsManager.getCurrencyList();
-        for(Currency currency : currencyList) {
+        for(Currency currency : currencyList) if(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
             final DaemonInfo daemonInfo = daemonMap.get(currency);
             if(daemonInfo.enabled && daemonInfo.wallet != null) {
                 try {
-                    daemonInfo.wallet.loadTransactions(1000, true); // All withdrawals stored in virtual balance
+                    daemonInfo.wallet.loadTransactions(1000);
                 }
                 catch (JsonRPC.RPCDaemonException exc) {
                     log.error(exc);
@@ -83,7 +86,7 @@ public class DaemonManager implements AbstractDaemonManager {
             if(!daemonMap.containsKey(currency) && currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
                 Daemon settings = getDaemonSettings(currency);
                 JsonRPC daemon = new JsonRPC(settings.getDaemonHost(), settings.getDaemonPort(), settings.getDaemonLogin(), settings.getDaemonPassword());
-                AbstractWallet wallet = settingsManager.isTestingMode() ? new TestingWallet() : CryptoCoinWallet.getDefaultAccount(daemon);
+                AbstractWallet wallet = CryptoCoinWallet.getDefaultAccount(daemon);
                 daemonMap.put(currency, new DaemonInfo(wallet));
             }
         }
@@ -97,7 +100,7 @@ public class DaemonManager implements AbstractDaemonManager {
 
     @Transactional
     public String createWalletAddress(@NonNull VirtualWallet virtualWallet) throws Exception {
-        assert !settingsManager.isTestingMode() && virtualWallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO);
+        assert virtualWallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO);
         Session session = sessionFactory.getCurrentSession();
         session.saveOrUpdate(virtualWallet);
         CryptoCoinWallet.Account account = (CryptoCoinWallet.Account) getAccount(virtualWallet.getCurrency());
@@ -109,30 +112,25 @@ public class DaemonManager implements AbstractDaemonManager {
 
     @Transactional
     public void withdrawFunds(@NonNull VirtualWallet wallet, @NonNull String address, @NonNull BigDecimal amount) throws Exception {
-        assert !settingsManager.isTestingMode() && wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO) && address.length() > 0 && amount.compareTo(BigDecimal.ZERO) > 0;
+        assert wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO) && address.length() > 0 && amount.compareTo(BigDecimal.ZERO) > 0;
+        Session session = sessionFactory.getCurrentSession();
         IdBasedLock<VirtualWallet> lock = lockManager.getVirtualWalletLockManager().obtainLock(wallet);
         lock.lock();
         try {
+            session.refresh(wallet);
             CryptoCoinWallet.Account account = (CryptoCoinWallet.Account) getAccount(wallet.getCurrency());
             BigDecimal balance = accountManager.getVirtualWalletBalance(wallet);
-            BigDecimal required = amount.multiply(Calculator.ONE_HUNDRED.add(wallet.getCurrency().getWithdrawFee()).divide(Calculator.ONE_HUNDRED, 8, RoundingMode.FLOOR));
+            BigDecimal required = Calculator.withFee(amount, wallet.getCurrency().getWithdrawFee());
             if(balance.compareTo(required) < 0 || account.summaryConfirmedBalance().compareTo(required) < 0) {
                 throw new AbstractAccountManager.AccountException("Insufficient funds");
             }
+            wallet.addBalance(required.negate());
+            session.update(wallet);
 
             log.info(String.format("Funds withdraw requested: from %s to %s <%s>", wallet, address, amount));
-
-            com.bitcoin.daemon.Address.Transaction transaction;
-            try {
-                transaction = account.sendToAddress(address, amount);
-                log.info(String.format("Funds withdraw success: %s", transaction));
-            } catch (Exception e) {
-                log.error(e);
-                throw e;
-            }
-
-            // if no errors:
-            wallet.addBalance(required.negate());
+            com.bitcoin.daemon.Address.Transaction transaction = account.sendToAddress(address, amount);
+            log.info(String.format("Funds withdraw success: %s", transaction));
+            feeManager.submitCollectedFee(wallet.getCurrency(), Calculator.fee(amount, wallet.getCurrency().getWithdrawFee()).add(transaction.getFee())); // Tx fee is negative
         } catch (Exception e) {
             log.error(e);
             throw e;

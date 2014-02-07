@@ -5,14 +5,11 @@ import com.springapp.cryptoexchange.database.model.*;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 @Service
@@ -36,7 +33,7 @@ public class ConvertService implements AbstractConvertService { // Convert layer
     SessionFactory sessionFactory;
 
     public Depth createDepth(List<Order> buyOrders, List<Order> sellOrders) throws Exception {
-        Depth depth = new Depth();
+        final Depth depth = new Depth();
         Depth.DepthEntry depthEntry = new Depth.DepthEntry();
         if(buyOrders != null && !buyOrders.isEmpty()) {
             for(Order order : buyOrders) {
@@ -72,8 +69,7 @@ public class ConvertService implements AbstractConvertService { // Convert layer
 
     @Transactional
     public AccountBalanceInfo createAccountBalanceInfo(Account account) throws Exception {
-        Session session = sessionFactory.getCurrentSession();
-        session.refresh(account);
+        sessionFactory.getCurrentSession().refresh(account);
         List<Currency> currencyList = settingsManager.getCurrencyList();
         AccountBalanceInfo accountBalanceInfo = new AccountBalanceInfo();
         for(Currency currency : currencyList) {

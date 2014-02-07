@@ -1,15 +1,16 @@
 package com.springapp.cryptoexchange.webapi;
 
-import com.springapp.cryptoexchange.database.AbstractDaemonManager;
-import com.springapp.cryptoexchange.database.model.*;
+import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Currency;
+import com.springapp.cryptoexchange.database.model.Order;
 import lombok.Data;
 import lombok.Value;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 
 @Repository
 public interface AbstractConvertService {
@@ -22,7 +23,7 @@ public interface AbstractConvertService {
         protected MarketHistory(Order order) {
             type = order.getType();
             price = order.getPrice();
-            amount = order.getAmount();
+            amount = order.getCompletedAmount();
             time = order.getCloseDate();
         }
     }
@@ -40,8 +41,8 @@ public interface AbstractConvertService {
                 return price.compareTo(entry.price);
             }
         }
-        public List<DepthEntry> sellOrders;
-        public List<DepthEntry> buyOrders;
+        public final List<DepthEntry> sellOrders = new ArrayList<>();
+        public final List<DepthEntry> buyOrders = new ArrayList<>();
     }
 
     @Data

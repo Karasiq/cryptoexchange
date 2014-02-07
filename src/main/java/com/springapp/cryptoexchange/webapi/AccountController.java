@@ -1,17 +1,17 @@
 package com.springapp.cryptoexchange.webapi;
 
-import com.bitcoin.daemon.*;
+import com.bitcoin.daemon.CryptoCoinWallet;
 import com.springapp.cryptoexchange.database.AbstractAccountManager;
 import com.springapp.cryptoexchange.database.AbstractDaemonManager;
 import com.springapp.cryptoexchange.database.AbstractHistoryManager;
 import com.springapp.cryptoexchange.database.AbstractSettingsManager;
 import com.springapp.cryptoexchange.database.model.*;
-import com.springapp.cryptoexchange.database.model.Address;
 import lombok.extern.apachecommons.CommonsLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -40,10 +40,10 @@ public class AccountController {
     @Autowired
     AbstractDaemonManager daemonManager;
 
-    @Cacheable(value = "getAccountBalanceInfo", key = "#principal.name")
+    @Cacheable(value = "getAccountBalances", key = "#principal.name")
     @RequestMapping("/balance")
     @ResponseBody
-    public ApiDefs.ApiStatus<AbstractConvertService.AccountBalanceInfo> getAccountBalanceInfo(Principal principal) {
+    public ApiDefs.ApiStatus<AbstractConvertService.AccountBalanceInfo> getAccountBalances(Principal principal) {
         Account account = accountManager.getAccount(principal.getName());
         try {
             assert account != null; // Shouldn't happen
@@ -70,10 +70,10 @@ public class AccountController {
         }
     }
 
-    @Cacheable(value = "getAccountOrdersByPair", key = "#principal.name + #tradingPairId.toString()")
+    @Cacheable(value = "getAccountOrdersByPair", key = "#principal.name + #tradingPairId")
     @RequestMapping("/orders/{tradingPairId}")
     @ResponseBody
-    public ApiDefs.ApiStatus<List<Order>> getAccountOrdersByPair(Principal principal, @PathVariable Long tradingPairId) {
+    public ApiDefs.ApiStatus<List<Order>> getAccountOrdersByPair(Principal principal, @PathVariable long tradingPairId) {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         Account account = accountManager.getAccount(principal.getName());
         try {

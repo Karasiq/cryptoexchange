@@ -1,7 +1,6 @@
 package com.springapp.cryptoexchange.database.model;
 
 
-import com.bitcoin.daemon.AbstractWallet;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,19 +8,13 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 @Data
 @Entity
 @NoArgsConstructor
 @RequiredArgsConstructor
 @Table(name = "balances")
-@EqualsAndHashCode(of = {"id", "currency"})
-@ToString(of = {"id", "currency", "virtualBalance"}, callSuper = false)
-@Transactional
+@ToString(exclude = "account", callSuper = false)
 public class VirtualWallet implements Serializable {
     @Id
     @GeneratedValue
@@ -33,7 +26,7 @@ public class VirtualWallet implements Serializable {
     @ManyToOne
     private Currency currency;
 
-    @Column(name = "virtual_balance")
+    @Column(name = "virtual_balance", precision = 38, scale = 8)
     private volatile BigDecimal virtualBalance = BigDecimal.ZERO;
 
     @NonNull

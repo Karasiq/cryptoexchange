@@ -12,8 +12,6 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "currencies")
-@EqualsAndHashCode(of = {"currencyCode", "currencyName"})
-@ToString(of = {"id", "currencyCode", "currencyName"}, callSuper = false)
 public class Currency implements Serializable {
     public static enum CurrencyType {
         PURE_VIRTUAL, CRYPTO
@@ -33,14 +31,20 @@ public class Currency implements Serializable {
     @Column(name = "name", nullable = false, unique = true)
     private @NonNull String currencyName;
 
-    @Column(name = "withdraw_fee", nullable = false)
+    @Column(name = "withdraw_fee", precision = 5, scale = 2)
     @JsonIgnore
-    private BigDecimal withdrawFee = BigDecimal.valueOf(3);
-
-    @Column(name = "collected_fee")
-    @JsonIgnore
-    private BigDecimal collectedFee = BigDecimal.ZERO;
+    private BigDecimal withdrawFee = BigDecimal.ONE;
 
     @Column(name = "type")
     private CurrencyType currencyType = CurrencyType.CRYPTO;
+
+    @PostLoad
+    void init() {
+        if(withdrawFee == null) {
+            withdrawFee = BigDecimal.ONE;
+        }
+        if(currencyType == null) {
+            currencyType = CurrencyType.CRYPTO;
+        }
+    }
 }
