@@ -3,13 +3,17 @@ package com.springapp.cryptoexchange.database;
 
 import com.bitcoin.daemon.AbstractWallet;
 import com.springapp.cryptoexchange.database.model.*;
+import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.apachecommons.CommonsLog;
 import net.anotheria.idbasedlock.IdBasedLock;
+import net.anotheria.idbasedlock.IdBasedLockManager;
+import net.anotheria.idbasedlock.SafeIdBasedLockManager;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -40,8 +44,10 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
     @Autowired
     private SessionFactory sessionFactory;
 
-    @Autowired
-    private LockManager lockManager;
+    private final IdBasedLockManager<Long> virtualWalletLockManager = new SafeIdBasedLockManager<>();
+    @Bean IdBasedLockManager<Long> getVirtualWalletLockManager() {
+        return virtualWalletLockManager;
+    }
 
     @Transactional
     public VirtualWallet getVirtualWallet(@NonNull Account account, @NonNull Currency currency) {
@@ -73,7 +79,7 @@ public class AccountManager implements AbstractAccountManager, UserDetailsServic
     @Override
     public BigDecimal getVirtualWalletBalance(VirtualWallet wallet) throws Exception {
         BigDecimal resultBalance = wallet.getVirtualBalance();
-        IdBasedLock<VirtualWallet> lock = lockManager.getVirtualWalletLockManager().obtainLock(wallet);
+        IdBasedLock<Long> lock = virtualWalletLockManager.obtainLock(wallet.getId());
         lock.lock();
         try {
             Currency currency = wallet.getCurrency();

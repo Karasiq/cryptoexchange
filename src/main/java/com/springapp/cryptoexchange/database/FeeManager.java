@@ -7,6 +7,8 @@ import com.springapp.cryptoexchange.database.model.FreeBalance;
 import lombok.NonNull;
 import lombok.extern.apachecommons.CommonsLog;
 import net.anotheria.idbasedlock.IdBasedLock;
+import net.anotheria.idbasedlock.IdBasedLockManager;
+import net.anotheria.idbasedlock.SafeIdBasedLockManager;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -26,8 +28,7 @@ public class FeeManager implements AbstractFeeManager {
     @Autowired
     AbstractDaemonManager daemonManager;
 
-    @Autowired
-    LockManager lockManager;
+    private final IdBasedLockManager<Long> freeBalanceLockManager = new SafeIdBasedLockManager<>();
 
     private FreeBalance getFreeBalance(@NonNull Currency currency) {
         Session session = sessionFactory.getCurrentSession();
@@ -45,7 +46,7 @@ public class FeeManager implements AbstractFeeManager {
     public void submitCollectedFee(@NonNull Currency currency, BigDecimal feeAmount) throws Exception {
         Session session = sessionFactory.getCurrentSession();
         FreeBalance freeBalance = getFreeBalance(currency);
-        IdBasedLock<FreeBalance> lock = lockManager.getFreeBalanceLockManager().obtainLock(freeBalance);
+        IdBasedLock<Long> lock = freeBalanceLockManager.obtainLock(freeBalance.getId());
         lock.lock();
         try {
             BigDecimal newTotal = freeBalance.getCollectedFee();
@@ -74,7 +75,7 @@ public class FeeManager implements AbstractFeeManager {
         assert receiverInfo instanceof String; // Address
         Session session = sessionFactory.getCurrentSession();
         FreeBalance freeBalance = getFreeBalance(currency);
-        IdBasedLock<FreeBalance> lock = lockManager.getFreeBalanceLockManager().obtainLock(freeBalance);
+        IdBasedLock<Long> lock = freeBalanceLockManager.obtainLock(freeBalance.getId());
         lock.lock();
         try {
             BigDecimal current = freeBalance.getCollectedFee();

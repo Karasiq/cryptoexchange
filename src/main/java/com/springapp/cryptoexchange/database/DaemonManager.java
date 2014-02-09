@@ -14,6 +14,7 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.apachecommons.CommonsLog;
 import net.anotheria.idbasedlock.IdBasedLock;
+import net.anotheria.idbasedlock.IdBasedLockManager;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -50,7 +51,7 @@ public class DaemonManager implements AbstractDaemonManager {
     AbstractAccountManager accountManager;
 
     @Autowired
-    LockManager lockManager;
+    IdBasedLockManager<Long> virtualWalletLockManager;
 
     @Autowired
     AbstractFeeManager feeManager;
@@ -114,7 +115,7 @@ public class DaemonManager implements AbstractDaemonManager {
     public void withdrawFunds(@NonNull VirtualWallet wallet, @NonNull String address, @NonNull BigDecimal amount) throws Exception {
         assert wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO) && address.length() > 0 && amount.compareTo(BigDecimal.ZERO) > 0;
         Session session = sessionFactory.getCurrentSession();
-        IdBasedLock<VirtualWallet> lock = lockManager.getVirtualWalletLockManager().obtainLock(wallet);
+        IdBasedLock<Long> lock = virtualWalletLockManager.obtainLock(wallet.getId());
         lock.lock();
         try {
             session.refresh(wallet);

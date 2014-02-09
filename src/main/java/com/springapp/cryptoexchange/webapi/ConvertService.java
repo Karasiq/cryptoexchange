@@ -2,6 +2,7 @@ package com.springapp.cryptoexchange.webapi;
 
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
+import lombok.NonNull;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +12,7 @@ import javax.transaction.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class ConvertService implements AbstractConvertService { // Convert layer
@@ -60,7 +62,7 @@ public class ConvertService implements AbstractConvertService { // Convert layer
         return depth;
     }
     public List<MarketHistory> createHistory(List<Order> orders) throws Exception {
-        List<MarketHistory> marketHistoryList = new ArrayList<>();
+        List<MarketHistory> marketHistoryList = new ArrayList<>(orders.size());
         for(Order order : orders) {
             marketHistoryList.add(new MarketHistory(order));
         }
@@ -88,5 +90,21 @@ public class ConvertService implements AbstractConvertService { // Convert layer
             accountBalanceInfo.add(currency, balance, address);
         }
         return accountBalanceInfo;
+    }
+
+    @Override
+    public Object[][] createHighChartsOHLCData(@NonNull List<Candle> candleList) throws Exception {
+        int length = candleList.size();
+        Object[][] result = new Object[length][6];
+        for(int i = 0; i < length; i++) {
+            Candle candle = candleList.get(length - i - 1);
+            result[i][0] = candle.getOpenTime().getTime();
+            result[i][1] = candle.getOpen();
+            result[i][2] = candle.getHigh();
+            result[i][3] = candle.getLow();
+            result[i][4] = candle.getClose();
+            result[i][5] = candle.getVolume();
+        }
+        return result;
     }
 }

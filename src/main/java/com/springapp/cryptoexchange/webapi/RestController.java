@@ -63,6 +63,15 @@ public class RestController {
         return convertService.createHistory(historyManager.getMarketHistory(tradingPair, 100));
     }
 
+    @Cacheable(value = "getMarketChartData", key = "#tradingPairId")
+    @RequestMapping("/chart/{tradingPairId}")
+    @ResponseBody
+    public Object[][] getMarketChartData(@PathVariable long tradingPairId) throws Exception {
+        TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
+        assert tradingPair != null && tradingPair.isEnabled();
+        return convertService.createHighChartsOHLCData(historyManager.getMarketChartData(tradingPair, 100));
+    }
+
     @Cacheable(value = "getMarketDepth", key = "#tradingPairId")
     @RequestMapping("/depth/{tradingPairId}")
     @ResponseBody

@@ -1,12 +1,16 @@
 package com.springapp.cryptoexchange.webapi;
 
 import com.springapp.cryptoexchange.database.model.Account;
+import com.springapp.cryptoexchange.database.model.Candle;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.Order;
+import lombok.AccessLevel;
 import lombok.Data;
 import lombok.Value;
+import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Repository;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Date;
@@ -15,7 +19,7 @@ import java.util.List;
 @Repository
 public interface AbstractConvertService {
     @Data
-    public static class MarketHistory {
+    public static class MarketHistory implements Serializable {
         public Order.Type type;
         public BigDecimal price;
         public BigDecimal amount;
@@ -29,7 +33,7 @@ public interface AbstractConvertService {
     }
 
     @Data
-    public static class Depth {
+    public static class Depth implements Serializable {
         static class DepthEntry implements Comparable<DepthEntry> {
             protected void addOrder(Order order) {
                 price = order.getPrice();
@@ -46,9 +50,9 @@ public interface AbstractConvertService {
     }
 
     @Data
-    public static class AccountBalanceInfo {
+    public static class AccountBalanceInfo implements Serializable  {
         @Value
-        public static class AccountBalance {
+        public static class AccountBalance implements Serializable  {
             private final Currency currency;
             private final BigDecimal balance;
             private final String address;
@@ -58,7 +62,9 @@ public interface AbstractConvertService {
             accountBalances.add(new AccountBalance(currency, balance, address));
         }
     }
+
     public Depth createDepth(List<Order> buyOrders, List<Order> sellOrders) throws Exception;
     public List<MarketHistory> createHistory(List<Order> orders) throws Exception;
     public AccountBalanceInfo createAccountBalanceInfo(Account account) throws Exception;
+    public Object[][] createHighChartsOHLCData(List<Candle> candleList) throws Exception;
 }

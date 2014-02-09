@@ -10,6 +10,8 @@ import lombok.NonNull;
 import lombok.experimental.NonFinal;
 import lombok.extern.apachecommons.CommonsLog;
 import net.anotheria.idbasedlock.IdBasedLock;
+import net.anotheria.idbasedlock.IdBasedLockManager;
+import net.anotheria.idbasedlock.SafeIdBasedLockManager;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -52,8 +54,7 @@ public class MarketManager implements AbstractMarketManager {
     @Autowired
     CacheCleaner cacheCleaner;
 
-    @Autowired
-    LockManager lockManager;
+    private final IdBasedLockManager<Long> marketLockManager = new SafeIdBasedLockManager<>();
 
     private void updateOrderStatus(@NonFinal Order order) {
         final Date now = new Date();
@@ -160,7 +161,7 @@ public class MarketManager implements AbstractMarketManager {
     })
     public void cancelOrder(@NonNull Order order) throws Exception {
         assert order.isActual();
-        IdBasedLock<TradingPair> lock = lockManager.getTradingPairLockManager().obtainLock(order.getTradingPair());
+        IdBasedLock<Long> lock = marketLockManager.obtainLock(order.getTradingPair().getId());
         lock.lock();
         try {
             log.info(String.format("[MarketManager] cancelOrder => %s", order));
@@ -192,7 +193,7 @@ public class MarketManager implements AbstractMarketManager {
         if (newOrder.getAmount().compareTo(newOrder.getTradingPair().getMinimalTradeAmount()) < 0) {
             throw new MarketError(String.format("Minimal trading amount is %s", newOrder.getTradingPair().getMinimalTradeAmount()));
         }
-        IdBasedLock<TradingPair> lock = lockManager.getTradingPairLockManager().obtainLock(newOrder.getTradingPair());
+        IdBasedLock<Long> lock = marketLockManager.obtainLock(newOrder.getTradingPair().getId());
         lock.lock();
         try {
             Session session = sessionFactory.getCurrentSession();

@@ -34,42 +34,34 @@ public class HistoryManager implements AbstractHistoryManager {
     @Autowired
     SessionFactory sessionFactory;
 
-    private final Map<Long, List<Candle>> historyMap = new ConcurrentHashMap<>();
+    private final Map<Long, Candle> historyMap = new ConcurrentHashMap<>();
 
     @PostConstruct
     public void init() {
         @Cleanup Session session = sessionFactory.openSession();
         List<TradingPair> currencyList = settingsManager.getTradingPairs();
         for(TradingPair tradingPair : currencyList) {
-            historyMap.put(tradingPair.getId(), getMarketChartData(session, tradingPair, 24));
+            List<Candle> candles = getMarketChartData(session, tradingPair, 1);
+            if(candles.size() > 0) historyMap.put(tradingPair.getId(), candles.get(0));
         }
     }
 
     @Transactional
     @Async
     public void updateChartData(@NonNull TradingPair tradingPair, final BigDecimal lastPrice, final BigDecimal amount) {
-        List<Candle> history = historyMap.get(tradingPair.getId());
-        synchronized (history) {
-            Candle lastCandle;
-            if (history.isEmpty()) {
-                lastCandle = new Candle(tradingPair);
-                history.add(lastCandle);
-            } else {
-                lastCandle = history.get(history.size() - 1);
-            }
-            lastCandle.update(lastPrice, amount);
-            if (lastCandle.isClosed(chartPeriod)) { // next
-                lastCandle.close();
-                sessionFactory.getCurrentSession().saveOrUpdate(lastCandle);
-
-                lastCandle = new Candle(tradingPair, lastPrice);
-                history.add(lastCandle);
-            }
-            while (history.size() > 100) {
-                history.remove(0); // remove first (oldest) candle
-            }
-            sessionFactory.getCurrentSession().saveOrUpdate(lastCandle);
+        Candle lastCandle = historyMap.get(tradingPair.getId());
+        if (lastCandle == null) {
+            lastCandle = new Candle(tradingPair);
+            historyMap.put(tradingPair.getId(), lastCandle);
         }
+        lastCandle.update(lastPrice, amount);
+        if (lastCandle.isClosed(chartPeriod)) { // next
+            lastCandle.close();
+            sessionFactory.getCurrentSession().saveOrUpdate(lastCandle);
+            lastCandle = new Candle(tradingPair, lastPrice);
+            historyMap.put(tradingPair.getId(), lastCandle);
+        }
+        sessionFactory.getCurrentSession().saveOrUpdate(lastCandle);
     }
 
     @Transactional
@@ -119,6 +111,7 @@ public class HistoryManager implements AbstractHistoryManager {
         return session.createCriteria(Candle.class)
                 .setMaxResults(max)
                 .add(Restrictions.eq("tradingPair", tradingPair))
+                .addOrder(org.hibernate.criterion.Order.desc("openTime"))
                 .list();
     }
 }
