@@ -1,13 +1,11 @@
-package com.springapp.cryptoexchange.webapi;
+package com.springapp.cryptoexchange.utils;
 
 import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Candle;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.Order;
-import lombok.AccessLevel;
 import lombok.Data;
 import lombok.Value;
-import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Repository;
 
 import java.io.Serializable;

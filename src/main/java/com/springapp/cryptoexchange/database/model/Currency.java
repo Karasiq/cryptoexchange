@@ -2,6 +2,8 @@ package com.springapp.cryptoexchange.database.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -12,6 +14,8 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "currencies")
+@EqualsAndHashCode(of = {"currencyCode", "currencyName", "currencyType"})
+@Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
 public class Currency implements Serializable {
     public static enum CurrencyType {
         PURE_VIRTUAL, CRYPTO

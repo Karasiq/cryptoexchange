@@ -2,6 +2,9 @@ package com.springapp.cryptoexchange.database.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
+import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.joda.time.DateTime;
 import org.joda.time.Period;
 
@@ -16,6 +19,9 @@ import java.util.Date;
 @NoArgsConstructor
 @RequiredArgsConstructor
 @Table(name = "history")
+@EqualsAndHashCode(of = {"openTime", "tradingPair"})
+@FieldDefaults(level = AccessLevel.PRIVATE)
+@Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)
 public class Candle implements Serializable {
     @Id
     @GeneratedValue

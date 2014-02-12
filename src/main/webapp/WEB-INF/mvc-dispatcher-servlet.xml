@@ -18,6 +18,7 @@
 
     <import resource="data.xml" />
     <import resource="security.xml" />
+    <import resource="remote.xml" />
 
     <bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
         <property name="prefix" value="/WEB-INF/pages/"/>

@@ -1,8 +1,13 @@
 package com.springapp.cryptoexchange.database.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import lombok.AccessLevel;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -12,7 +17,10 @@ import java.util.Date;
 @Data
 @Entity
 @NoArgsConstructor
+@EqualsAndHashCode(of = {"firstCurrency", "secondCurrency"})
 @Table(name = "trading_pairs")
+@FieldDefaults(level = AccessLevel.PRIVATE)
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class TradingPair implements Serializable {
     @Id
     @GeneratedValue

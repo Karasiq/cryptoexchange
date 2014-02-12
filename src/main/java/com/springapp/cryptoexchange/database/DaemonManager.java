@@ -3,18 +3,14 @@ package com.springapp.cryptoexchange.database;
 import com.bitcoin.daemon.AbstractWallet;
 import com.bitcoin.daemon.CryptoCoinWallet;
 import com.bitcoin.daemon.JsonRPC;
-import com.bitcoin.daemon.TestingWallet;
-import com.springapp.cryptoexchange.Calculator;
-import com.springapp.cryptoexchange.database.model.Address;
-import com.springapp.cryptoexchange.database.model.Currency;
-import com.springapp.cryptoexchange.database.model.Daemon;
-import com.springapp.cryptoexchange.database.model.VirtualWallet;
+import com.springapp.cryptoexchange.utils.Calculator;
+import com.springapp.cryptoexchange.database.model.*;
+import com.springapp.cryptoexchange.utils.LockManager;
 import lombok.Cleanup;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.apachecommons.CommonsLog;
 import net.anotheria.idbasedlock.IdBasedLock;
-import net.anotheria.idbasedlock.IdBasedLockManager;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -25,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,7 +46,7 @@ public class DaemonManager implements AbstractDaemonManager {
     AbstractAccountManager accountManager;
 
     @Autowired
-    IdBasedLockManager<Long> virtualWalletLockManager;
+    LockManager lockManager;
 
     @Autowired
     AbstractFeeManager feeManager;
@@ -115,7 +110,7 @@ public class DaemonManager implements AbstractDaemonManager {
     public void withdrawFunds(@NonNull VirtualWallet wallet, @NonNull String address, @NonNull BigDecimal amount) throws Exception {
         assert wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO) && address.length() > 0 && amount.compareTo(BigDecimal.ZERO) > 0;
         Session session = sessionFactory.getCurrentSession();
-        IdBasedLock<Long> lock = virtualWalletLockManager.obtainLock(wallet.getId());
+        IdBasedLock<Long> lock = lockManager.getCurrencyLockManager().obtainLock(wallet.getCurrency().getId()); // Critical
         lock.lock();
         try {
             session.refresh(wallet);
@@ -131,7 +126,7 @@ public class DaemonManager implements AbstractDaemonManager {
             log.info(String.format("Funds withdraw requested: from %s to %s <%s>", wallet, address, amount));
             com.bitcoin.daemon.Address.Transaction transaction = account.sendToAddress(address, amount);
             log.info(String.format("Funds withdraw success: %s", transaction));
-            feeManager.submitCollectedFee(wallet.getCurrency(), Calculator.fee(amount, wallet.getCurrency().getWithdrawFee()).add(transaction.getFee())); // Tx fee is negative
+            feeManager.submitCollectedFee(FreeBalance.FeeType.WITHDRAW, wallet.getCurrency(), Calculator.fee(amount, wallet.getCurrency().getWithdrawFee()).add(transaction.getFee())); // Tx fee is negative
         } catch (Exception e) {
             log.error(e);
             throw e;

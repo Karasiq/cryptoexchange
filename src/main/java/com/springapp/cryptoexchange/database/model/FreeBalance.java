@@ -1,9 +1,9 @@
 package com.springapp.cryptoexchange.database.model;
 
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import javax.persistence.*;
 import java.math.BigDecimal;
@@ -13,7 +13,14 @@ import java.math.BigDecimal;
 @Data
 @NoArgsConstructor
 @RequiredArgsConstructor
+@EqualsAndHashCode(exclude = "amount")
+@FieldDefaults(level = AccessLevel.PRIVATE)
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class FreeBalance {
+    public enum FeeType {
+        TRADING, WITHDRAW
+    }
+
     @Id
     @GeneratedValue
     long id;
@@ -21,6 +28,9 @@ public class FreeBalance {
     @OneToOne
     @NonNull Currency currency;
 
-    @Column(name = "fee", precision = 38, scale = 8)
-    BigDecimal collectedFee = BigDecimal.ZERO;
+    @Column(name = "type", nullable = false)
+    @NonNull FeeType type;
+
+    @Column(name = "amount", precision = 38, scale = 8)
+    BigDecimal amount = BigDecimal.ZERO;
 }

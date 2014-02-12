@@ -1,9 +1,8 @@
-package com.springapp.cryptoexchange.webapi;
+package com.springapp.cryptoexchange.utils;
 
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
 import lombok.NonNull;
-import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -12,7 +11,6 @@ import javax.transaction.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 @Service
 public class ConvertService implements AbstractConvertService { // Convert layer
@@ -34,7 +32,7 @@ public class ConvertService implements AbstractConvertService { // Convert layer
     @Autowired
     SessionFactory sessionFactory;
 
-    public Depth createDepth(List<Order> buyOrders, List<Order> sellOrders) throws Exception {
+    public Depth createDepth(@NonNull List<Order> buyOrders, @NonNull List<Order> sellOrders) throws Exception {
         final Depth depth = new Depth();
         Depth.DepthEntry depthEntry = new Depth.DepthEntry();
         if(buyOrders != null && !buyOrders.isEmpty()) {
@@ -61,7 +59,7 @@ public class ConvertService implements AbstractConvertService { // Convert layer
         }
         return depth;
     }
-    public List<MarketHistory> createHistory(List<Order> orders) throws Exception {
+    public List<MarketHistory> createHistory(@NonNull List<Order> orders) throws Exception {
         List<MarketHistory> marketHistoryList = new ArrayList<>(orders.size());
         for(Order order : orders) {
             marketHistoryList.add(new MarketHistory(order));
@@ -70,7 +68,7 @@ public class ConvertService implements AbstractConvertService { // Convert layer
     }
 
     @Transactional
-    public AccountBalanceInfo createAccountBalanceInfo(Account account) throws Exception {
+    public AccountBalanceInfo createAccountBalanceInfo(@NonNull Account account) throws Exception {
         sessionFactory.getCurrentSession().refresh(account);
         List<Currency> currencyList = settingsManager.getCurrencyList();
         AccountBalanceInfo accountBalanceInfo = new AccountBalanceInfo();
@@ -80,7 +78,7 @@ public class ConvertService implements AbstractConvertService { // Convert layer
             String address = null;
             if(wallet != null) {
                 balance = accountManager.getVirtualWalletBalance(wallet);
-                    if(wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
+                if(wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
                     List<Address> addressList = daemonManager.getAddressList(wallet);
                     if (!addressList.isEmpty()) {
                         address = addressList.get(0).getAddress();

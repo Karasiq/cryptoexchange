@@ -1,20 +1,22 @@
-package com.springapp.cryptoexchange.webapi;
+package com.springapp.cryptoexchange.webapi.data;
 
 import com.bitcoin.daemon.CryptoCoinWallet;
-import com.springapp.cryptoexchange.database.AbstractAccountManager;
-import com.springapp.cryptoexchange.database.AbstractDaemonManager;
-import com.springapp.cryptoexchange.database.AbstractHistoryManager;
-import com.springapp.cryptoexchange.database.AbstractSettingsManager;
+import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
+import com.springapp.cryptoexchange.utils.AbstractConvertService;
+import com.springapp.cryptoexchange.webapi.ApiDefs;
 import lombok.extern.apachecommons.CommonsLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Controller;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.util.Assert;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.ResponseBody;
 
-import java.math.BigDecimal;
 import java.security.Principal;
 import java.util.HashSet;
 import java.util.List;
@@ -24,7 +26,8 @@ import java.util.Set;
 @RequestMapping(value = "/rest/account.json", headers = "X-Ajax-Call=true")
 @CommonsLog
 @Secured("ROLE_USER")
-public class AccountController {
+@Profile("data")
+public class PrivateController {
     @Autowired
     AbstractConvertService convertService;
 
@@ -40,13 +43,16 @@ public class AccountController {
     @Autowired
     AbstractDaemonManager daemonManager;
 
+    @Autowired
+    AbstractMarketManager marketManager;
+
     @Cacheable(value = "getAccountBalances", key = "#principal.name")
     @RequestMapping("/balance")
     @ResponseBody
     public ApiDefs.ApiStatus<AbstractConvertService.AccountBalanceInfo> getAccountBalances(Principal principal) {
-        Account account = accountManager.getAccount(principal.getName());
         try {
-            assert account != null; // Shouldn't happen
+            Account account = accountManager.getAccount(principal.getName());
+            Assert.notNull(account);
             return new ApiDefs.ApiStatus<>(true, null, convertService.createAccountBalanceInfo(account));
         } catch (Exception e) {
             e.printStackTrace();
@@ -55,13 +61,30 @@ public class AccountController {
         }
     }
 
+    @RequestMapping(value = "/order/{orderId}", method = RequestMethod.GET)
+    @ResponseBody
+    @SuppressWarnings("all")
+    public ApiDefs.ApiStatus<Order> getOrderStatus(@PathVariable long orderId, Principal principal) {
+        try {
+            Order order = marketManager.getOrder(orderId);
+            Account account = accountManager.getAccount(principal.getName());
+            Assert.isTrue(order != null && account != null && account.isEnabled(), "Invalid parameters");
+            Assert.isTrue(order.getAccount().equals(account), "This is not your order");
+            return new ApiDefs.ApiStatus<>(true, null, order);
+        } catch (Exception e) {
+            e.printStackTrace();
+            log.error(e);
+            return new ApiDefs.ApiStatus<>(false, e.getLocalizedMessage(), null);
+        }
+    }
+
     @Cacheable(value = "getAccountOrders", key = "#principal.name")
     @RequestMapping("/orders")
     @ResponseBody
     public ApiDefs.ApiStatus<List<Order>> getAccountOrdersInfo(Principal principal) {
-        Account account = accountManager.getAccount(principal.getName());
         try {
-            assert account != null; // Shouldn't happen
+            Account account = accountManager.getAccount(principal.getName());
+            Assert.notNull(account);
             return new ApiDefs.ApiStatus<>(true, null, accountManager.getAccountOrders(account, 200));
         } catch (Exception e) {
             e.printStackTrace();
@@ -74,10 +97,11 @@ public class AccountController {
     @RequestMapping("/orders/{tradingPairId}")
     @ResponseBody
     public ApiDefs.ApiStatus<List<Order>> getAccountOrdersByPair(Principal principal, @PathVariable long tradingPairId) {
-        TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
-        Account account = accountManager.getAccount(principal.getName());
         try {
-            assert account != null; // Shouldn't happen
+            TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
+            Account account = accountManager.getAccount(principal.getName());
+            Assert.notNull(tradingPair);
+            Assert.notNull(account);
             return new ApiDefs.ApiStatus<>(true, null, accountManager.getAccountOrdersByPair(tradingPair, account, 200));
         } catch (Exception e) {
             e.printStackTrace();
@@ -90,9 +114,9 @@ public class AccountController {
     @RequestMapping("/history")
     @ResponseBody
     public ApiDefs.ApiStatus<List<Order>> getAccountHistory(Principal principal) {
-        Account account = accountManager.getAccount(principal.getName());
         try {
-            assert account != null; // Shouldn't happen
+            Account account = accountManager.getAccount(principal.getName());
+            Assert.notNull(account);
             return new ApiDefs.ApiStatus<>(true, null, historyManager.getAccountHistory(account, 200));
         } catch (Exception e) {
             e.printStackTrace();
@@ -105,10 +129,11 @@ public class AccountController {
     @RequestMapping("/history/{tradingPairId}")
     @ResponseBody
     public ApiDefs.ApiStatus<List<Order>> getAccountHistoryByPair(Principal principal, @PathVariable Long tradingPairId) {
-        TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
-        Account account = accountManager.getAccount(principal.getName());
         try {
-            assert account != null; // Shouldn't happen
+            TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
+            Account account = accountManager.getAccount(principal.getName());
+            Assert.notNull(tradingPair);
+            Assert.notNull(account);
             return new ApiDefs.ApiStatus<>(true, null, historyManager.getAccountHistoryByPair(tradingPair, account, 200));
         } catch (Exception e) {
             e.printStackTrace();
@@ -122,17 +147,18 @@ public class AccountController {
     @ResponseBody
     @SuppressWarnings("unchecked")
     public ApiDefs.ApiStatus<List<com.bitcoin.daemon.Address.Transaction>> getTransactions(@PathVariable long currencyId, Principal principal) {
-        Currency currency = settingsManager.getCurrency(currencyId);
-        Account account = accountManager.getAccount(principal.getName());
         try {
-            assert currency != null && account != null & currency.isEnabled() && account.isEnabled();
+            Currency currency = settingsManager.getCurrency(currencyId);
+            Account account = accountManager.getAccount(principal.getName());
+            Assert.isTrue(currency != null && account != null & currency.isEnabled() && account.isEnabled(), "Invalid parameters");
             Set<Object> addressSet = new HashSet<>();
             List<Address> addressList = daemonManager.getAddressList(accountManager.getVirtualWallet(account, currency));
             for(Address address : addressList) {
                 addressSet.add(address.getAddress());
             }
-            return new ApiDefs.ApiStatus(true, null, ((CryptoCoinWallet.Account) daemonManager.getAccount(currency)).getTransactions(addressSet));
+            return new ApiDefs.ApiStatus(true, null, daemonManager.getAccount(currency).getTransactions(addressSet));
         } catch (Exception e) {
+            e.printStackTrace();
             log.error(e);
             return new ApiDefs.ApiStatus(false, e.getLocalizedMessage(), null);
         }
@@ -141,14 +167,14 @@ public class AccountController {
     @RequestMapping(value = "/address/{currencyId}", method = RequestMethod.POST)
     @ResponseBody
     public ApiDefs.ApiStatus<String> generateDepositAddress(@PathVariable long currencyId, Principal principal) throws Exception {
-        Currency currency = settingsManager.getCurrency(currencyId);
-        Account account = accountManager.getAccount(principal.getName());
         try {
-            assert currency != null && account != null & currency.isEnabled() && account.isEnabled();
+            Currency currency = settingsManager.getCurrency(currencyId);
+            Account account = accountManager.getAccount(principal.getName());
+            Assert.isTrue(currency != null && account != null & currency.isEnabled() && account.isEnabled(), "Invalid parameters");
             VirtualWallet virtualWallet = accountManager.getVirtualWallet(account, currency);
             List<Address> addressList = daemonManager.getAddressList(virtualWallet);
             String address;
-            if(addressList.isEmpty()) {
+            if(addressList == null || addressList.isEmpty()) {
                 address = daemonManager.createWalletAddress(virtualWallet);
             } else {
                 address = addressList.get(0).getAddress();
@@ -156,30 +182,9 @@ public class AccountController {
             log.info("Address generated: " + address);
             return new ApiDefs.ApiStatus<>(true, null, address);
         } catch (Exception e) {
+            e.printStackTrace();
             log.error(e);
             return new ApiDefs.ApiStatus<>(false, e.getLocalizedMessage(), null);
-        }
-    }
-
-    @RequestMapping(value = "/withdraw/crypto/{currencyId}", method = RequestMethod.POST)
-    @ResponseBody
-    @SuppressWarnings("unchecked")
-    public ApiDefs.ApiStatus withdrawCrypto(@PathVariable long currencyId, @RequestParam String address, @RequestParam BigDecimal amount, Principal principal) {
-        Currency currency = settingsManager.getCurrency(currencyId);
-        Account account = accountManager.getAccount(principal.getName());
-        try {
-            assert currency != null && account != null & currency.isEnabled() && account.isEnabled();
-            VirtualWallet virtualWallet = accountManager.getVirtualWallet(account, currency);
-            if (currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
-                daemonManager.withdrawFunds(virtualWallet, address, amount);
-                log.info(String.format("Withdraw success: %s %s => %s", amount, currency.getCurrencyCode(), address));
-                return new ApiDefs.ApiStatus(true, null, null);
-            } else {
-                throw new IllegalArgumentException();
-            }
-        } catch (Exception e) {
-            log.error(e);
-            return new ApiDefs.ApiStatus(false, e.getLocalizedMessage(), null);
         }
     }
 }

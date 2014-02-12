@@ -34,7 +34,17 @@ public class CryptoCoinWallet {
             return jsonRPC.executeRpcRequest("getreceivedbyaddress", args, new TypeReference<JsonRPC.JsonRpcResponse<BigDecimal>>(){});
         }
 
-        public List<Address.Transaction> getTransactions(final Set<Object> addresses) {
+        public List<Address.Transaction> getTransactions() throws Exception {
+            List<Address.Transaction> transactionList = new ArrayList<>();
+            synchronized (addressList) {
+                for(Address address : addressList.values()) {
+                    transactionList.addAll(address.getTransactionList().values());
+                }
+            }
+            return transactionList;
+        }
+
+        public List<Address.Transaction> getTransactions(final Set<Object> addresses) throws Exception {
             List<Address.Transaction> transactionList = new ArrayList<>();
             synchronized (addressList) {
                 for(Address address : addressList.values()) if(addresses.contains(address.getAddress())) {

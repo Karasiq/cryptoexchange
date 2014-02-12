@@ -3,6 +3,9 @@ package com.springapp.cryptoexchange.database.model;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.springapp.cryptoexchange.database.MarketManager;
 import lombok.*;
+import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -15,6 +18,9 @@ import java.util.Date;
 @RequiredArgsConstructor
 @Table(name = "orders")
 @ToString(of={"id", "type", "status", "amount", "price", "completedAmount", "total"})
+@EqualsAndHashCode(of = {"id", "openDate", "type", "amount", "price", "tradingPair"})
+@FieldDefaults(level = AccessLevel.PRIVATE)
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class Order implements Serializable {
     public enum Status {
         OPEN, COMPLETED, PARTIALLY_COMPLETED, CANCELLED, PARTIALLY_CANCELLED

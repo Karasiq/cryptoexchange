@@ -1,4 +1,4 @@
-package com.springapp.cryptoexchange;
+package com.springapp.cryptoexchange.utils;
 
 import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Order;

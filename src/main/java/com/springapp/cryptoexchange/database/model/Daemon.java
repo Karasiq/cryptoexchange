@@ -1,9 +1,9 @@
 package com.springapp.cryptoexchange.database.model;
 
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -13,24 +13,26 @@ import java.io.Serializable;
 @Data
 @NoArgsConstructor
 @RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
+@Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
 public class Daemon implements Serializable {
     @Column
     @GeneratedValue
     @Id
-    private long id;
+    long id;
 
     @OneToOne
-    private @NonNull Currency currency;
+    @NonNull Currency currency;
 
     @Column(name = "daemon_host")
-    private @NonNull String daemonHost = "localhost";
+    @NonNull String daemonHost = "localhost";
 
     @Column(name = "daemon_port")
-    private @NonNull Integer daemonPort;
+    @NonNull Integer daemonPort;
 
     @Column(name = "daemon_login")
-    private @NonNull String daemonLogin;
+    @NonNull String daemonLogin;
 
     @Column(name = "daemon_password")
-    private @NonNull String daemonPassword;
+    @NonNull String daemonPassword;
 }

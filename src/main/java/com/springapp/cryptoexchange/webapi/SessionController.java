@@ -2,8 +2,13 @@ package com.springapp.cryptoexchange.webapi;
 
 import com.springapp.cryptoexchange.database.AbstractAccountManager;
 import com.springapp.cryptoexchange.database.model.Account;
+import com.springapp.cryptoexchange.database.model.LoginHistory;
+import lombok.AccessLevel;
 import lombok.Value;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
+import org.hibernate.SessionFactory;
+import org.hibernate.criterion.Restrictions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -17,6 +22,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.transaction.Transactional;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
 
 
 @Controller
@@ -26,11 +35,15 @@ public class SessionController {
     @Autowired
     AbstractAccountManager accountManager;
 
+    @Autowired
+    SessionFactory sessionFactory;
+
     @Value
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
     public static class LoginStatus {
-        private final boolean loggedIn;
-        private final String username;
-        private final String error;
+        boolean loggedIn;
+        String username;
+        String error;
     }
 
     @Autowired
@@ -55,34 +68,49 @@ public class SessionController {
         try {
             Authentication auth = authenticationManager.authenticate(token);
             SecurityContextHolder.getContext().setAuthentication(auth);
-            log.info("Authenticated: " + username);
+            accountManager.logEntry(accountManager.getAccount(username), request.getRemoteAddr(), request.getHeader("User-Agent"));
             return new LoginStatus(auth.isAuthenticated(), auth.getName(), null);
         } catch (Exception e) {
-            log.warn(e);
+            e.printStackTrace();
+            log.error(e);
             return new LoginStatus(false, null, e.getMessage());
         }
     }
 
     @RequestMapping(value = "/register", method = RequestMethod.POST)
     @ResponseBody
+    @Transactional
     public ApiDefs.ApiStatus<LoginStatus> register(@RequestParam String username, @RequestParam String password, @RequestParam String email, HttpServletRequest request) throws Exception {
         try {
             Account account = accountManager.getAccount(username);
             if(account != null) {
-                return new ApiDefs.ApiStatus<>(false, "Username already taken", null);
+                throw new ApiDefs.ApiException("Username already taken");
             }
+
             account = accountManager.getAccount(email);
             if(account != null) {
-                return new ApiDefs.ApiStatus<>(false, "E-mail already taken", null);
+                throw new ApiDefs.ApiException("E-mail already taken");
             }
+
             if(!Account.validate(username, password, email)) {
-                return new ApiDefs.ApiStatus<>(false, "Bad user credentials", null);
+                throw new ApiDefs.ApiException("Bad user credentials");
             }
-            accountManager.addAccount(new Account(username, email, password));
+
+            final List<LoginHistory> loginHistories = accountManager.getLastEntriesByIp(request.getRemoteAddr(), 3, 1);
+            if(loginHistories != null && !loginHistories.isEmpty()) {
+                throw new ApiDefs.ApiException("You cannot register multiply accounts from the same ip");
+            }
+
+            account = new Account(username, email, password);
+            accountManager.addAccount(account);
             return new ApiDefs.ApiStatus<>(true, null, login(username, password, request));
-        } catch (Exception e) {
+        } catch (ApiDefs.ApiException e) {
             log.warn(e);
             return new ApiDefs.ApiStatus<>(false, e.getMessage(), null);
+        } catch (Exception e) {
+            e.printStackTrace();
+            log.error(e);
+            throw e;
         }
     }
 }

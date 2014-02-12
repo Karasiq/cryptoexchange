@@ -2,9 +2,6 @@ package com.springapp.cryptoexchange.database;
 
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.TradingPair;
-import lombok.Cleanup;
-import lombok.Getter;
-import lombok.Setter;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -13,7 +10,6 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.PostConstruct;
 import java.util.List;
 
 @Service
@@ -53,14 +49,10 @@ public class SettingsManager implements AbstractSettingsManager {
     @Transactional
     @Override
     public TradingPair getTradingPair(long id) {
-        return (TradingPair) sessionFactory.getCurrentSession().createCriteria(TradingPair.class)
-                .add(Restrictions.eq("id", id))
-                .add(Restrictions.eq("enabled", true)).uniqueResult();
+        return (TradingPair) sessionFactory.getCurrentSession().get(TradingPair.class, id);
     }
 
     public Currency getCurrency(long id) {
-        return (Currency) sessionFactory.getCurrentSession().createCriteria(Currency.class)
-                .add(Restrictions.eq("id", id))
-                .add(Restrictions.eq("enabled", true)).uniqueResult();
+        return (Currency) sessionFactory.getCurrentSession().get(Currency.class, id);
     }
 }

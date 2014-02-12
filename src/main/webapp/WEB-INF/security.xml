@@ -15,8 +15,6 @@
     </authentication-manager>
 
     <http access-denied-page="/static/403.html">
-        <intercept-url pattern="/account/*" access="ROLE_USER"/>
-        <intercept-url pattern="/rest/account.json*" access="ROLE_USER"/>
         <intercept-url pattern="/admin/*" access="ROLE_ADMIN"/>
         <form-login />
         <logout />
@@ -30,5 +28,5 @@
 
 
 
-    <global-method-security secured-annotations="enabled" />
+    <global-method-security secured-annotations="enabled" proxy-target-class="true" />
 </beans:beans>

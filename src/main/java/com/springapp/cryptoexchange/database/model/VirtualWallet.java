@@ -3,7 +3,9 @@ package com.springapp.cryptoexchange.database.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
-import org.springframework.transaction.annotation.Transactional;
+import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -15,24 +17,27 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 @Table(name = "balances")
 @ToString(exclude = "account", callSuper = false)
+@EqualsAndHashCode(exclude = "virtualBalance")
+@FieldDefaults(level = AccessLevel.PRIVATE)
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class VirtualWallet implements Serializable {
     @Id
     @GeneratedValue
     @Column(unique = true)
     @JsonIgnore
-    private long id;
+    long id;
 
     @NonNull
     @ManyToOne
-    private Currency currency;
+    Currency currency;
 
     @Column(name = "virtual_balance", precision = 38, scale = 8)
-    private volatile BigDecimal virtualBalance = BigDecimal.ZERO;
+    volatile BigDecimal virtualBalance = BigDecimal.ZERO;
 
     @NonNull
     @ManyToOne(fetch = FetchType.LAZY)
     @JsonIgnore
-    private Account account;
+    Account account;
 
     public synchronized void addBalance(final BigDecimal amount) {
         setVirtualBalance(virtualBalance.add(amount));

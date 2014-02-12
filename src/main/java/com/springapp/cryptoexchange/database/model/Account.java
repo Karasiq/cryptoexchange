@@ -2,6 +2,9 @@ package com.springapp.cryptoexchange.database.model;
 
 
 import lombok.*;
+import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.springframework.security.authentication.encoding.ShaPasswordEncoder;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -18,8 +21,11 @@ import java.util.List;
 @Entity
 @NoArgsConstructor
 @Table(name = "accounts")
-@ToString(exclude = "virtualWalletMap")
+@ToString(exclude = {"virtualWalletMap", "loginHistory", "passwordHash"})
+@EqualsAndHashCode(of = {"id", "login", "emailAddress", "passwordHash", "role"})
 @Transactional
+@FieldDefaults(level = AccessLevel.PRIVATE)
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class Account implements Serializable {
 
     @RequiredArgsConstructor
@@ -59,25 +65,28 @@ public class Account implements Serializable {
     @Id
     @Column(unique = true)
     @GeneratedValue
-    private long id;
+    long id;
 
     @Column(unique = true, length = 30, name = "login")
-    private String login;
+    String login;
 
     @Column(length = 200, name = "password")
-    private String passwordHash;
+    String passwordHash;
 
     @Column(length = 200, name = "email_address")
-    private String emailAddress;
+    String emailAddress;
 
     @Column(name = "enabled", nullable = false)
-    private boolean enabled = true;
+    boolean enabled = true;
 
     @Column(name = "role", nullable = false)
-    private RoleClass role = RoleClass.USER;
+    RoleClass role = RoleClass.USER;
 
     @OneToMany(mappedBy = "account", fetch = FetchType.LAZY)
     final List<VirtualWallet> virtualWalletMap = new ArrayList<>();
+
+    @OneToMany(mappedBy = "account", fetch = FetchType.LAZY)
+    final List<LoginHistory> loginHistory = new ArrayList<>();
 
     public static boolean validate(final String login, final String password, final String emailAddress) {
         return emailAddress.matches("[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}") &&

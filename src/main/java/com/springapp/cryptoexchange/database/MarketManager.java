@@ -1,11 +1,9 @@
 package com.springapp.cryptoexchange.database;
 
-import com.springapp.cryptoexchange.CacheCleaner;
-import com.springapp.cryptoexchange.Calculator;
-import com.springapp.cryptoexchange.database.model.Currency;
-import com.springapp.cryptoexchange.database.model.Order;
-import com.springapp.cryptoexchange.database.model.TradingPair;
-import com.springapp.cryptoexchange.database.model.VirtualWallet;
+import com.springapp.cryptoexchange.utils.CacheCleaner;
+import com.springapp.cryptoexchange.utils.Calculator;
+import com.springapp.cryptoexchange.database.model.*;
+import com.springapp.cryptoexchange.utils.LockManager;
 import lombok.NonNull;
 import lombok.experimental.NonFinal;
 import lombok.extern.apachecommons.CommonsLog;
@@ -25,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -54,7 +53,8 @@ public class MarketManager implements AbstractMarketManager {
     @Autowired
     CacheCleaner cacheCleaner;
 
-    private final IdBasedLockManager<Long> marketLockManager = new SafeIdBasedLockManager<>();
+    @Autowired
+    LockManager lockManager;
 
     private void updateOrderStatus(@NonFinal Order order) {
         final Date now = new Date();
@@ -108,6 +108,7 @@ public class MarketManager implements AbstractMarketManager {
 
     @SuppressWarnings("all")
     private void remapFunds(@NonFinal Order firstOrder, @NonFinal Order secondOrder, final BigDecimal amount) throws Exception {
+        Session session = sessionFactory.getCurrentSession();
         TradingPair tradingPair = firstOrder.getTradingPair();
         assert firstOrder.getType() == Order.Type.SELL && secondOrder.getType() == Order.Type.BUY; // First sell, then buy
         assert firstOrder.isActual() && secondOrder.isActual() && firstOrder.getSourceWallet().getCurrency().equals(tradingPair.getFirstCurrency()) && firstOrder.getDestWallet().getCurrency().equals(tradingPair.getSecondCurrency()) && secondOrder.getSourceWallet().getCurrency().equals(tradingPair.getSecondCurrency()) && secondOrder.getDestWallet().getCurrency().equals(tradingPair.getFirstCurrency());
@@ -116,7 +117,7 @@ public class MarketManager implements AbstractMarketManager {
         BigDecimal firstCurrencySend = Calculator.withoutFee(amount, tradingFee), secondCurrencySend = Calculator.withoutFee(total, tradingFee);
 
         Currency firstCurrency = tradingPair.getFirstCurrency(), secondCurrency = tradingPair.getSecondCurrency();
-        log.info(String.format("[MarketManager] Trade occured: %s %s @ %s %s (total %s %s)", amount, firstCurrency.getCurrencyCode(), price, secondCurrency.getCurrencyCode(), total, secondCurrency.getCurrencyCode()));
+        log.info(String.format("Trade occured: %s %s @ %s %s (total %s %s)", amount, firstCurrency.getCurrencyCode(), price, secondCurrency.getCurrencyCode(), total, secondCurrency.getCurrencyCode()));
 
         firstOrder.addTotal(amount);
         firstOrder.addCompletedAmount(amount);
@@ -132,6 +133,8 @@ public class MarketManager implements AbstractMarketManager {
         VirtualWallet firstDest = firstOrder.getDestWallet(), secondDest = secondOrder.getDestWallet();
         firstDest.addBalance(firstCurrencySend);
         secondDest.addBalance(secondCurrencySend);
+        session.update(firstDest);
+        session.update(secondDest);
 
         if(firstOrder.getStatus() == Order.Status.COMPLETED) {
             returnUnusedFunds(firstOrder);
@@ -140,15 +143,14 @@ public class MarketManager implements AbstractMarketManager {
             returnUnusedFunds(secondOrder);
         }
 
-        feeManager.submitCollectedFee(tradingPair.getFirstCurrency(), Calculator.fee(amount, tradingFee));
-        feeManager.submitCollectedFee(tradingPair.getSecondCurrency(), Calculator.fee(total, tradingFee));
+        feeManager.submitCollectedFee(FreeBalance.FeeType.TRADING, tradingPair.getFirstCurrency(), Calculator.fee(amount, tradingFee));
+        feeManager.submitCollectedFee(FreeBalance.FeeType.TRADING, tradingPair.getSecondCurrency(), Calculator.fee(total, tradingFee));
         cacheCleaner.orderExecutionEvict(firstOrder, secondOrder);
     }
 
     @Transactional
     public Order getOrder(long orderId) {
-        return (Order) sessionFactory.getCurrentSession().createCriteria(Order.class)
-                .add(Restrictions.eq("id", orderId)).uniqueResult();
+        return (Order) sessionFactory.getCurrentSession().get(Order.class, orderId);
     }
 
     @Transactional
@@ -161,10 +163,12 @@ public class MarketManager implements AbstractMarketManager {
     })
     public void cancelOrder(@NonNull Order order) throws Exception {
         assert order.isActual();
-        IdBasedLock<Long> lock = marketLockManager.obtainLock(order.getTradingPair().getId());
+        IdBasedLockManager<Long> currencyLockManager = lockManager.getCurrencyLockManager();
+        IdBasedLock<Long> lock = currencyLockManager.obtainLock(order.getTradingPair().getFirstCurrency().getId()), lock1 = currencyLockManager.obtainLock(order.getTradingPair().getSecondCurrency().getId());
         lock.lock();
+        lock1.lock();
         try {
-            log.info(String.format("[MarketManager] cancelOrder => %s", order));
+            log.info(String.format("cancelOrder => %s", order));
             Session session = sessionFactory.getCurrentSession();
             order.cancel();
             returnUnusedFunds(order);
@@ -174,6 +178,7 @@ public class MarketManager implements AbstractMarketManager {
             throw e;
         } finally {
             lock.unlock();
+            lock1.unlock();
         }
     }
 
@@ -193,11 +198,13 @@ public class MarketManager implements AbstractMarketManager {
         if (newOrder.getAmount().compareTo(newOrder.getTradingPair().getMinimalTradeAmount()) < 0) {
             throw new MarketError(String.format("Minimal trading amount is %s", newOrder.getTradingPair().getMinimalTradeAmount()));
         }
-        IdBasedLock<Long> lock = marketLockManager.obtainLock(newOrder.getTradingPair().getId());
+        IdBasedLockManager<Long> currencyLockManager = lockManager.getCurrencyLockManager();
+        IdBasedLock<Long> lock = currencyLockManager.obtainLock(newOrder.getTradingPair().getFirstCurrency().getId()), lock1 = currencyLockManager.obtainLock(newOrder.getTradingPair().getSecondCurrency().getId());
         lock.lock();
+        lock1.lock();
         try {
             Session session = sessionFactory.getCurrentSession();
-            log.info(String.format("[MarketManager] executeOrder => %s", newOrder));
+            log.info(String.format("executeOrder => %s", newOrder));
             Order.Type orderType = newOrder.getType();
             VirtualWallet virtualWalletSource = newOrder.getSourceWallet(), virtualWalletDest = newOrder.getDestWallet();
             session.refresh(virtualWalletSource);
@@ -231,21 +238,18 @@ public class MarketManager implements AbstractMarketManager {
                     remapFunds(newOrder, order, tradeAmount);
                 }
                 session.update(order);
-                session.update(order.getSourceWallet());
-                session.update(order.getDestWallet());
                 if(newOrder.getStatus().equals(Order.Status.COMPLETED)) {
                     break; // Order executed
                 }
             }
             session.save(newOrder);
-            session.update(virtualWalletSource);
-            session.update(virtualWalletDest);
             return newOrder;
         } catch (Exception e) {
             log.error("executeOrder error", e);
             throw e;
         } finally {
             lock.unlock();
+            lock1.unlock();
         }
     }
 

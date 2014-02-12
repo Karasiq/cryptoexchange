@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Service
 @CommonsLog
@@ -30,32 +31,33 @@ public class FeeManager implements AbstractFeeManager {
 
     private final IdBasedLockManager<Long> freeBalanceLockManager = new SafeIdBasedLockManager<>();
 
-    private FreeBalance getFreeBalance(@NonNull Currency currency) {
+    private FreeBalance getFreeBalance(FreeBalance.FeeType type, @NonNull Currency currency) {
         Session session = sessionFactory.getCurrentSession();
         FreeBalance balance = (FreeBalance) session.createCriteria(FreeBalance.class)
                 .add(Restrictions.eq("currency", currency))
+                .add(Restrictions.eq("type", type))
                 .uniqueResult();
         if(balance == null) {
-            balance = new FreeBalance(currency);
+            balance = new FreeBalance(currency, type);
             session.save(balance);
         }
         return balance;
     }
 
     @Transactional
-    public void submitCollectedFee(@NonNull Currency currency, BigDecimal feeAmount) throws Exception {
+    public void submitCollectedFee(FreeBalance.FeeType type, @NonNull Currency currency, BigDecimal feeAmount) throws Exception {
         Session session = sessionFactory.getCurrentSession();
-        FreeBalance freeBalance = getFreeBalance(currency);
+        FreeBalance freeBalance = getFreeBalance(type, currency);
         IdBasedLock<Long> lock = freeBalanceLockManager.obtainLock(freeBalance.getId());
         lock.lock();
         try {
-            BigDecimal newTotal = freeBalance.getCollectedFee();
+            BigDecimal newTotal = freeBalance.getAmount();
             if(newTotal == null) {
                 newTotal = BigDecimal.ZERO;
             }
             newTotal = newTotal.add(feeAmount);
-            freeBalance.setCollectedFee(newTotal);
-            log.info(String.format("[FeeManager] Fee collected: %s %s (total: %s)", feeAmount, currency.getCurrencyCode(), newTotal));
+            freeBalance.setAmount(newTotal);
+            log.info(String.format("%s fee collected: %s %s (total: %s)", type, feeAmount, currency.getCurrencyCode(), newTotal));
             session.update(freeBalance);
         } catch (Exception e) {
             log.error(e);
@@ -66,30 +68,70 @@ public class FeeManager implements AbstractFeeManager {
     }
 
     @Transactional
-    public BigDecimal getCollectedFee(@NonNull Currency currency) {
-        return getFreeBalance(currency).getCollectedFee();
+    public BigDecimal getCollectedFee(FreeBalance.FeeType type, @NonNull Currency currency) {
+        return getFreeBalance(type, currency).getAmount();
     }
 
-    @Transactional
-    public void withdrawFee(@NonNull Currency currency, BigDecimal amount, Object receiverInfo) throws Exception {
-        assert receiverInfo instanceof String; // Address
-        Session session = sessionFactory.getCurrentSession();
-        FreeBalance freeBalance = getFreeBalance(currency);
+    private void withdrawCrypto(Session session, @NonNull FreeBalance freeBalance, BigDecimal amount, String address) throws Exception {
         IdBasedLock<Long> lock = freeBalanceLockManager.obtainLock(freeBalance.getId());
         lock.lock();
         try {
-            BigDecimal current = freeBalance.getCollectedFee();
+            BigDecimal current = freeBalance.getAmount();
             assert current.compareTo(amount) >= 0;
-            String address = (String) receiverInfo;
-            CryptoCoinWallet.Account cryptoCoinWallet = (CryptoCoinWallet.Account) daemonManager.getAccount(currency);
+            CryptoCoinWallet.Account cryptoCoinWallet = (CryptoCoinWallet.Account) daemonManager.getAccount(freeBalance.getCurrency());
             Address.Transaction transaction = cryptoCoinWallet.sendToAddress(address, amount);
-            freeBalance.setCollectedFee(current.add(transaction.getAmount()).add(transaction.getFee()));
+            freeBalance.setAmount(current.add(transaction.getAmount()).add(transaction.getFee()));
             session.update(freeBalance);
+            log.info(String.format("Fee withdraw success: %s => %s (%s)", amount, address, transaction));
         } catch (Exception e) {
             log.error(e);
             throw e;
         } finally {
             lock.unlock();
+        }
+    }
+
+    @Override
+    @Transactional
+    public void withdrawFee(FreeBalance.FeeType type, @NonNull Currency currency, BigDecimal amount, Object receiverInfo) throws Exception {
+        assert receiverInfo instanceof String; // Address
+        Session session = sessionFactory.getCurrentSession();
+        FreeBalance freeBalance = getFreeBalance(type, currency);
+        withdrawCrypto(session, freeBalance, amount, (String) receiverInfo);
+    }
+
+    @Override
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public void withdrawFee(@NonNull Currency currency, BigDecimal amount, Object receiverInfo) throws Exception {
+        assert receiverInfo instanceof String; // Address
+        Session session = sessionFactory.getCurrentSession();
+        List<FreeBalance> freeBalanceList = session.createCriteria(FreeBalance.class)
+                .add(Restrictions.eq("currency", currency))
+                .list();
+        BigDecimal remaining = amount;
+        for(FreeBalance freeBalance : freeBalanceList) {
+            BigDecimal current = freeBalance.getAmount(), toSend = BigDecimal.ZERO;
+            switch (current.compareTo(remaining)) {
+                case 0:
+                case 1:
+                    toSend = remaining;
+                    break;
+                case -1:
+                    toSend = current;
+                    break;
+            }
+            withdrawCrypto(session, freeBalance, toSend, (String) receiverInfo);
+            remaining = remaining.subtract(toSend);
+            if(remaining.compareTo(BigDecimal.ZERO) <= 0) break;
+        }
+        switch (remaining.compareTo(BigDecimal.ZERO)) {
+            case 1:
+                log.warn(String.format("Insufficient funds to complete withdrawal: %s %s remaining", remaining, currency.getCurrencyCode()));
+                break;
+            case -1:
+                log.fatal(String.format("Remaining is negative: %s", remaining));
+                break;
         }
     }
 }
