@@ -4,6 +4,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.Immutable;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -14,7 +15,8 @@ import java.io.Serializable;
 @NoArgsConstructor
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+@Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
+@Immutable
 public class Daemon implements Serializable {
     @Column
     @GeneratedValue
@@ -25,7 +27,7 @@ public class Daemon implements Serializable {
     @NonNull Currency currency;
 
     @Column(name = "daemon_host")
-    @NonNull String daemonHost = "localhost";
+    @NonNull String daemonHost;
 
     @Column(name = "daemon_port")
     @NonNull Integer daemonPort;

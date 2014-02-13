@@ -77,8 +77,8 @@ public class DaemonManager implements AbstractDaemonManager {
     }
 
     @Scheduled(fixedDelay = 60 * 60 * 1000) // Hourly reload
-    public synchronized void initDaemons() {
-        log.info("Reloading daemon settings...");
+    public synchronized void loadDaemons() {
+        log.info("Loading daemon settings...");
         @Cleanup Session session = sessionFactory.openSession();
         List<Currency> currencyList = settingsManager.getCurrencyList();
         for(Currency currency : currencyList) {
@@ -151,7 +151,7 @@ public class DaemonManager implements AbstractDaemonManager {
 
     @PostConstruct
     public void init() throws Exception {
-        initDaemons();
+        loadDaemons();
         loadTransactions();
     }
 }

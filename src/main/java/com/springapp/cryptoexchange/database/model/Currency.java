@@ -2,6 +2,7 @@ package com.springapp.cryptoexchange.database.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
+import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.Immutable;
@@ -16,8 +17,8 @@ import java.math.BigDecimal;
 @Entity
 @Table(name = "currencies")
 @EqualsAndHashCode(of = {"currencyCode", "currencyName", "currencyType"})
-@Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
-@Immutable
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class Currency implements Serializable {
     public static enum CurrencyType {
         PURE_VIRTUAL, CRYPTO
@@ -25,24 +26,24 @@ public class Currency implements Serializable {
     @Id
     @GeneratedValue
     @Column(unique = true)
-    private long id;
+    long id;
 
     @Column(name = "enabled", nullable = false)
     @JsonIgnore
-    private boolean enabled = true;
+    boolean enabled = true;
 
     @Column(name = "code", nullable = false, unique = true)
-    private @NonNull String currencyCode;
+    @NonNull String currencyCode;
 
     @Column(name = "name", nullable = false, unique = true)
-    private @NonNull String currencyName;
+    @NonNull String currencyName;
 
     @Column(name = "withdraw_fee", precision = 5, scale = 2)
     @JsonIgnore
-    private BigDecimal withdrawFee = BigDecimal.ONE;
+    BigDecimal withdrawFee = BigDecimal.ONE;
 
     @Column(name = "type")
-    private CurrencyType currencyType = CurrencyType.CRYPTO;
+    @NonNull CurrencyType currencyType;
 
     @PostLoad
     void init() {

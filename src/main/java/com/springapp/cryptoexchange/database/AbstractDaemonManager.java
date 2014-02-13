@@ -15,5 +15,6 @@ public interface AbstractDaemonManager {
     List<Address> getAddressList(VirtualWallet wallet);
     String createWalletAddress(VirtualWallet virtualWallet) throws Exception;
     void withdrawFunds(VirtualWallet wallet, String address, BigDecimal amount) throws Exception;
+    public void loadDaemons() throws Exception;
     void loadTransactions() throws Exception;
 }
