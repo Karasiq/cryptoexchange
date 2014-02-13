@@ -14,7 +14,7 @@ import java.io.Serializable;
 @NoArgsConstructor
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class Daemon implements Serializable {
     @Column
     @GeneratedValue

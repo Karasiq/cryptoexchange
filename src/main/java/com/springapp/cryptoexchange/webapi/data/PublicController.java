@@ -74,7 +74,7 @@ public class PublicController {
     public AbstractConvertService.Depth getMarketDepth(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         assert tradingPair != null && tradingPair.isEnabled();
-        return convertService.createDepth(marketManager.getOpenOrders(tradingPair, Order.Type.BUY, 100, false), marketManager.getOpenOrders(tradingPair, Order.Type.SELL, 100, true));
+        return convertService.createDepth(marketManager.getOpenOrders(tradingPair, Order.Type.BUY, 100), marketManager.getOpenOrders(tradingPair, Order.Type.SELL, 100));
     }
 
 

@@ -3,6 +3,7 @@ package com.springapp.cryptoexchange.database.model;
 import lombok.*;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.Immutable;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -14,6 +15,7 @@ import java.io.Serializable;
 @Table(name = "addresses")
 @EqualsAndHashCode(exclude = "virtualWallet")
 @Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
+@Immutable
 public class Address implements Serializable {
     @Id
     @GeneratedValue

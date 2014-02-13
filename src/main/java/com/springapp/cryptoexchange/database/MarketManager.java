@@ -224,7 +224,7 @@ public class MarketManager implements AbstractMarketManager {
                     .addOrder(org.hibernate.criterion.Order.asc("openDate"))
                     .add(Restrictions.in("status", new Order.Status[]{Order.Status.OPEN, Order.Status.PARTIALLY_COMPLETED}))
                     .add(Restrictions.eq("tradingPair", newOrder.getTradingPair()))
-                    .add(orderType == Order.Type.BUY ? Restrictions.le("price", newOrder.getPrice()) : Restrictions.ge("price", newOrder.getPrice()))
+                    .add(orderType.equals(Order.Type.BUY) ? Restrictions.le("price", newOrder.getPrice()) : Restrictions.ge("price", newOrder.getPrice()))
                     .add(Restrictions.eq("type", orderType.equals(Order.Type.BUY) ? Order.Type.SELL : Order.Type.BUY))
                     .list();
             for(Order order : orders) {
@@ -264,14 +264,15 @@ public class MarketManager implements AbstractMarketManager {
 
     @Transactional
     @SuppressWarnings("unchecked")
-    public List<Order> getOpenOrders(TradingPair tradingPair, Order.Type type, int max, boolean ascending) {
+    public List<Order> getOpenOrders(TradingPair tradingPair, Order.Type orderType, int max) {
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Order.class)
                 .setMaxResults(max)
+                .addOrder(orderType.equals(Order.Type.SELL) ? org.hibernate.criterion.Order.asc("price") : org.hibernate.criterion.Order.desc("price"))
+                .addOrder(org.hibernate.criterion.Order.asc("openDate"))
                 .add(Restrictions.eq("tradingPair", tradingPair))
                 .add(Restrictions.in("status", new Order.Status[] { Order.Status.OPEN, Order.Status.PARTIALLY_COMPLETED }))
-                .add(Restrictions.eq("type", type))
-                .addOrder(ascending ? org.hibernate.criterion.Order.asc("price") : org.hibernate.criterion.Order.desc("price"))
+                .add(Restrictions.eq("type", orderType))
                 .list();
     }
 }

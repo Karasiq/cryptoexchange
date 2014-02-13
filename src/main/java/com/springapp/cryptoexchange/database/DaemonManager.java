@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.Assert;
 
 import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
@@ -51,9 +52,8 @@ public class DaemonManager implements AbstractDaemonManager {
     @Autowired
     AbstractFeeManager feeManager;
 
-    private Daemon getDaemonSettings(@NonNull Currency currency) {
-        assert currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO);
-        @Cleanup Session session = sessionFactory.openSession();
+    private Daemon getDaemonSettings(Session session, @NonNull Currency currency) {
+        Assert.isTrue(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid currency type");
         return (Daemon) session.createCriteria(Daemon.class)
                 .add(Restrictions.eq("currency", currency))
                 .uniqueResult();
@@ -65,7 +65,7 @@ public class DaemonManager implements AbstractDaemonManager {
         List<Currency> currencyList = settingsManager.getCurrencyList();
         for(Currency currency : currencyList) if(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
             final DaemonInfo daemonInfo = daemonMap.get(currency);
-            if(daemonInfo.enabled && daemonInfo.wallet != null) {
+            if(daemonInfo != null && daemonInfo.enabled && daemonInfo.wallet != null) {
                 try {
                     daemonInfo.wallet.loadTransactions(1000);
                 }
@@ -76,11 +76,15 @@ public class DaemonManager implements AbstractDaemonManager {
         }
     }
 
-    private synchronized void initDaemons() {
+    @Scheduled(fixedDelay = 60 * 60 * 1000) // Hourly reload
+    public synchronized void initDaemons() {
+        log.info("Reloading daemon settings...");
+        @Cleanup Session session = sessionFactory.openSession();
         List<Currency> currencyList = settingsManager.getCurrencyList();
         for(Currency currency : currencyList) {
-            if(!daemonMap.containsKey(currency) && currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
-                Daemon settings = getDaemonSettings(currency);
+            if(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
+                Daemon settings = getDaemonSettings(session, currency);
+                Assert.notNull(settings, "Daemon settings not found");
                 JsonRPC daemon = new JsonRPC(settings.getDaemonHost(), settings.getDaemonPort(), settings.getDaemonLogin(), settings.getDaemonPassword());
                 AbstractWallet wallet = CryptoCoinWallet.getDefaultAccount(daemon);
                 daemonMap.put(currency, new DaemonInfo(wallet));
@@ -90,13 +94,14 @@ public class DaemonManager implements AbstractDaemonManager {
 
     public AbstractWallet getAccount(Currency currency) {
         DaemonInfo daemonInfo = daemonMap.get(currency);
-        assert daemonInfo.enabled;
+        Assert.notNull(daemonInfo, "Daemon not found");
+        Assert.isTrue(daemonInfo.enabled, "Daemon disabled");
         return daemonInfo.wallet;
     }
 
     @Transactional
     public String createWalletAddress(@NonNull VirtualWallet virtualWallet) throws Exception {
-        assert virtualWallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO);
+        Assert.isTrue(virtualWallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid currency type");
         Session session = sessionFactory.getCurrentSession();
         session.saveOrUpdate(virtualWallet);
         CryptoCoinWallet.Account account = (CryptoCoinWallet.Account) getAccount(virtualWallet.getCurrency());
@@ -108,7 +113,7 @@ public class DaemonManager implements AbstractDaemonManager {
 
     @Transactional
     public void withdrawFunds(@NonNull VirtualWallet wallet, @NonNull String address, @NonNull BigDecimal amount) throws Exception {
-        assert wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO) && address.length() > 0 && amount.compareTo(BigDecimal.ZERO) > 0;
+        Assert.isTrue(wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO) && address.length() > 0 && amount.compareTo(BigDecimal.ZERO) > 0, "Invalid parameters");
         Session session = sessionFactory.getCurrentSession();
         IdBasedLock<Long> lock = lockManager.getCurrencyLockManager().obtainLock(wallet.getCurrency().getId()); // Critical
         lock.lock();
@@ -146,7 +151,6 @@ public class DaemonManager implements AbstractDaemonManager {
 
     @PostConstruct
     public void init() throws Exception {
-        @Cleanup Session session = sessionFactory.openSession();
         initDaemons();
         loadTransactions();
     }

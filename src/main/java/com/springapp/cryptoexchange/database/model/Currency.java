@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.Immutable;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -16,6 +17,7 @@ import java.math.BigDecimal;
 @Table(name = "currencies")
 @EqualsAndHashCode(of = {"currencyCode", "currencyName", "currencyType"})
 @Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
+@Immutable
 public class Currency implements Serializable {
     public static enum CurrencyType {
         PURE_VIRTUAL, CRYPTO
