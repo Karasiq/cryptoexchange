@@ -1,8 +1,8 @@
 package com.springapp.cryptoexchange.webapi.master;
 
-import com.springapp.cryptoexchange.database.AbstractAccountManager;
-import com.springapp.cryptoexchange.database.AbstractMarketManager;
-import com.springapp.cryptoexchange.database.AbstractSettingsManager;
+import com.springapp.cryptoexchange.database.AccountManager;
+import com.springapp.cryptoexchange.database.MarketManager;
+import com.springapp.cryptoexchange.database.SettingsManager;
 import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
@@ -26,13 +26,13 @@ import java.security.Principal;
 @Profile("master") // Main instance, cannot distribute
 public class TradingControllerImpl implements TradingController {
     @Autowired
-    AbstractSettingsManager settingsManager;
+    SettingsManager settingsManager;
 
     @Autowired
-    AbstractMarketManager marketManager;
+    MarketManager marketManager;
 
     @Autowired
-    AbstractAccountManager accountManager;
+    AccountManager accountManager;
 
     @Override
     @RequestMapping(value = "/order/create/{tradingPairId}", method = RequestMethod.POST)

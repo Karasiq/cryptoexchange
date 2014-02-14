@@ -1,11 +1,9 @@
 package com.springapp.cryptoexchange.database.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
-import org.hibernate.annotations.Immutable;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -29,7 +27,6 @@ public class Currency implements Serializable {
     long id;
 
     @Column(name = "enabled", nullable = false)
-    @JsonIgnore
     boolean enabled = true;
 
     @Column(name = "code", nullable = false, unique = true)
@@ -39,7 +36,6 @@ public class Currency implements Serializable {
     @NonNull String currencyName;
 
     @Column(name = "withdraw_fee", precision = 5, scale = 2)
-    @JsonIgnore
     BigDecimal withdrawFee = BigDecimal.ONE;
 
     @Column(name = "type")

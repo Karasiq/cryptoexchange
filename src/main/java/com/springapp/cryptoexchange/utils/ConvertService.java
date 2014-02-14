@@ -1,108 +1,66 @@
 package com.springapp.cryptoexchange.utils;
 
-import com.springapp.cryptoexchange.database.*;
-import com.springapp.cryptoexchange.database.model.*;
-import lombok.NonNull;
-import org.hibernate.SessionFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import com.springapp.cryptoexchange.database.model.Account;
+import com.springapp.cryptoexchange.database.model.Candle;
+import com.springapp.cryptoexchange.database.model.Currency;
+import com.springapp.cryptoexchange.database.model.Order;
+import lombok.Data;
+import lombok.Value;
 
-import javax.transaction.Transactional;
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
-@Service
-public class ConvertService implements AbstractConvertService { // Convert layer
-    @Autowired
-    AbstractHistoryManager historyManager;
+public interface ConvertService {
+    @Data
+    public static class MarketHistory implements Serializable {
+        public Order.Type type;
+        public BigDecimal price;
+        public BigDecimal amount;
+        public Date time;
+        protected MarketHistory(Order order) {
+            type = order.getType();
+            price = order.getPrice();
+            amount = order.getCompletedAmount();
+            time = order.getCloseDate();
+        }
+    }
 
-    @Autowired
-    AbstractSettingsManager settingsManager;
-
-    @Autowired
-    AbstractMarketManager marketManager;
-
-    @Autowired
-    AbstractDaemonManager daemonManager;
-
-    @Autowired
-    AbstractAccountManager accountManager;
-
-    @Autowired
-    SessionFactory sessionFactory;
-
-    public Depth createDepth(@NonNull List<Order> buyOrders, @NonNull List<Order> sellOrders) throws Exception {
-        final Depth depth = new Depth();
-        Depth.DepthEntry depthEntry = new Depth.DepthEntry();
-        if(buyOrders != null && !buyOrders.isEmpty()) {
-            for(Order order : buyOrders) {
-                if(depthEntry.price != null && !depthEntry.price.equals(order.getPrice())) {
-                    depth.buyOrders.add(depthEntry);
-                    depthEntry = new Depth.DepthEntry();
-                }
-                depthEntry.addOrder(order);
+    @Data
+    public static class Depth implements Serializable {
+        static class DepthEntry implements Comparable<DepthEntry> {
+            protected void addOrder(Order order) {
+                price = order.getPrice();
+                amount = amount.add(order.getRemainingAmount());
             }
-            depth.buyOrders.add(depthEntry);
-            depthEntry = new Depth.DepthEntry();
-        }
-
-        if(sellOrders != null && !sellOrders.isEmpty()) {
-            for(Order order : sellOrders) {
-                if(depthEntry.price != null && !depthEntry.price.equals(order.getPrice())) {
-                    depth.sellOrders.add(depthEntry);
-                    depthEntry = new Depth.DepthEntry();
-                }
-                depthEntry.addOrder(order);
+            public BigDecimal price;
+            public BigDecimal amount = BigDecimal.ZERO;
+            public int compareTo(DepthEntry entry) {
+                return price.compareTo(entry.price);
             }
-            depth.sellOrders.add(depthEntry);
         }
-        return depth;
-    }
-    public List<MarketHistory> createHistory(@NonNull List<Order> orders) throws Exception {
-        List<MarketHistory> marketHistoryList = new ArrayList<>(orders.size());
-        for(Order order : orders) {
-            marketHistoryList.add(new MarketHistory(order));
-        }
-        return marketHistoryList;
+        public final List<DepthEntry> sellOrders = new ArrayList<>();
+        public final List<DepthEntry> buyOrders = new ArrayList<>();
     }
 
-    @Transactional
-    public AccountBalanceInfo createAccountBalanceInfo(@NonNull Account account) throws Exception {
-        sessionFactory.getCurrentSession().refresh(account);
-        List<Currency> currencyList = settingsManager.getCurrencyList();
-        AccountBalanceInfo accountBalanceInfo = new AccountBalanceInfo();
-        for(Currency currency : currencyList) {
-            VirtualWallet wallet = account.getBalance(currency);
-            BigDecimal balance = BigDecimal.ZERO;
-            String address = null;
-            if(wallet != null) {
-                balance = accountManager.getVirtualWalletBalance(wallet);
-                if(wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
-                    List<Address> addressList = daemonManager.getAddressList(wallet);
-                    if (!addressList.isEmpty()) {
-                        address = addressList.get(0).getAddress();
-                    }
-                }
-            }
-            accountBalanceInfo.add(currency, balance, address);
+    @Data
+    public static class AccountBalanceInfo implements Serializable  {
+        @Value
+        public static class AccountBalance implements Serializable  {
+            private final Currency currency;
+            private final BigDecimal balance;
+            private final String address;
         }
-        return accountBalanceInfo;
+        private final List<AccountBalance> accountBalances = new ArrayList<>();
+        public void add(Currency currency, BigDecimal balance, String address) {
+            accountBalances.add(new AccountBalance(currency, balance, address));
+        }
     }
 
-    @Override
-    public Object[][] createHighChartsOHLCData(@NonNull List<Candle> candleList) throws Exception {
-        int length = candleList.size();
-        Object[][] result = new Object[length][6];
-        for(int i = 0; i < length; i++) {
-            Candle candle = candleList.get(length - i - 1);
-            result[i][0] = candle.getOpenTime().getTime();
-            result[i][1] = candle.getOpen();
-            result[i][2] = candle.getHigh();
-            result[i][3] = candle.getLow();
-            result[i][4] = candle.getClose();
-            result[i][5] = candle.getVolume();
-        }
-        return result;
-    }
+    public Depth createDepth(List<Order> buyOrders, List<Order> sellOrders) throws Exception;
+    public List<MarketHistory> createHistory(List<Order> orders) throws Exception;
+    public AccountBalanceInfo createAccountBalanceInfo(Account account) throws Exception;
+    public Object[][] createHighChartsOHLCData(List<Candle> candleList) throws Exception;
 }

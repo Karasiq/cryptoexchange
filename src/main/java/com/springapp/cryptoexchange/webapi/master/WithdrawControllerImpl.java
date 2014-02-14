@@ -1,8 +1,8 @@
 package com.springapp.cryptoexchange.webapi.master;
 
-import com.springapp.cryptoexchange.database.AbstractAccountManager;
-import com.springapp.cryptoexchange.database.AbstractDaemonManager;
-import com.springapp.cryptoexchange.database.AbstractSettingsManager;
+import com.springapp.cryptoexchange.database.AccountManager;
+import com.springapp.cryptoexchange.database.DaemonManager;
+import com.springapp.cryptoexchange.database.SettingsManager;
 import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.VirtualWallet;
@@ -25,13 +25,13 @@ import java.security.Principal;
 @Profile("master") // Main instance, cannot distribute
 public class WithdrawControllerImpl implements WithdrawController {
     @Autowired
-    AbstractAccountManager accountManager;
+    AccountManager accountManager;
 
     @Autowired
-    AbstractSettingsManager settingsManager;
+    SettingsManager settingsManager;
 
     @Autowired
-    AbstractDaemonManager daemonManager;
+    DaemonManager daemonManager;
 
     @Override
     @RequestMapping(value = "/crypto/{currencyId}", method = RequestMethod.POST)

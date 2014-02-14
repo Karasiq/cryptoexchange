@@ -1,7 +1,7 @@
 package com.springapp.cryptoexchange.webapi.admin;
 
-import com.springapp.cryptoexchange.database.AbstractDaemonManager;
-import com.springapp.cryptoexchange.database.AbstractSettingsManager;
+import com.springapp.cryptoexchange.database.DaemonManager;
+import com.springapp.cryptoexchange.database.SettingsManager;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.Daemon;
 import com.springapp.cryptoexchange.database.model.TradingPair;
@@ -26,10 +26,10 @@ public class AdminController {
     SessionFactory sessionFactory;
 
     @Autowired
-    AbstractSettingsManager settingsManager;
+    SettingsManager settingsManager;
 
     @Autowired
-    AbstractDaemonManager daemonManager;
+    DaemonManager daemonManager;
 
     @Transactional
     @RequestMapping(value = "/add_currency", method = RequestMethod.POST)

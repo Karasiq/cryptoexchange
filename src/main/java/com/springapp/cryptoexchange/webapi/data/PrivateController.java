@@ -1,9 +1,8 @@
 package com.springapp.cryptoexchange.webapi.data;
 
-import com.bitcoin.daemon.CryptoCoinWallet;
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
-import com.springapp.cryptoexchange.utils.AbstractConvertService;
+import com.springapp.cryptoexchange.utils.ConvertService;
 import com.springapp.cryptoexchange.webapi.ApiDefs;
 import lombok.extern.apachecommons.CommonsLog;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,27 +28,27 @@ import java.util.Set;
 @Profile("data")
 public class PrivateController {
     @Autowired
-    AbstractConvertService convertService;
+    ConvertService convertService;
 
     @Autowired
-    AbstractAccountManager accountManager;
+    AccountManager accountManager;
 
     @Autowired
-    AbstractSettingsManager settingsManager;
+    SettingsManager settingsManager;
 
     @Autowired
-    AbstractHistoryManager historyManager;
+    HistoryManager historyManager;
 
     @Autowired
-    AbstractDaemonManager daemonManager;
+    DaemonManager daemonManager;
 
     @Autowired
-    AbstractMarketManager marketManager;
+    MarketManager marketManager;
 
     @Cacheable(value = "getAccountBalances", key = "#principal.name")
     @RequestMapping("/balance")
     @ResponseBody
-    public ApiDefs.ApiStatus<AbstractConvertService.AccountBalanceInfo> getAccountBalances(Principal principal) {
+    public ApiDefs.ApiStatus<ConvertService.AccountBalanceInfo> getAccountBalances(Principal principal) {
         try {
             Account account = accountManager.getAccount(principal.getName());
             Assert.notNull(account);

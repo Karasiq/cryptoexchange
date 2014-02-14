@@ -1,6 +1,6 @@
 package com.springapp.cryptoexchange.webapi;
 
-import com.springapp.cryptoexchange.database.AbstractAccountManager;
+import com.springapp.cryptoexchange.database.AccountManager;
 import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.LoginHistory;
 import lombok.AccessLevel;
@@ -8,7 +8,6 @@ import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
 import org.hibernate.SessionFactory;
-import org.hibernate.criterion.Restrictions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -23,8 +22,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.transaction.Transactional;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
 
 
@@ -33,7 +30,7 @@ import java.util.List;
 @CommonsLog
 public class SessionController {
     @Autowired
-    AbstractAccountManager accountManager;
+    AccountManager accountManager;
 
     @Autowired
     SessionFactory sessionFactory;

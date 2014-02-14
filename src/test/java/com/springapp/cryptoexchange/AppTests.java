@@ -5,8 +5,6 @@ import com.bitcoin.daemon.JsonRPC;
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
 import lombok.extern.apachecommons.CommonsLog;
-import org.apache.commons.logging.LogFactory;
-import org.apache.commons.logging.impl.LogFactoryImpl;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.junit.Before;
@@ -24,11 +22,9 @@ import org.springframework.web.context.WebApplicationContext;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.logging.Logger;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup;
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -41,19 +37,19 @@ public class AppTests {
     SessionFactory sessionFactory;
 
     @Autowired
-    AbstractDaemonManager daemonManager;
+    DaemonManager daemonManager;
 
     @Autowired
-    AbstractAccountManager accountManager;
+    AccountManager accountManager;
 
     @Autowired
-    AbstractSettingsManager settingsManager;
+    SettingsManager settingsManager;
 
     @Autowired
-    AbstractHistoryManager historyManager;
+    HistoryManager historyManager;
 
     @Autowired
-    AbstractMarketManager marketManager;
+    MarketManager marketManager;
 
     private MockMvc mockMvc;
 

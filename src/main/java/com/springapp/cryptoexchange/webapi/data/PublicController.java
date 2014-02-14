@@ -1,11 +1,11 @@
 package com.springapp.cryptoexchange.webapi.data;
 
-import com.springapp.cryptoexchange.database.AbstractHistoryManager;
-import com.springapp.cryptoexchange.database.AbstractMarketManager;
-import com.springapp.cryptoexchange.database.AbstractSettingsManager;
+import com.springapp.cryptoexchange.database.HistoryManager;
+import com.springapp.cryptoexchange.database.MarketManager;
+import com.springapp.cryptoexchange.database.SettingsManager;
 import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
-import com.springapp.cryptoexchange.utils.AbstractConvertService;
+import com.springapp.cryptoexchange.utils.ConvertService;
 import lombok.extern.apachecommons.CommonsLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
@@ -24,16 +24,16 @@ import java.util.List;
 public class PublicController {
 
     @Autowired
-    AbstractSettingsManager settingsManager;
+    SettingsManager settingsManager;
 
     @Autowired
-    AbstractMarketManager marketManager;
+    MarketManager marketManager;
 
     @Autowired
-    AbstractHistoryManager historyManager;
+    HistoryManager historyManager;
 
     @Autowired
-    AbstractConvertService convertService;
+    ConvertService convertService;
 
     @Cacheable("getTradingPairs")
     @RequestMapping(value = "/info")
@@ -53,7 +53,7 @@ public class PublicController {
     @Cacheable(value = "getMarketHistory", key = "#tradingPairId")
     @RequestMapping("/history/{tradingPairId}")
     @ResponseBody
-    public List<AbstractConvertService.MarketHistory> getMarketHistory(@PathVariable long tradingPairId) throws Exception {
+    public List<ConvertService.MarketHistory> getMarketHistory(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         assert tradingPair != null && tradingPair.isEnabled();
         return convertService.createHistory(historyManager.getMarketHistory(tradingPair, 100));
@@ -71,7 +71,7 @@ public class PublicController {
     @Cacheable(value = "getMarketDepth", key = "#tradingPairId")
     @RequestMapping("/depth/{tradingPairId}")
     @ResponseBody
-    public AbstractConvertService.Depth getMarketDepth(@PathVariable long tradingPairId) throws Exception {
+    public ConvertService.Depth getMarketDepth(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         assert tradingPair != null && tradingPair.isEnabled();
         return convertService.createDepth(marketManager.getOpenOrders(tradingPair, Order.Type.BUY, 100), marketManager.getOpenOrders(tradingPair, Order.Type.SELL, 100));

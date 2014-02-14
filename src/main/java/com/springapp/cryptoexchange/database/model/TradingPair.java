@@ -28,7 +28,6 @@ public class TradingPair implements Serializable {
     long id;
 
     @Column(name = "enabled")
-    @JsonIgnore
     boolean enabled = true;
 
     @ManyToOne

@@ -7,7 +7,7 @@
                  http://www.springframework.org/schema/security/spring-security-3.2.xsd">
 
     <authentication-manager alias="authenticationManager" >
-        <authentication-provider user-service-ref="accountManager">
+        <authentication-provider user-service-ref="accountManagerImpl">
             <password-encoder hash="sha-256">
                 <salt-source user-property="username"/>
             </password-encoder>
@@ -18,7 +18,7 @@
         <intercept-url pattern="/admin/*" access="ROLE_ADMIN"/>
         <form-login />
         <logout />
-        <remember-me user-service-ref="accountManager"/>
+        <remember-me user-service-ref="accountManagerImpl"/>
         <anonymous username="anonymousUser" granted-authority="ROLE_ANONYMOUS"/>
         <form-login login-page="/login" authentication-failure-url="/"
                     default-target-url="/"

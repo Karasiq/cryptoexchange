@@ -1,7 +1,7 @@
 package com.springapp.cryptoexchange.database.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.springapp.cryptoexchange.database.MarketManager;
+import com.springapp.cryptoexchange.database.MarketManagerImpl;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.Cache;
@@ -81,10 +81,10 @@ public class Order implements Serializable {
         return amount.subtract(completedAmount);
     }
 
-    public synchronized void addCompletedAmount(final @NonNull BigDecimal amount) throws MarketManager.MarketError {
+    public synchronized void addCompletedAmount(final @NonNull BigDecimal amount) throws MarketManagerImpl.MarketError {
         completedAmount = completedAmount.add(amount);
         if(completedAmount.compareTo(getAmount()) > 0) {
-            throw new MarketManager.MarketError("Critical internal error");
+            throw new MarketManagerImpl.MarketError("Critical internal error");
         }
     }
 
