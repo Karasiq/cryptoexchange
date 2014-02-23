@@ -4,6 +4,8 @@
 
     <defaultCache maxElementsInMemory="500" eternal="false" timeToLiveSeconds="120" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
     <cache name="getTradingPairs" timeToLiveSeconds="300" maxElementsInMemory="500" eternal="false" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getCurrencies" timeToLiveSeconds="300" maxElementsInMemory="500" eternal="false" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getCurrencyInfo" timeToLiveSeconds="300" maxElementsInMemory="500" eternal="false" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
     <cache name="getMarketPrices" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="120" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
     <cache name="getMarketDepth" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="120" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
     <cache name="getMarketHistory" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="120" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>

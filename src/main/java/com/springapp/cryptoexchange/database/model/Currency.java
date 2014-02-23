@@ -38,6 +38,9 @@ public class Currency implements Serializable {
     @Column(name = "withdraw_fee", precision = 5, scale = 2)
     BigDecimal withdrawFee = BigDecimal.ONE;
 
+    @Column(name = "min_withdraw_amount", precision = 38, scale = 8)
+    @NonNull BigDecimal minimalWithdrawAmount = BigDecimal.ZERO;
+
     @Column(name = "type")
     @NonNull CurrencyType currencyType;
 
@@ -48,6 +51,9 @@ public class Currency implements Serializable {
         }
         if(currencyType == null) {
             currencyType = CurrencyType.CRYPTO;
+        }
+        if(minimalWithdrawAmount == null) {
+            minimalWithdrawAmount = BigDecimal.ZERO;
         }
     }
 }

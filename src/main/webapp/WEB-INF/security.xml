@@ -15,12 +15,12 @@
     </authentication-manager>
 
     <http access-denied-page="/static/403.html">
-        <intercept-url pattern="/admin/*" access="ROLE_ADMIN"/>
+        <intercept-url pattern="/static/admin.html" access="ROLE_ADMIN"/>
         <form-login />
         <logout />
         <remember-me user-service-ref="accountManagerImpl"/>
         <anonymous username="anonymousUser" granted-authority="ROLE_ANONYMOUS"/>
-        <form-login login-page="/login" authentication-failure-url="/"
+        <form-login login-page="/spring_security_login" authentication-failure-url="/"
                     default-target-url="/"
                     always-use-default-target="true"/>
         <logout invalidate-session="true" logout-success-url="/" logout-url="/security/logout"/>
