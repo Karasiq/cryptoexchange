@@ -6,7 +6,9 @@ import com.springapp.cryptoexchange.utils.ConvertService;
 import com.springapp.cryptoexchange.webapi.ApiDefs;
 import lombok.extern.apachecommons.CommonsLog;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Controller;
@@ -163,6 +165,9 @@ public class PrivateController {
         }
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "getAccountBalances", key = "#principal.name")
+    })
     @RequestMapping(value = "/address/{currencyId}", method = RequestMethod.POST)
     @ResponseBody
     public ApiDefs.ApiStatus<String> generateDepositAddress(@PathVariable long currencyId, Principal principal) throws Exception {
@@ -175,10 +180,10 @@ public class PrivateController {
             String address;
             if(addressList == null || addressList.isEmpty()) {
                 address = daemonManager.createWalletAddress(virtualWallet);
+                log.info("Address generated: " + address);
             } else {
                 address = addressList.get(0).getAddress();
             }
-            log.info("Address generated: " + address);
             return new ApiDefs.ApiStatus<>(true, null, address);
         } catch (Exception e) {
             e.printStackTrace();

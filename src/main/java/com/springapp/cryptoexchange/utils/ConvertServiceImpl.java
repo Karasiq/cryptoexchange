@@ -3,6 +3,7 @@ package com.springapp.cryptoexchange.utils;
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
 import lombok.NonNull;
+import lombok.extern.apachecommons.CommonsLog;
 import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -72,7 +73,7 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
         sessionFactory.getCurrentSession().refresh(account);
         List<Currency> currencyList = settingsManager.getCurrencyList();
         AccountBalanceInfo accountBalanceInfo = new AccountBalanceInfo();
-        for(Currency currency : currencyList) {
+        for(Currency currency : currencyList) if(currency.isEnabled()) {
             VirtualWallet wallet = account.getBalance(currency);
             BigDecimal balance = BigDecimal.ZERO;
             String address = null;

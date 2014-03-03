@@ -44,7 +44,7 @@ public class PublicController {
         return settingsManager.getCurrencyList();
     }
 
-    @Cacheable("getCurrencyInfo")
+    @Cacheable(value = "getCurrencyInfo", key = "#currencyId")
     @RequestMapping(value = "/currency/{currencyId}")
     @ResponseBody
     public Currency getCurrencyInfo(@PathVariable long currencyId) {

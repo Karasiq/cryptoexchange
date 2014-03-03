@@ -16,5 +16,5 @@
     <cache name="getAccountHistoryByPair" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="120" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
     <cache name="getTransactions" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="300" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
     <cache name="getMarketChartData" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="300" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
-    <cache name="getCryptoBalance" timeToLiveSeconds="240" maxElementsInMemory="10000" eternal="true" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getCryptoBalance" maxElementsInMemory="10000" eternal="true" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
 </ehcache>

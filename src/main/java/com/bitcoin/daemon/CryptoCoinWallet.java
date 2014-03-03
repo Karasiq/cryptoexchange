@@ -75,6 +75,14 @@ public class CryptoCoinWallet {
             }
         }
 
+        private void clearTransactions() {
+            synchronized (addressList) {
+                for(Address address : addressList.values()) {
+                    address.getTransactionList().clear();
+                }
+            }
+        }
+
         public void loadTransactions(int maxCount) throws Exception { // Expensive
             loadAddresses();
             List<Object> args = new ArrayList<>();
@@ -85,6 +93,7 @@ public class CryptoCoinWallet {
             List<Address.Transaction> transactions = jsonRPC.executeRpcRequest("listtransactions", args, new TypeReference<JsonRPC.JsonRpcResponse<List<Address.Transaction>>>(){});
 
             synchronized (addressList) {
+                clearTransactions();
                 Address address = null;
                 for(Address.Transaction transaction : transactions) {
                     if(address == null || !address.getAddress().equals(transaction.address)) {

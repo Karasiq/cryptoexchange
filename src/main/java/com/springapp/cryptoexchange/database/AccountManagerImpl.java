@@ -54,15 +54,21 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
 
     @Cacheable(value = "getCryptoBalance", key = "#virtualWallet.id")
     private BigDecimal getCryptoBalance(VirtualWallet virtualWallet) throws Exception {
-        final AbstractWallet wallet = daemonManager.getAccount(virtualWallet.getCurrency());
-        final List<Address> addressList = daemonManager.getAddressList(virtualWallet);
-        if (!addressList.isEmpty()) {
-            Set<Object> strings = new HashSet<>();
-            for (Address address : addressList) {
-                strings.add(address.getAddress());
+        try {
+            final AbstractWallet wallet = daemonManager.getAccount(virtualWallet.getCurrency());
+            final List<Address> addressList = daemonManager.getAddressList(virtualWallet);
+            if (!addressList.isEmpty()) {
+                Set<Object> strings = new HashSet<>();
+                for (Address address : addressList) {
+                    strings.add(address.getAddress());
+                }
+                return wallet.summaryConfirmedBalance(strings);
+            } else {
+                return BigDecimal.ZERO;
             }
-            return wallet.summaryConfirmedBalance(strings);
-        } else {
+        } catch (Exception e) {
+            e.printStackTrace();
+            log.fatal(e);
             return BigDecimal.ZERO;
         }
     }

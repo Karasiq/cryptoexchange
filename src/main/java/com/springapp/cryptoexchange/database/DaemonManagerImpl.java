@@ -15,6 +15,8 @@ import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,42 +54,64 @@ public class DaemonManagerImpl implements DaemonManager {
     @Autowired
     FeeManager feeManager;
 
-    private Daemon getDaemonSettings(Session session, @NonNull Currency currency) {
+    @Override
+    public void setDaemonSettings(Daemon settings) {
+        JsonRPC daemon = new JsonRPC(settings.getDaemonHost(), settings.getDaemonPort(), settings.getDaemonLogin(), settings.getDaemonPassword());
+        AbstractWallet wallet = CryptoCoinWallet.getDefaultAccount(daemon);
+        daemonMap.put(settings.getCurrency(), new DaemonInfo(wallet));
+    }
+
+    private Daemon getDaemonSettings(Session session, Currency currency) {
         Assert.isTrue(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid currency type");
         return (Daemon) session.createCriteria(Daemon.class)
                 .add(Restrictions.eq("currency", currency))
                 .uniqueResult();
     }
 
-    @Scheduled(fixedDelay = 5 * 60 * 1000) // Every 5m
-    public synchronized void loadTransactions() throws Exception {
-        log.info("Reloading transactions...");
-        List<Currency> currencyList = settingsManager.getCurrencyList();
-        for(Currency currency : currencyList) if(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
-            final DaemonInfo daemonInfo = daemonMap.get(currency);
-            if(daemonInfo != null && daemonInfo.enabled && daemonInfo.wallet != null) {
-                try {
-                    daemonInfo.wallet.loadTransactions(1000);
-                }
-                catch (JsonRPC.RPCDaemonException exc) {
-                    log.error(exc);
-                }
-            }
-        }
+    @Transactional
+    public Daemon getDaemonSettings(@NonNull Currency currency) {
+        return getDaemonSettings(sessionFactory.getCurrentSession(), currency);
     }
 
     @Scheduled(fixedDelay = 60 * 60 * 1000) // Hourly reload
+    @Caching(evict = {
+            @CacheEvict(value = "getCryptoBalance", allEntries = true)
+    })
     public synchronized void loadDaemons() {
         log.info("Loading daemon settings...");
         @Cleanup Session session = sessionFactory.openSession();
         List<Currency> currencyList = settingsManager.getCurrencyList();
         for(Currency currency : currencyList) {
-            if(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
-                Daemon settings = getDaemonSettings(session, currency);
-                Assert.notNull(settings, "Daemon settings not found");
-                JsonRPC daemon = new JsonRPC(settings.getDaemonHost(), settings.getDaemonPort(), settings.getDaemonLogin(), settings.getDaemonPassword());
-                AbstractWallet wallet = CryptoCoinWallet.getDefaultAccount(daemon);
-                daemonMap.put(currency, new DaemonInfo(wallet));
+            try {
+                if(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
+                    Daemon settings = getDaemonSettings(session, currency);
+                    Assert.notNull(settings, "Daemon settings not found");
+                    setDaemonSettings(settings);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                log.error(e);
+            }
+        }
+    }
+
+    @Scheduled(fixedDelay = 5 * 60 * 1000) // Every 5m
+    @Caching(evict = {
+            @CacheEvict(value = "getCryptoBalance", allEntries = true),
+            @CacheEvict(value = "getTransactions", allEntries = true)
+    })
+    public synchronized void loadTransactions() throws Exception {
+        log.info("Reloading transactions...");
+        List<Currency> currencyList = settingsManager.getCurrencyList();
+        for(Currency currency : currencyList) if(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
+            try {
+                final DaemonInfo daemonInfo = daemonMap.get(currency);
+                Assert.isTrue(daemonInfo != null && daemonInfo.enabled && daemonInfo.wallet != null, String.format("Daemon settings not found for currency: %s", currency));
+                daemonInfo.wallet.loadTransactions(100);
+            }
+            catch (Exception exc) {
+                exc.printStackTrace();
+                log.error(exc);
             }
         }
     }
@@ -135,6 +159,7 @@ public class DaemonManagerImpl implements DaemonManager {
             log.info(String.format("Funds withdraw success: %s", transaction));
             feeManager.submitCollectedFee(FreeBalance.FeeType.WITHDRAW, wallet.getCurrency(), Calculator.fee(amount, wallet.getCurrency().getWithdrawFee()).add(transaction.getFee())); // Tx fee is negative
         } catch (Exception e) {
+            e.printStackTrace();
             log.error(e);
             throw e;
         } finally {

@@ -18,24 +18,11 @@ public class SettingsManagerImpl implements SettingsManager {
     @Autowired
     SessionFactory sessionFactory;
 
-    @CacheEvict(value = "getTradingPairs", allEntries = true)
-    @Transactional
-    public void addTradingPair(TradingPair newTradingPair) {
-        Session session = sessionFactory.getCurrentSession();
-        session.saveOrUpdate(newTradingPair);
-    }
-
-    @Transactional
-    private void addCurrency(Currency newCurrency) {
-        Session session = sessionFactory.getCurrentSession();
-        session.saveOrUpdate(newCurrency);
-    }
-
     @Override
     @SuppressWarnings("unchecked")
     public List<TradingPair> getTradingPairs() {
         return sessionFactory.getCurrentSession().createCriteria(TradingPair.class)
-                .add(Restrictions.eq("enabled", true)).list();
+                .list();
     }
 
     @Override
@@ -43,7 +30,7 @@ public class SettingsManagerImpl implements SettingsManager {
     @SuppressWarnings("unchecked")
     public List<Currency> getCurrencyList() {
         return sessionFactory.getCurrentSession().createCriteria(Currency.class)
-                .add(Restrictions.eq("enabled", true)).list();
+                .list();
     }
 
     @Transactional

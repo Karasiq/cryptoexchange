@@ -32,7 +32,7 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppC
 @ContextConfiguration("file:src/main/webapp/WEB-INF/mvc-dispatcher-servlet.xml")
 @CommonsLog
 @ActiveProfiles({"master", "data"})
-public class AppTests {
+public final class AppTests {
     @Autowired
     SessionFactory sessionFactory;
 
@@ -88,7 +88,9 @@ public class AppTests {
         CryptoCoinWallet.Account account = new CryptoCoinWallet.Account(rpc, "PZcojt26ozH2nh5u7zqG1DfuzG6FUuvbZ3");
 
         account.loadTransactions(1000);
-        log.info(String.format("Account balance: %s", account.summaryConfirmedBalance()));
+        for(int i = 0; i < 1000; i++) {
+            log.info(String.format("Account balance: %s", account.summaryConfirmedBalance()));
+        }
 
         // New:
         //CryptoCoinWallet.Account account1 = CryptoCoinWallet.generateAccount(rpc, "test");
@@ -108,7 +110,7 @@ public class AppTests {
         System.out.println(account);
     }
 
-    @Test
+    //@Test
     @Transactional
     public void marketTest() throws Exception {
         Session session = sessionFactory.getCurrentSession();

@@ -6,6 +6,7 @@ import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.Daemon;
 import com.springapp.cryptoexchange.database.model.FreeBalance;
 import com.springapp.cryptoexchange.database.model.TradingPair;
+import lombok.extern.apachecommons.CommonsLog;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -24,6 +25,7 @@ import java.util.List;
 @Controller
 @Secured("ROLE_ADMIN")
 @RequestMapping(value = "/rest/admin.json")
+@CommonsLog
 public class AdminController {
     @Autowired
     SessionFactory sessionFactory;
@@ -63,19 +65,21 @@ public class AdminController {
     @RequestMapping(value = "/modify_currency/{currencyId}", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     @Caching(evict = {
-            @CacheEvict(value = "getCurrencies"),
+            @CacheEvict(value = "getCurrencies", allEntries = true),
             @CacheEvict(value = "getCurrencyInfo", key = "#currencyId")
     })
-    public Currency modifyCurrency(@PathVariable long currencyId, @RequestParam String currencyCode, @RequestParam String currencyName, @RequestParam Currency.CurrencyType currencyType, @RequestParam BigDecimal withdrawFee, @RequestParam BigDecimal minimalWithdrawAmount) {
+    public Currency modifyCurrency(@PathVariable long currencyId, @RequestParam(required = false) boolean enabled, @RequestParam String currencyCode, @RequestParam String currencyName, @RequestParam Currency.CurrencyType currencyType, @RequestParam BigDecimal withdrawFee, @RequestParam BigDecimal minimalWithdrawAmount) {
         Session session = sessionFactory.getCurrentSession();
         Currency currency = settingsManager.getCurrency(currencyId);
         Assert.notNull(currency, "Currency not found");
+        currency.setEnabled(enabled);
         currency.setCurrencyCode(currencyCode);
         currency.setCurrencyName(currencyName);
         currency.setCurrencyType(currencyType);
         currency.setWithdrawFee(withdrawFee);
         currency.setMinimalWithdrawAmount(minimalWithdrawAmount);
         session.update(currency);
+        log.info("Currency modified: " + currency);
         return currency;
     }
 
@@ -83,14 +87,18 @@ public class AdminController {
     @RequestMapping(value = "/add_currency", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     @Caching(evict = {
-            @CacheEvict(value = "getCurrencies")
+            @CacheEvict(value = "getCurrencies", allEntries = true)
     })
     public Currency addCurrency(@RequestParam String currencyCode, @RequestParam String currencyName, @RequestParam Currency.CurrencyType currencyType, @RequestParam BigDecimal withdrawFee, @RequestParam BigDecimal minimalWithdrawAmount) {
         Session session = sessionFactory.getCurrentSession();
         Currency currency = new Currency(currencyCode, currencyName, currencyType);
         currency.setWithdrawFee(withdrawFee);
         currency.setMinimalWithdrawAmount(minimalWithdrawAmount);
+        if(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
+            currency.setEnabled(false); // Daemon not configured
+        }
         session.save(currency);
+        log.info("New currency added: " + currency);
         return currency;
     }
 
@@ -98,9 +106,10 @@ public class AdminController {
     @RequestMapping(value = "/modify_trading_pair/{tradingPairId}", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     @Caching(evict = {
-            @CacheEvict(value = "getTradingPairs")
+            @CacheEvict(value = "getTradingPairs", allEntries = true),
+            @CacheEvict(value = "getMarketPrices", key = "#tradingPairId")
     })
-    public TradingPair modifyTradingPair(@PathVariable long tradingPairId, @RequestParam String name, @RequestParam String description, @RequestParam boolean enabled, @RequestParam BigDecimal minimalTradeAmount, @RequestParam BigDecimal tradingFee) {
+    public TradingPair modifyTradingPair(@PathVariable long tradingPairId, @RequestParam String name, @RequestParam String description, @RequestParam(required = false) boolean enabled, @RequestParam BigDecimal minimalTradeAmount, @RequestParam BigDecimal tradingFee) {
         Session session = sessionFactory.getCurrentSession();
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         Assert.notNull(tradingPair, "Trading pair not found");
@@ -110,6 +119,7 @@ public class AdminController {
         tradingPair.setMinimalTradeAmount(minimalTradeAmount);
         tradingPair.setTradingFee(tradingFee);
         session.update(tradingPair);
+        log.info("Trading pair modified: " + tradingPair);
         return tradingPair;
     }
 
@@ -117,7 +127,7 @@ public class AdminController {
     @RequestMapping(value = "/add_trading_pair", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     @Caching(evict = {
-            @CacheEvict(value = "getTradingPairs")
+            @CacheEvict(value = "getTradingPairs", allEntries = true)
     })
     public TradingPair addTradingPair(@RequestParam long firstCurrencyId, @RequestParam long secondCurrencyId) {
         Session session = sessionFactory.getCurrentSession();
@@ -125,6 +135,7 @@ public class AdminController {
         Assert.isTrue(currency != null && currency1 != null, "Invalid currency ID");
         TradingPair tradingPair = new TradingPair(currency, currency1);
         session.save(tradingPair);
+        log.info("New trading pair added: " + tradingPair);
         return tradingPair;
     }
 
@@ -139,15 +150,19 @@ public class AdminController {
         Currency currency = settingsManager.getCurrency(currencyId);
         Assert.notNull(currency, "Currency not found");
         Assert.isTrue(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid currency type");
-        Daemon daemon = (Daemon) session.createCriteria(Daemon.class)
-                .add(Restrictions.eq("currency", currency))
-                .uniqueResult();
-        if(daemon != null) {
-            session.delete(daemon);
+        Daemon daemon = daemonManager.getDaemonSettings(currency);
+        if(daemon == null) {
+            daemon = new Daemon();
+            daemon.setCurrency(currency);
         }
-        daemon = new Daemon(currency, daemonHost, daemonPort, daemonLogin, daemonPassword);
-        session.save(daemon);
-        daemonManager.loadDaemons();
+        daemon.setDaemonHost(daemonHost);
+        daemon.setDaemonPort(daemonPort);
+        daemon.setDaemonLogin(daemonLogin);
+        daemon.setDaemonPassword(daemonPassword);
+
+        session.saveOrUpdate(daemon);
+        daemonManager.setDaemonSettings(daemon);
+        log.info("Daemon settings changed for currency: " + currency);
         return true;
     }
 }
