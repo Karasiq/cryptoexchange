@@ -1,9 +1,6 @@
 package com.springapp.cryptoexchange.database.model;
 
-import lombok.AccessLevel;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.NonNull;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.apache.http.annotation.Immutable;
 import org.hibernate.annotations.*;
@@ -16,22 +13,23 @@ import java.util.Date;
 
 @Table(name = "news")
 @Entity
-@Immutable
 @Data
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NoArgsConstructor
-@Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
+@RequiredArgsConstructor
+@Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)
 public class News {
     @Id
     @GeneratedValue
     long id;
 
-    @Column(name = "time")
+    @Column(name = "time", updatable = false)
     Date time = new Date();
 
     @Column(name = "title")
     @NonNull String title;
 
     @Column(name = "text")
+    @Lob
     @NonNull String text;
 }

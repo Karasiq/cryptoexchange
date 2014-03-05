@@ -4,6 +4,7 @@ import com.bitcoin.daemon.AbstractWallet;
 import com.bitcoin.daemon.CryptoCoinWallet;
 import com.bitcoin.daemon.JsonRPC;
 import com.springapp.cryptoexchange.database.model.*;
+import com.springapp.cryptoexchange.utils.CacheCleaner;
 import com.springapp.cryptoexchange.utils.Calculator;
 import com.springapp.cryptoexchange.utils.LockManager;
 import lombok.Cleanup;
@@ -54,6 +55,9 @@ public class DaemonManagerImpl implements DaemonManager {
     @Autowired
     FeeManager feeManager;
 
+    @Autowired
+    CacheCleaner cacheCleaner;
+
     @Override
     public void setDaemonSettings(Daemon settings) {
         JsonRPC daemon = new JsonRPC(settings.getDaemonHost(), settings.getDaemonPort(), settings.getDaemonLogin(), settings.getDaemonPassword());
@@ -74,9 +78,6 @@ public class DaemonManagerImpl implements DaemonManager {
     }
 
     @Scheduled(fixedDelay = 60 * 60 * 1000) // Hourly reload
-    @Caching(evict = {
-            @CacheEvict(value = "getCryptoBalance", allEntries = true)
-    })
     public synchronized void loadDaemons() {
         log.info("Loading daemon settings...");
         @Cleanup Session session = sessionFactory.openSession();
@@ -96,13 +97,10 @@ public class DaemonManagerImpl implements DaemonManager {
     }
 
     @Scheduled(fixedDelay = 5 * 60 * 1000) // Every 5m
-    @Caching(evict = {
-            @CacheEvict(value = "getCryptoBalance", allEntries = true),
-            @CacheEvict(value = "getTransactions", allEntries = true)
-    })
     public synchronized void loadTransactions() throws Exception {
         log.info("Reloading transactions...");
         List<Currency> currencyList = settingsManager.getCurrencyList();
+        boolean hasErrors = false;
         for(Currency currency : currencyList) if(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
             try {
                 final DaemonInfo daemonInfo = daemonMap.get(currency);
@@ -112,7 +110,14 @@ public class DaemonManagerImpl implements DaemonManager {
             catch (Exception exc) {
                 exc.printStackTrace();
                 log.error(exc);
+                hasErrors = true;
             }
+        }
+        if (!hasErrors) {
+            cacheCleaner.cryptoBalanceEvict(); // Only clear cache if no errors
+            log.info("Crypto-balance cache flushed");
+        } else {
+            log.fatal("Cannot reload transactions, fallback to cache");
         }
     }
 

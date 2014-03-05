@@ -17,4 +17,5 @@
     <cache name="getTransactions" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="300" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
     <cache name="getMarketChartData" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="300" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
     <cache name="getCryptoBalance" maxElementsInMemory="10000" eternal="true" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getNews" maxElementsInMemory="1" eternal="true" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
 </ehcache>

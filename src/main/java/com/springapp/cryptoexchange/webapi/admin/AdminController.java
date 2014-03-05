@@ -1,11 +1,9 @@
 package com.springapp.cryptoexchange.webapi.admin;
 
 import com.springapp.cryptoexchange.database.DaemonManager;
+import com.springapp.cryptoexchange.database.NewsManager;
 import com.springapp.cryptoexchange.database.SettingsManager;
-import com.springapp.cryptoexchange.database.model.Currency;
-import com.springapp.cryptoexchange.database.model.Daemon;
-import com.springapp.cryptoexchange.database.model.FreeBalance;
-import com.springapp.cryptoexchange.database.model.TradingPair;
+import com.springapp.cryptoexchange.database.model.*;
 import lombok.extern.apachecommons.CommonsLog;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -35,6 +33,9 @@ public class AdminController {
 
     @Autowired
     DaemonManager daemonManager;
+
+    @Autowired
+    NewsManager newsManager;
 
     @Transactional
     @ResponseBody
@@ -163,6 +164,24 @@ public class AdminController {
         session.saveOrUpdate(daemon);
         daemonManager.setDaemonSettings(daemon);
         log.info("Daemon settings changed for currency: " + currency);
+        return true;
+    }
+
+    @Transactional
+    @RequestMapping(value = "/commit_news", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
+    @ResponseBody
+    public News commitNews(@RequestParam long id, @RequestParam String title, @RequestParam String text) {
+        News news = new News(title, text);
+        news.setId(id);
+        newsManager.addOrModifyNews(news);
+        return news;
+    }
+
+    @Transactional
+    @RequestMapping(value = "/remove_news", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
+    @ResponseBody
+    public boolean removeNews(@RequestParam long id) {
+        newsManager.removeNews(id);
         return true;
     }
 }

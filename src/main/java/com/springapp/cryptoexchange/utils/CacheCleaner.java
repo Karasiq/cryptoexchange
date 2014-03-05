@@ -5,10 +5,19 @@ import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 @Service
 public class CacheCleaner { // Костыль
+    @Caching(evict = {
+            @CacheEvict(value = "getCryptoBalance", allEntries = true),
+            @CacheEvict(value = "getTransactions", allEntries = true)
+    })
+    public void cryptoBalanceEvict() {
+        // nothing
+    }
+
     @Caching(evict = {
             @CacheEvict(value = "getAccountBalances", key = "#firstOrder.account.login"),
             @CacheEvict(value = "getAccountBalances", key = "#secondOrder.account.login"),

@@ -2,8 +2,10 @@ package com.springapp.cryptoexchange.webapi.data;
 
 import com.springapp.cryptoexchange.database.HistoryManager;
 import com.springapp.cryptoexchange.database.MarketManager;
+import com.springapp.cryptoexchange.database.NewsManager;
 import com.springapp.cryptoexchange.database.SettingsManager;
 import com.springapp.cryptoexchange.database.model.Currency;
+import com.springapp.cryptoexchange.database.model.News;
 import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
 import com.springapp.cryptoexchange.utils.ConvertService;
@@ -36,6 +38,9 @@ public class PublicController {
 
     @Autowired
     ConvertService convertService;
+
+    @Autowired
+    NewsManager newsManager;
 
     @Cacheable("getCurrencies")
     @RequestMapping(value = "/currency")
@@ -96,4 +101,10 @@ public class PublicController {
     }
 
 
+    @Cacheable("getNews")
+    @RequestMapping(value = "/news")
+    @ResponseBody
+    public List<News> getNews() {
+        return newsManager.getNews(20);
+    }
 }
