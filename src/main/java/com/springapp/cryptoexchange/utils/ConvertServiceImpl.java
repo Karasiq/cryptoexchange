@@ -6,6 +6,7 @@ import lombok.NonNull;
 import lombok.extern.apachecommons.CommonsLog;
 import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
@@ -25,6 +26,7 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
     MarketManager marketManager;
 
     @Autowired
+    @Lazy
     DaemonManager daemonManager;
 
     @Autowired

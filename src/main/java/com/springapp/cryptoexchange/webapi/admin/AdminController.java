@@ -67,7 +67,9 @@ public class AdminController {
     @ResponseBody
     @Caching(evict = {
             @CacheEvict(value = "getCurrencies", allEntries = true),
-            @CacheEvict(value = "getCurrencyInfo", key = "#currencyId")
+            @CacheEvict(value = "getCurrencyInfo", key = "#currencyId"),
+            @CacheEvict(value = "getTradingPairs", allEntries = true),
+            @CacheEvict(value = "getMarketPrices", allEntries = true)
     })
     public Currency modifyCurrency(@PathVariable long currencyId, @RequestParam(required = false) boolean enabled, @RequestParam String currencyCode, @RequestParam String currencyName, @RequestParam Currency.CurrencyType currencyType, @RequestParam BigDecimal withdrawFee, @RequestParam BigDecimal minimalWithdrawAmount) {
         Session session = sessionFactory.getCurrentSession();

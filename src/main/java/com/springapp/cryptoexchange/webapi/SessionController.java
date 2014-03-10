@@ -2,7 +2,7 @@ package com.springapp.cryptoexchange.webapi;
 
 import com.springapp.cryptoexchange.database.AccountManager;
 import com.springapp.cryptoexchange.database.model.Account;
-import com.springapp.cryptoexchange.database.model.LoginHistory;
+import com.springapp.cryptoexchange.database.model.log.LoginHistory;
 import lombok.AccessLevel;
 import lombok.Value;
 import lombok.experimental.FieldDefaults;
@@ -77,7 +77,7 @@ public class SessionController {
     @RequestMapping(value = "/register", method = RequestMethod.POST)
     @ResponseBody
     @Transactional
-    public ApiDefs.ApiStatus<LoginStatus> register(@RequestParam String username, @RequestParam String password, @RequestParam String email, HttpServletRequest request) throws Exception {
+    public LoginStatus register(@RequestParam String username, @RequestParam String password, @RequestParam String email, HttpServletRequest request) throws Exception {
         try {
             Account account = accountManager.getAccount(username);
             if(account != null) {
@@ -100,10 +100,7 @@ public class SessionController {
 
             account = new Account(username, email, password);
             accountManager.addAccount(account);
-            return new ApiDefs.ApiStatus<>(true, null, login(username, password, request));
-        } catch (ApiDefs.ApiException e) {
-            log.warn(e);
-            return new ApiDefs.ApiStatus<>(false, e.getMessage(), null);
+            return login(username, password, request);
         } catch (Exception e) {
             e.printStackTrace();
             log.error(e);

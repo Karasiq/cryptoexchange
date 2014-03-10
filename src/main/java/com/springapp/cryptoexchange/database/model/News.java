@@ -2,13 +2,10 @@ package com.springapp.cryptoexchange.database.model;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-import org.apache.http.annotation.Immutable;
-import org.hibernate.annotations.*;
 import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import javax.persistence.*;
-import javax.persistence.Entity;
-import javax.persistence.Table;
 import java.util.Date;
 
 @Table(name = "news")

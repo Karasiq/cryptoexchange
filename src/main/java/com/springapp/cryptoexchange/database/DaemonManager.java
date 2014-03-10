@@ -5,18 +5,22 @@ import com.springapp.cryptoexchange.database.model.Address;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.Daemon;
 import com.springapp.cryptoexchange.database.model.VirtualWallet;
-import org.hibernate.Session;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Set;
 
 public interface DaemonManager {
     AbstractWallet getAccount(Currency currency);
+    Set getAddressSet(VirtualWallet virtualWallet);
     List<Address> getAddressList(VirtualWallet wallet);
     String createWalletAddress(VirtualWallet virtualWallet) throws Exception;
-    void withdrawFunds(VirtualWallet wallet, String address, BigDecimal amount) throws Exception;
-    public Daemon getDaemonSettings(Currency currency);
-    public void setDaemonSettings(Daemon settings);
-    public void loadDaemons() throws Exception;
+    com.bitcoin.daemon.Address.Transaction withdrawFunds(VirtualWallet wallet, String address, BigDecimal amount) throws Exception;
+    BigDecimal getCryptoBalance(VirtualWallet virtualWallet) throws Exception;
+    Daemon getDaemonSettings(Currency currency);
+    void setDaemonSettings(Daemon settings);
+    void loadDaemons() throws Exception;
     void loadTransactions() throws Exception;
+    public List<com.bitcoin.daemon.Address.Transaction> getWalletTransactions(VirtualWallet virtualWallet) throws Exception;
 }

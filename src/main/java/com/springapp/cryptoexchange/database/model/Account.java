@@ -1,6 +1,7 @@
 package com.springapp.cryptoexchange.database.model;
 
 
+import com.springapp.cryptoexchange.database.model.log.LoginHistory;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.Cache;
@@ -10,7 +11,6 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import javax.persistence.*;
-import javax.transaction.Transactional;
 import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.security.NoSuchAlgorithmException;
@@ -23,7 +23,6 @@ import java.util.List;
 @Table(name = "accounts")
 @ToString(exclude = {"virtualWalletMap", "loginHistory", "passwordHash"})
 @EqualsAndHashCode(of = {"id", "login", "emailAddress", "passwordHash", "role"})
-@Transactional
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class Account implements Serializable {
@@ -105,11 +104,6 @@ public class Account implements Serializable {
         return passwordEncoder.encodePassword(password, login);
     }
 
-    public boolean checkPassword(String password) throws Exception {
-        return generatePasswordHash(this.login, password).equals(passwordHash);
-    }
-
-    @Transactional
     public VirtualWallet createVirtualWallet(Currency currency) {
         VirtualWallet v = new VirtualWallet(currency, this);
         synchronized (virtualWalletMap) {
@@ -124,7 +118,6 @@ public class Account implements Serializable {
         return v;
     }
 
-    @Transactional
     public VirtualWallet getBalance(Currency currency) {
         synchronized (virtualWalletMap) {
             for(VirtualWallet wallet : virtualWalletMap) {

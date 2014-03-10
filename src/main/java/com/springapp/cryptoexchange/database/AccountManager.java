@@ -1,6 +1,7 @@
 package com.springapp.cryptoexchange.database;
 
 import com.springapp.cryptoexchange.database.model.*;
+import com.springapp.cryptoexchange.database.model.log.LoginHistory;
 
 import java.math.BigDecimal;
 import java.util.List;

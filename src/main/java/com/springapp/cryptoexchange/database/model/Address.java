@@ -1,12 +1,13 @@
 package com.springapp.cryptoexchange.database.model;
 
 import lombok.*;
+import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
-import org.hibernate.annotations.Immutable;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.math.BigDecimal;
 
 @Data
 @NoArgsConstructor
@@ -14,19 +15,29 @@ import java.io.Serializable;
 @Entity
 @Table(name = "addresses")
 @EqualsAndHashCode(exclude = "virtualWallet")
-@Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
-@Immutable
+@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class Address implements Serializable {
     @Id
     @GeneratedValue
     @Column(unique = true)
-    private long id;
+    long id;
 
     @NonNull
     @Column(nullable = false, name = "address")
-    private String address;
+    String address;
 
     @NonNull
     @ManyToOne
-    private VirtualWallet virtualWallet;
+    VirtualWallet virtualWallet;
+
+    @Column(name = "received_by_address")
+    BigDecimal receivedByAddress = BigDecimal.ZERO;
+
+    @PostLoad
+    void init() {
+        if(receivedByAddress == null) {
+            receivedByAddress = BigDecimal.ZERO;
+        }
+    }
 }

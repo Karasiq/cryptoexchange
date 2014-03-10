@@ -4,10 +4,13 @@ package com.bitcoin.daemon;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.Data;
 import lombok.NonNull;
+import lombok.extern.apachecommons.CommonsLog;
+import org.springframework.util.Assert;
 
 import java.math.BigDecimal;
 import java.util.*;
 
+@CommonsLog
 public class CryptoCoinWallet {
     public
     @Data
@@ -21,21 +24,22 @@ public class CryptoCoinWallet {
         private final Map<String, Address> addressList = new HashMap<>();
 
         public BigDecimal summaryConfirmedBalance() throws Exception {
-            List<Object> args = new ArrayList<>();
+            List<Object> args = new ArrayList<>(2);
             args.add(getName());
             args.add(Settings.REQUIRED_CONFIRMATIONS);
-            return jsonRPC.executeRpcRequest("getreceivedbyaccount", args, new TypeReference<JsonRPC.JsonRpcResponse<BigDecimal>>(){});
+            return jsonRPC.executeRpcRequest("getreceivedbyaccount", args, new TypeReference<JsonRPC.Response<BigDecimal>>(){});
         }
 
         public BigDecimal getReceivedByAddress(String address) throws Exception {
-            final List<Object> args = new ArrayList<>();
+            Assert.hasLength(address, "Address can not be empty");
+            final List<Object> args = new ArrayList<>(2);
             args.add(address);
             args.add(Settings.REQUIRED_CONFIRMATIONS);
-            return jsonRPC.executeRpcRequest("getreceivedbyaddress", args, new TypeReference<JsonRPC.JsonRpcResponse<BigDecimal>>(){});
+            return jsonRPC.executeRpcRequest("getreceivedbyaddress", args, new TypeReference<JsonRPC.Response<BigDecimal>>(){});
         }
 
         public List<Address.Transaction> getTransactions() throws Exception {
-            List<Address.Transaction> transactionList = new ArrayList<>();
+            List<Address.Transaction> transactionList = new ArrayList<>(5);
             synchronized (addressList) {
                 for(Address address : addressList.values()) {
                     transactionList.addAll(address.getTransactionList().values());
@@ -44,8 +48,11 @@ public class CryptoCoinWallet {
             return transactionList;
         }
 
-        public List<Address.Transaction> getTransactions(final Set<Object> addresses) throws Exception {
-            List<Address.Transaction> transactionList = new ArrayList<>();
+        public List<Address.Transaction> getTransactions(final Set addresses) throws Exception {
+            final List<Address.Transaction> transactionList = new ArrayList<>(5);
+            if (addresses.size() < 1) {
+                return transactionList;
+            }
             synchronized (addressList) {
                 for(Address address : addressList.values()) if(addresses.contains(address.getAddress())) {
                     transactionList.addAll(address.getTransactionList().values());
@@ -54,8 +61,17 @@ public class CryptoCoinWallet {
             return transactionList;
         }
 
-        public BigDecimal summaryConfirmedBalance(final Set<Object> addresses) throws Exception {
+        public Address.Transaction getTransaction(String transactionId) throws Exception {
+            List<Object> args = new ArrayList<>(1);
+            args.add(transactionId);
+            return jsonRPC.executeRpcRequest("gettransaction", args, new TypeReference<JsonRPC.Response<Address.Transaction>>(){});
+        }
+
+        public BigDecimal summaryConfirmedBalance(final Set addresses) throws Exception {
             BigDecimal confirmed = BigDecimal.ZERO;
+            if (addresses.size() < 1) {
+                return confirmed; // 0
+            }
             synchronized (addressList) {
                 for(Address address : addressList.values()) if(addresses.contains(address.getAddress())) {
                     confirmed = confirmed.add(getReceivedByAddress(address.getAddress()));
@@ -65,9 +81,9 @@ public class CryptoCoinWallet {
         }
 
         public void loadAddresses() throws Exception {
-            List<Object> args = new ArrayList<>();
+            List<Object> args = new ArrayList<>(1);
             args.add(this.getName());
-            List<String> addresses = jsonRPC.executeRpcRequest("getaddressesbyaccount", args, new TypeReference<JsonRPC.JsonRpcResponse<List<String>>>(){});
+            List<String> addresses = jsonRPC.executeRpcRequest("getaddressesbyaccount", args, new TypeReference<JsonRPC.Response<List<String>>>(){});
             synchronized (addressList) {
                 for(String address : addresses) if(!addressList.containsKey(address)) {
                     addressList.put(address, new Address(address));
@@ -75,25 +91,17 @@ public class CryptoCoinWallet {
             }
         }
 
-        private void clearTransactions() {
-            synchronized (addressList) {
-                for(Address address : addressList.values()) {
-                    address.getTransactionList().clear();
-                }
-            }
-        }
-
         public void loadTransactions(int maxCount) throws Exception { // Expensive
-            loadAddresses();
-            List<Object> args = new ArrayList<>();
+            // loadAddresses();
+            List<Object> args = new ArrayList<>(2);
             args.add(this.getName());
             args.add(maxCount); // tx count
             // args.add(confirmedTxCount); // tx from
 
-            List<Address.Transaction> transactions = jsonRPC.executeRpcRequest("listtransactions", args, new TypeReference<JsonRPC.JsonRpcResponse<List<Address.Transaction>>>(){});
+            List<Address.Transaction> transactions = jsonRPC.executeRpcRequest("listtransactions", args, new TypeReference<JsonRPC.Response<List<Address.Transaction>>>(){});
 
             synchronized (addressList) {
-                clearTransactions();
+                addressList.clear(); // flush
                 Address address = null;
                 for(Address.Transaction transaction : transactions) {
                     if(address == null || !address.getAddress().equals(transaction.address)) {
@@ -109,11 +117,12 @@ public class CryptoCoinWallet {
             }
         }
 
-        public boolean importPrivateKey(final String privateKey) throws Exception {
-            List<Object> args = new ArrayList<>();
+        public boolean importPrivateKey(String privateKey) throws Exception { // Unsafe
+            Assert.hasLength(privateKey, "Private key can not be empty");
+            List<Object> args = new ArrayList<>(2);
             args.add(privateKey);
             args.add(this.getName());
-            return jsonRPC.executeRpcRequest("importprivkey", args, new TypeReference<JsonRPC.JsonRpcResponse<Boolean>>() {});
+            return jsonRPC.executeRpcRequest("importprivkey", args, new TypeReference<JsonRPC.Response<Boolean>>() {});
         }
 
         public Address getRandomAddress() {
@@ -126,7 +135,7 @@ public class CryptoCoinWallet {
         public Address generateNewAddress() throws Exception {
             List<Object> args = new ArrayList<>();
             args.add(this.getName());
-            String response = jsonRPC.executeRpcRequest("getnewaddress", args, new TypeReference<JsonRPC.JsonRpcResponse<String>>(){});
+            String response = jsonRPC.executeRpcRequest("getnewaddress", args, new TypeReference<JsonRPC.Response<String>>(){});
             Address address = new Address(response);
             synchronized (addressList) {
                 addressList.put(response, address);
@@ -134,16 +143,24 @@ public class CryptoCoinWallet {
             return address;
         }
 
-        public Address.Transaction sendToAddress(final String address, final BigDecimal amount) throws Exception {
-            List<Object> args = new ArrayList<>();
+        public Address.Transaction sendToAddress(String address, @NonNull BigDecimal amount) throws Exception {
+            Assert.hasLength(address, "Address can not be empty");
+            List<Object> args = new ArrayList<>(3);
             args.add(this.getName());
             args.add(address);
             args.add(amount);
-            synchronized (addressList) {
-                String txid = jsonRPC.executeRpcRequest("sendfrom", args, new TypeReference<JsonRPC.JsonRpcResponse<String>>(){});
-                args.clear();
-                args.add(txid);
-                return jsonRPC.executeRpcRequest("gettransaction", args, new TypeReference<JsonRPC.JsonRpcResponse<Address.Transaction>>(){});
+            String txid = jsonRPC.executeRpcRequest("sendfrom", args, new TypeReference<JsonRPC.Response<String>>(){});
+            try {
+                return getTransaction(txid);
+            } catch (Exception e) {
+                e.printStackTrace();
+                log.fatal(e);
+                // Try to manually recover
+                final Address.Transaction transaction = new Address.Transaction();
+                transaction.setTxid(txid);
+                transaction.setAmount(amount.negate());
+                transaction.setCategory("send");
+                return transaction;
             }
         }
     }

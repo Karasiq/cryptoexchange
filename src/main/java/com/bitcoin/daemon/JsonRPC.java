@@ -7,17 +7,19 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Cleanup;
 import lombok.Data;
-import lombok.NonNull;
+import lombok.Value;
 import lombok.extern.apachecommons.CommonsLog;
 import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.HttpRequestRetryHandler;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
 import org.apache.http.impl.client.HttpClientBuilder;
 
 import java.io.BufferedReader;
@@ -26,22 +28,16 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.List;
 
+@Value
+class JsonRpcRequest {
+    String method;
+    List<Object> params;
+}
+
 @CommonsLog
 public class JsonRPC {
-    public static class RPCDaemonException extends Exception {
-        public RPCDaemonException(String message) {
-            super(String.format("Daemon RPC-api exception: %s", message));
-        }
-        public RPCDaemonException(Throwable throwable) {
-            super(String.format("Daemon RPC-api exception (%s)", throwable.getLocalizedMessage()), throwable);
-        }
-    }
-    private static @Data class JsonRpcRequest {
-        @NonNull String method;
-        @NonNull List<Object> params;
-    }
     @Data @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class JsonRpcResponse<ResultType> {
+    public static class Response<ResultType> {
         @Data @JsonIgnoreProperties(ignoreUnknown = true)
         public static class ErrorStatus {
             String message;
@@ -61,14 +57,16 @@ public class JsonRPC {
         credentialsProvider.setCredentials(
                 new AuthScope(rpcHost, rpcPort),
                 new UsernamePasswordCredentials(rpcUsername, rpcPassword));
-        int timeout = 20 * 1000;
+        int timeout = 2 * 1000;
         RequestConfig.Builder requestBuilder = RequestConfig.custom()
                 .setSocketTimeout(timeout)
                 .setConnectTimeout(timeout)
                 .setConnectionRequestTimeout(timeout);
+        HttpRequestRetryHandler retryHandler = new DefaultHttpRequestRetryHandler(5, true);
         client = HttpClientBuilder.create()
                 .setDefaultRequestConfig(requestBuilder.build())
                 .setDefaultCredentialsProvider(credentialsProvider)
+                .setRetryHandler(retryHandler)
                 .build();
     }
     private HttpResponse postRequest(String url, String json) throws IOException {
@@ -97,19 +95,20 @@ public class JsonRPC {
         return writer.toString();
     }
 
-    public <T> T executeRpcRequest(String method, List<Object> args, TypeReference<JsonRpcResponse<T>> typeReference) throws Exception {
+    public <T> T executeRpcRequest(String method, List<Object> args, TypeReference<Response<T>> typeReference) throws Exception {
         try {
             String request = prepareJsonRequest(method, args);
             String response = getResponseString(postRequest(rpcServerUrl, request));
             ObjectMapper mapper = new ObjectMapper();
-            JsonRpcResponse<T> rpcResponse = mapper.readValue(response, typeReference);
+            Response<T> rpcResponse = mapper.readValue(response, typeReference);
             if(rpcResponse.error != null) {
-                throw new RPCDaemonException(rpcResponse.error.message);
+                throw new DaemonRpcException(rpcResponse.error.message);
             }
             return rpcResponse.result;
         } catch(Exception e) {
-            log.error(e);
-            throw new RPCDaemonException(e);
+            e.printStackTrace();
+            JsonRPC.log.error(e);
+            throw e;
         }
     }
 }

@@ -34,6 +34,9 @@ public class VirtualWallet implements Serializable {
     @Column(name = "virtual_balance", precision = 38, scale = 8)
     volatile BigDecimal virtualBalance = BigDecimal.ZERO;
 
+    @Column(name = "external_balance", precision = 38, scale = 8)
+    volatile BigDecimal externalBalance = BigDecimal.ZERO;
+
     @NonNull
     @ManyToOne(fetch = FetchType.LAZY)
     @JsonIgnore
@@ -41,5 +44,15 @@ public class VirtualWallet implements Serializable {
 
     public synchronized void addBalance(final BigDecimal amount) {
         setVirtualBalance(virtualBalance.add(amount));
+    }
+
+    @PostLoad
+    void init() {
+        if(virtualBalance == null) {
+            setVirtualBalance(BigDecimal.ZERO);
+        }
+        if(externalBalance == null) {
+            setExternalBalance(BigDecimal.ZERO);
+        }
     }
 }

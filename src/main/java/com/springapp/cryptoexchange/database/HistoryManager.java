@@ -10,9 +10,9 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public interface HistoryManager {
-    public void updateChartData(TradingPair tradingPair, final BigDecimal lastPrice, final BigDecimal amount);
-    public List<Candle> getMarketChartData(TradingPair tradingPair, int max); // use ConvertService instead
-    public List<Order> getMarketHistory(TradingPair tradingPair, int max); // use ConvertService instead
-    public List<Order> getAccountHistory(Account account, int max);
-    public List<Order> getAccountHistoryByPair(TradingPair tradingPair, Account account, int max);
+    void updateMarketInfo(TradingPair tradingPair, final BigDecimal price, final BigDecimal amount);
+    List<Candle> getMarketChartData(TradingPair tradingPair, int max); // use ConvertService instead
+    List<Order> getMarketHistory(TradingPair tradingPair, int max); // use ConvertService instead
+    List<Order> getAccountHistory(Account account, int max);
+    List<Order> getAccountHistoryByPair(TradingPair tradingPair, Account account, int max);
 }

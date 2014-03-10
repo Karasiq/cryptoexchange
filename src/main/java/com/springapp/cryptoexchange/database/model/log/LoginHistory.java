@@ -1,6 +1,7 @@
-package com.springapp.cryptoexchange.database.model;
+package com.springapp.cryptoexchange.database.model.log;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.springapp.cryptoexchange.database.model.Account;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.Cache;
@@ -31,11 +32,13 @@ public class LoginHistory implements Serializable { // Log
 
     @ManyToOne
     @JsonIgnore
-    @NonNull Account account;
+    @NonNull
+    Account account;
 
-    @Column(name = "login_ip", length = 30)
+    @Column(name = "login_ip", length = 45)
     @NonNull String ip;
 
     @Column(name = "user_agent")
+    @Lob
     @NonNull String userAgentString;
 }

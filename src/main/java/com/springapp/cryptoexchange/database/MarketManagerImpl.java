@@ -4,6 +4,7 @@ import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.utils.CacheCleaner;
 import com.springapp.cryptoexchange.utils.Calculator;
 import com.springapp.cryptoexchange.utils.LockManager;
+import lombok.Cleanup;
 import lombok.NonNull;
 import lombok.experimental.NonFinal;
 import lombok.extern.apachecommons.CommonsLog;
@@ -12,12 +13,9 @@ import net.anotheria.idbasedlock.IdBasedLockManager;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
-import org.joda.time.DateTime;
-import org.joda.time.Period;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,7 +25,6 @@ import java.util.List;
 
 
 @Repository
-@Transactional
 @CommonsLog
 public class MarketManagerImpl implements MarketManager {
     @Autowired
@@ -79,31 +76,6 @@ public class MarketManagerImpl implements MarketManager {
         }
     }
 
-    @Async
-    private void updateMarketInfo(@NonFinal TradingPair tradingPair, final BigDecimal price, final BigDecimal amount) {
-        Session session = sessionFactory.getCurrentSession();
-        tradingPair = (TradingPair) session.merge(tradingPair);
-        if(tradingPair.getLastReset() == null || DateTime.now().minus(Period.days(1)).isAfter(new DateTime(tradingPair.getLastReset()))) {
-            tradingPair.setLastReset(new Date());
-            tradingPair.setDayHigh(null);
-            tradingPair.setDayLow(null);
-            tradingPair.setVolume(BigDecimal.ZERO);
-        }
-
-        BigDecimal low = tradingPair.getDayLow(), high = tradingPair.getDayHigh(), volume = tradingPair.getVolume();
-        if(low == null || price.compareTo(low) < 0) {
-            tradingPair.setDayLow(price);
-        }
-        if(high == null || price.compareTo(high) > 0) {
-            tradingPair.setDayHigh(price);
-        }
-        tradingPair.setLastPrice(price);
-        tradingPair.setVolume(volume == null ? amount : volume.add(amount));
-        historyManager.updateChartData(tradingPair, price, amount);
-        session.update(tradingPair);
-        cacheCleaner.marketPricesEvict(tradingPair);
-    }
-
     @SuppressWarnings("all")
     private void remapFunds(@NonFinal Order firstOrder, @NonFinal Order secondOrder, final BigDecimal amount) throws Exception {
         Session session = sessionFactory.getCurrentSession();
@@ -125,7 +97,7 @@ public class MarketManagerImpl implements MarketManager {
         updateOrderStatus(secondOrder);
 
         if(firstOrder.getStatus() == Order.Status.COMPLETED || secondOrder.getStatus() == Order.Status.COMPLETED) {
-            updateMarketInfo(tradingPair, price, amount);
+            historyManager.updateMarketInfo(tradingPair, price, amount);
         }
 
         VirtualWallet firstDest = firstOrder.getDestWallet(), secondDest = secondOrder.getDestWallet();
@@ -258,7 +230,6 @@ public class MarketManagerImpl implements MarketManager {
         session.update(tradingPair);
         log.info(String.format("setTradingPairEnabled: %s", tradingPair));
     }
-
 
     @Transactional
     @SuppressWarnings("unchecked")

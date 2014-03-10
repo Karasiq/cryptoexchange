@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -22,19 +23,21 @@ public class TradingControllerProxy implements TradingController {
     @Autowired
     TradingController remoteTradingController;
 
+    @Transactional
     @Override
     @RequestMapping(value = "/order/create/{tradingPairId}", method = RequestMethod.POST)
     @ResponseBody
     @SuppressWarnings("all")
-    public ApiDefs.ApiStatus<Long> createOrder(@PathVariable long tradingPairId, @RequestParam Order.Type type, @RequestParam BigDecimal price, @RequestParam BigDecimal amount, Principal principal) {
+    public long createOrder(@PathVariable long tradingPairId, @RequestParam Order.Type type, @RequestParam BigDecimal price, @RequestParam BigDecimal amount, Principal principal) throws Exception {
         return remoteTradingController.createOrder(tradingPairId, type, price, amount, principal);
     }
 
+    @Transactional
     @Override
     @RequestMapping(value = "/order/{orderId}/cancel", method = RequestMethod.POST)
     @ResponseBody
     @SuppressWarnings("unchecked")
-    public ApiDefs.ApiStatus cancelOrder(@PathVariable long orderId, Principal principal) {
-        return remoteTradingController.cancelOrder(orderId, principal);
+    public void cancelOrder(@PathVariable long orderId, Principal principal) throws Exception {
+        remoteTradingController.cancelOrder(orderId, principal);
     }
 }

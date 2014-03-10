@@ -2,6 +2,7 @@ package com.springapp.cryptoexchange.database;
 
 import com.springapp.cryptoexchange.database.model.News;
 import lombok.AccessLevel;
+import lombok.Cleanup;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
 import org.hibernate.Session;
@@ -9,7 +10,6 @@ import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Order;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;

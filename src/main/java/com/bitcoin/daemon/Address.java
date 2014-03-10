@@ -28,19 +28,20 @@ public class Address {
     }
 
     @Data
-    @EqualsAndHashCode(exclude = {"details", "confirmations"}, callSuper = true)
+    @EqualsAndHashCode(exclude = {"details"}, callSuper = true)
     @JsonIgnoreProperties(ignoreUnknown = true)
     @FieldDefaults(level = AccessLevel.PUBLIC)
-    public static class Transaction extends TransactionDetails {
+    public static class Transaction extends TransactionDetails implements Serializable {
         long time;
         String txid;
-        int confirmations;
+        transient int confirmations;
         List<TransactionDetails> details;
 
         public boolean isConfirmed() {
             return confirmations >= Settings.REQUIRED_CONFIRMATIONS;
         }
     }
+
     Map<Integer, Transaction> transactionList = new ConcurrentHashMap<>();
     @NonNull String address;
 

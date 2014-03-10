@@ -7,6 +7,6 @@ import java.math.BigDecimal;
 import java.security.Principal;
 
 public interface TradingController {
-    ApiDefs.ApiStatus<Long> createOrder(long tradingPairId, Order.Type type, BigDecimal price, BigDecimal amount, Principal principal);
-    ApiDefs.ApiStatus cancelOrder(long orderId, Principal principal);
+    long createOrder(long tradingPairId, Order.Type type, BigDecimal price, BigDecimal amount, Principal principal) throws Exception;
+    void cancelOrder(long orderId, Principal principal) throws Exception;
 }

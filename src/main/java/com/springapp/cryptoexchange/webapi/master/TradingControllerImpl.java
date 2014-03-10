@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,39 +35,40 @@ public class TradingControllerImpl implements TradingController {
     @Autowired
     AccountManager accountManager;
 
+    @Transactional
     @Override
     @RequestMapping(value = "/order/create/{tradingPairId}", method = RequestMethod.POST)
     @ResponseBody
     @SuppressWarnings("all")
-    public ApiDefs.ApiStatus<Long> createOrder(@PathVariable long tradingPairId, @RequestParam Order.Type type, @RequestParam BigDecimal price, @RequestParam BigDecimal amount, Principal principal) {
+    public long createOrder(@PathVariable long tradingPairId, @RequestParam Order.Type type, @RequestParam BigDecimal price, @RequestParam BigDecimal amount, Principal principal) throws Exception {
         try {
             TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
             Account account = accountManager.getAccount(principal.getName());
             Assert.isTrue(account != null && tradingPair != null && account.isEnabled() && tradingPair.isEnabled(), "Invalid parameters");
             VirtualWallet sourceWallet = accountManager.getVirtualWallet(account, type.equals(Order.Type.SELL) ? tradingPair.getFirstCurrency() : tradingPair.getSecondCurrency()), destWallet = accountManager.getVirtualWallet(account, type.equals(Order.Type.SELL) ? tradingPair.getSecondCurrency() : tradingPair.getFirstCurrency());
-            return new ApiDefs.ApiStatus<>(true, null, marketManager.executeOrder(new Order(type, amount, price, tradingPair, sourceWallet, destWallet, account)).getId());
+            return marketManager.executeOrder(new Order(type, amount, price, tradingPair, sourceWallet, destWallet, account)).getId();
         } catch (Exception e) {
             e.printStackTrace();
-            TradingControllerImpl.log.error(e);
-            return new ApiDefs.ApiStatus<>(false, e.getLocalizedMessage(), null);
+            log.error(e);
+            throw e;
         }
     }
 
+    @Transactional
     @Override
     @RequestMapping(value = "/order/{orderId}/cancel", method = RequestMethod.POST)
     @ResponseBody
     @SuppressWarnings("unchecked")
-    public ApiDefs.ApiStatus cancelOrder(@PathVariable long orderId, Principal principal) {
+    public void cancelOrder(@PathVariable long orderId, Principal principal) throws Exception {
         try {
             Order order = marketManager.getOrder(orderId);
             Account account = accountManager.getAccount(principal.getName());
             Assert.isTrue(order != null && account != null && order.getAccount().equals(account) && order.isActual(), "Invalid parameters");
             marketManager.cancelOrder(order);
-            return new ApiDefs.ApiStatus(true, null, null);
         } catch (Exception e) {
             e.printStackTrace();
-            TradingControllerImpl.log.error(e);
-            return new ApiDefs.ApiStatus(false, e.getLocalizedMessage(), null);
+            log.error(e);
+            throw e;
         }
     }
 }
