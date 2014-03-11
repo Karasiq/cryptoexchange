@@ -5,7 +5,6 @@ import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -31,7 +30,7 @@ public class CacheCleaner { // Костыль
     }
 
     @Caching(evict = {
-            @CacheEvict(value = "getMarketPrices", key = "#tradingPair.id")
+            @CacheEvict(value = "getTradingPairInfo", key = "#tradingPair.id")
     })
     public void marketPricesEvict(TradingPair tradingPair) {
         // nothing

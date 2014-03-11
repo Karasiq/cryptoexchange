@@ -7,14 +7,6 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public interface AccountManager {
-    public static class AccountException extends Exception {
-        public AccountException(String message) {
-            super(String.format("Account exception: %s", message));
-        }
-        public AccountException(Throwable throwable) {
-            super(String.format("Account exception (%s)", throwable.getLocalizedMessage()), throwable);
-        }
-    }
     public VirtualWallet getVirtualWallet(Account account, Currency currency) throws Exception;
     public BigDecimal getVirtualWalletBalance(VirtualWallet wallet) throws Exception;
     public Account addAccount(Account account) throws Exception;

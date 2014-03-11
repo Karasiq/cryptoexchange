@@ -23,10 +23,7 @@ import java.util.Date;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)
 public class Candle implements Serializable {
-    @Id
-    @GeneratedValue
-    @Column
-    @JsonIgnore
+    @Id @GeneratedValue @JsonIgnore
     long id;
 
     @Column(name = "open_time")
@@ -46,9 +43,8 @@ public class Candle implements Serializable {
     @Column(name = "volume", precision = 38, scale = 2)
     BigDecimal volume;
 
-    @ManyToOne
-    @JsonIgnore
-    @NonNull TradingPair tradingPair;
+    @ManyToOne(fetch = FetchType.LAZY) @JsonIgnore @NonNull
+    TradingPair tradingPair;
 
     public Candle(@NonNull final TradingPair tradingPair, @NonNull final BigDecimal lastPrice) { // open new candle
         this(tradingPair);

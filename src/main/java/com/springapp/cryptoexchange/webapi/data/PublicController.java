@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 @Controller
@@ -62,14 +64,21 @@ public class PublicController {
     @RequestMapping(value = "/info")
     @ResponseBody
     public List<TradingPair> getTradingPairs() {
-        return settingsManager.getTradingPairs();
+        List<TradingPair> tradingPairList = settingsManager.getTradingPairs();
+        Collections.sort(tradingPairList, new Comparator<TradingPair>() {
+            @Override
+            public int compare(TradingPair o1, TradingPair o2) {
+                return o1.getName().compareTo(o2.getName());
+            }
+        });
+        return tradingPairList;
     }
 
 
-    @Cacheable(value = "getMarketPrices", key = "#tradingPairId")
+    @Cacheable(value = "getTradingPairInfo", key = "#tradingPairId")
     @RequestMapping(value = "/info/{tradingPairId}")
     @ResponseBody
-    public TradingPair getMarketPrices(@PathVariable long tradingPairId) {
+    public TradingPair getTradingPairInfo(@PathVariable long tradingPairId) {
         return settingsManager.getTradingPair(tradingPairId);
     }
 
@@ -78,7 +87,7 @@ public class PublicController {
     @ResponseBody
     public List<ConvertService.MarketHistory> getMarketHistory(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
-        assert tradingPair != null && tradingPair.isEnabled();
+        Assert.isTrue(tradingPair != null && tradingPair.isEnabled(), "Invalid pair");
         return convertService.createHistory(historyManager.getMarketHistory(tradingPair, 100));
     }
 
@@ -87,7 +96,7 @@ public class PublicController {
     @ResponseBody
     public Object[][] getMarketChartData(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
-        assert tradingPair != null && tradingPair.isEnabled();
+        Assert.isTrue(tradingPair != null && tradingPair.isEnabled(), "Invalid pair");
         return convertService.createHighChartsOHLCData(historyManager.getMarketChartData(tradingPair, 100));
     }
 
@@ -96,7 +105,7 @@ public class PublicController {
     @ResponseBody
     public ConvertService.Depth getMarketDepth(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
-        assert tradingPair != null && tradingPair.isEnabled();
+        Assert.isTrue(tradingPair != null && tradingPair.isEnabled(), "Invalid pair");
         return convertService.createDepth(marketManager.getOpenOrders(tradingPair, Order.Type.BUY, 100), marketManager.getOpenOrders(tradingPair, Order.Type.SELL, 100));
     }
 

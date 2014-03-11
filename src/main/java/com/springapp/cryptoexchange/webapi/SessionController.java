@@ -15,6 +15,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.stereotype.Controller;
+import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.transaction.Transactional;
+import java.nio.file.AccessDeniedException;
 import java.util.List;
 
 
@@ -68,7 +70,7 @@ public class SessionController {
             accountManager.logEntry(accountManager.getAccount(username), request.getRemoteAddr(), request.getHeader("User-Agent"));
             return new LoginStatus(auth.isAuthenticated(), auth.getName(), null);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.debug(e.getStackTrace());
             log.error(e);
             return new LoginStatus(false, null, e.getMessage());
         }
@@ -79,30 +81,25 @@ public class SessionController {
     @Transactional
     public LoginStatus register(@RequestParam String username, @RequestParam String password, @RequestParam String email, HttpServletRequest request) throws Exception {
         try {
-            Account account = accountManager.getAccount(username);
-            if(account != null) {
-                throw new ApiDefs.ApiException("Username already taken");
-            }
+            // Check input parameters:
+            Assert.isTrue(Account.validate(username, password, email), "Bad user credentials");
 
-            account = accountManager.getAccount(email);
-            if(account != null) {
-                throw new ApiDefs.ApiException("E-mail already taken");
-            }
+            // Check if account already exists:
+            Assert.isTrue(accountManager.getAccount(username) == null, "Username already taken");
+            Assert.isTrue(accountManager.getAccount(email) == null, "E-mail already taken");
 
-            if(!Account.validate(username, password, email)) {
-                throw new ApiDefs.ApiException("Bad user credentials");
-            }
-
-            final List<LoginHistory> loginHistories = accountManager.getLastEntriesByIp(request.getRemoteAddr(), 3, 1);
+            // Check IP uniqueness:
+            List<LoginHistory> loginHistories = accountManager.getLastEntriesByIp(request.getRemoteAddr(), 3, 1);
             if(loginHistories != null && !loginHistories.isEmpty()) {
-                throw new ApiDefs.ApiException("You cannot register multiply accounts from the same ip");
+                throw new AccessDeniedException("You cannot register multiply accounts from one IP");
             }
 
-            account = new Account(username, email, password);
+            // Create account:
+            Account account = new Account(username, email, password);
             accountManager.addAccount(account);
             return login(username, password, request);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.debug(e.getStackTrace());
             log.error(e);
             throw e;
         }

@@ -3,7 +3,6 @@ package com.springapp.cryptoexchange.utils;
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
 import lombok.NonNull;
-import lombok.extern.apachecommons.CommonsLog;
 import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -37,24 +36,24 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
 
     public Depth createDepth(@NonNull List<Order> buyOrders, @NonNull List<Order> sellOrders) throws Exception {
         final Depth depth = new Depth();
-        Depth.DepthEntry depthEntry = new Depth.DepthEntry();
+        Depth.Entry depthEntry = new Depth.Entry();
         if(buyOrders != null && !buyOrders.isEmpty()) {
             for(Order order : buyOrders) {
                 if(depthEntry.price != null && !depthEntry.price.equals(order.getPrice())) {
                     depth.buyOrders.add(depthEntry);
-                    depthEntry = new Depth.DepthEntry();
+                    depthEntry = new Depth.Entry();
                 }
                 depthEntry.addOrder(order);
             }
             depth.buyOrders.add(depthEntry);
-            depthEntry = new Depth.DepthEntry();
+            depthEntry = new Depth.Entry();
         }
 
         if(sellOrders != null && !sellOrders.isEmpty()) {
             for(Order order : sellOrders) {
                 if(depthEntry.price != null && !depthEntry.price.equals(order.getPrice())) {
                     depth.sellOrders.add(depthEntry);
-                    depthEntry = new Depth.DepthEntry();
+                    depthEntry = new Depth.Entry();
                 }
                 depthEntry.addOrder(order);
             }
@@ -75,8 +74,8 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
         sessionFactory.getCurrentSession().refresh(account);
         List<Currency> currencyList = settingsManager.getCurrencyList();
         AccountBalanceInfo accountBalanceInfo = new AccountBalanceInfo();
-        for(Currency currency : currencyList) if(currency.isEnabled()) {
-            VirtualWallet wallet = account.getBalance(currency);
+        for(Currency currency : currencyList) {
+            VirtualWallet wallet = accountManager.getVirtualWallet(account, currency);
             BigDecimal balance = BigDecimal.ZERO;
             String address = null;
             if(wallet != null) {

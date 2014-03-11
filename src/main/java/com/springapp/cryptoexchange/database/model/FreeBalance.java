@@ -28,9 +28,6 @@ public class FreeBalance {
     @OneToOne
     @NonNull Currency currency;
 
-    @Column(name = "type", nullable = false)
-    @NonNull FeeType type;
-
     @Column(name = "amount", precision = 38, scale = 8)
     BigDecimal amount = BigDecimal.ZERO;
 }

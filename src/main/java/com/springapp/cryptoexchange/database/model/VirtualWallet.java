@@ -23,7 +23,6 @@ import java.math.BigDecimal;
 public class VirtualWallet implements Serializable {
     @Id
     @GeneratedValue
-    @Column(unique = true)
     @JsonIgnore
     long id;
 

@@ -4,8 +4,10 @@ import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Candle;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.Order;
+import lombok.AccessLevel;
 import lombok.Data;
 import lombok.Value;
+import lombok.experimental.FieldDefaults;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -28,21 +30,21 @@ public interface ConvertService {
         }
     }
 
-    @Data
+    @Data @FieldDefaults(level = AccessLevel.PUBLIC, makeFinal = true)
     public static class Depth implements Serializable {
-        static class DepthEntry implements Comparable<DepthEntry> {
+        static class Entry implements Serializable, Comparable<Entry> {
             protected void addOrder(Order order) {
                 price = order.getPrice();
                 amount = amount.add(order.getRemainingAmount());
             }
             public BigDecimal price;
             public BigDecimal amount = BigDecimal.ZERO;
-            public int compareTo(DepthEntry entry) {
+            public int compareTo(Entry entry) {
                 return price.compareTo(entry.price);
             }
         }
-        public final List<DepthEntry> sellOrders = new ArrayList<>();
-        public final List<DepthEntry> buyOrders = new ArrayList<>();
+        List<Entry> sellOrders = new ArrayList<>();
+        List<Entry> buyOrders = new ArrayList<>();
     }
 
     @Data

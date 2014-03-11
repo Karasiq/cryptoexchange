@@ -7,9 +7,10 @@ import com.springapp.cryptoexchange.database.SettingsManager;
 import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.VirtualWallet;
-import com.springapp.cryptoexchange.webapi.ApiDefs;
 import lombok.extern.apachecommons.CommonsLog;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Controller;
@@ -35,6 +36,10 @@ public class WithdrawControllerImpl implements WithdrawController {
     @Autowired
     DaemonManager daemonManager;
 
+    @Caching(evict = {
+            @CacheEvict(value = "getAccountBalances", key = "#principal.name"),
+            @CacheEvict(value = "getTransactions", key = "#principal.name + #currencyId")
+    })
     @Transactional
     @Override
     @RequestMapping(value = "/crypto/{currencyId}", method = RequestMethod.POST)
@@ -50,7 +55,7 @@ public class WithdrawControllerImpl implements WithdrawController {
             log.info(String.format("Withdraw success: %s %s => %s", amount, currency.getCurrencyCode(), address));
             return transaction;
         } catch (Exception e) {
-            e.printStackTrace();
+            log.debug(e.getStackTrace());
             log.error(e);
             throw e;
         }

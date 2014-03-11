@@ -31,7 +31,7 @@ public class Address {
     @EqualsAndHashCode(exclude = {"details"}, callSuper = true)
     @JsonIgnoreProperties(ignoreUnknown = true)
     @FieldDefaults(level = AccessLevel.PUBLIC)
-    public static class Transaction extends TransactionDetails implements Serializable {
+    public static class Transaction extends TransactionDetails implements Serializable, Comparable<Transaction> {
         long time;
         String txid;
         transient int confirmations;
@@ -39,6 +39,11 @@ public class Address {
 
         public boolean isConfirmed() {
             return confirmations >= Settings.REQUIRED_CONFIRMATIONS;
+        }
+
+        @Override
+        public int compareTo(Transaction transaction) {
+            return Long.compare(time, transaction.time);
         }
     }
 

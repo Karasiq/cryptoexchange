@@ -1,11 +1,7 @@
 package com.springapp.cryptoexchange.database.model.log;
 
-import com.bitcoin.daemon.Address;
 import com.springapp.cryptoexchange.database.model.VirtualWallet;
-import lombok.AccessLevel;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.NonNull;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
@@ -21,32 +17,29 @@ import java.util.Date;
 @Immutable
 @Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
 @NoArgsConstructor
+@RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CryptoWithdrawHistory {
     @Id
     @GeneratedValue
     long id;
 
-    @ManyToOne
-    VirtualWallet sourceWallet;
-
     @Column(name = "time")
     Date time = new Date();
 
-    @Column(name = "amount", precision = 38, scale = 8)
-    BigDecimal amount;
+    @NonNull
+    @ManyToOne
+    VirtualWallet sourceWallet;
 
+    @NonNull
     @Column(name = "dest_address")
     String receiverAddress;
 
-    @Column(name = "transaction")
-    @Lob
-    Address.Transaction transaction;
+    @NonNull
+    @Column(name = "amount", precision = 38, scale = 8)
+    BigDecimal amount;
 
-    public CryptoWithdrawHistory(@NonNull VirtualWallet sourceWallet, @NonNull Address.Transaction transaction) {
-        setSourceWallet(sourceWallet);
-        setAmount(transaction.getAmount().negate());
-        setReceiverAddress(transaction.getAddress());
-        setTransaction(transaction);
-    }
+    @NonNull
+    @Column(name = "txid")
+    String transactionId;
 }

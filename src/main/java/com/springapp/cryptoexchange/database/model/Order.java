@@ -32,7 +32,6 @@ public class Order implements Serializable {
 
     @Id
     @GeneratedValue
-    @Column(unique = true)
     long id;
 
     @Column(name = "open_time", nullable = false)
@@ -90,6 +89,17 @@ public class Order implements Serializable {
 
     public synchronized void addTotal(final @NonNull BigDecimal total) {
         this.total = this.total.add(total);
+    }
+
+    public void updateCompletionStatus() {
+        final Date now = new Date();
+        if(getRemainingAmount().compareTo(BigDecimal.ZERO) == 0) {
+            setStatus(Order.Status.COMPLETED);
+            setCloseDate(now);
+        } else {
+            setStatus(Order.Status.PARTIALLY_COMPLETED);
+        }
+        setUpdateDate(now);
     }
 
     public void cancel() {

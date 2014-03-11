@@ -7,7 +7,6 @@ import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
 import com.springapp.cryptoexchange.database.model.VirtualWallet;
-import com.springapp.cryptoexchange.webapi.ApiDefs;
 import lombok.extern.apachecommons.CommonsLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
@@ -48,7 +47,7 @@ public class TradingControllerImpl implements TradingController {
             VirtualWallet sourceWallet = accountManager.getVirtualWallet(account, type.equals(Order.Type.SELL) ? tradingPair.getFirstCurrency() : tradingPair.getSecondCurrency()), destWallet = accountManager.getVirtualWallet(account, type.equals(Order.Type.SELL) ? tradingPair.getSecondCurrency() : tradingPair.getFirstCurrency());
             return marketManager.executeOrder(new Order(type, amount, price, tradingPair, sourceWallet, destWallet, account)).getId();
         } catch (Exception e) {
-            e.printStackTrace();
+            log.debug(e.getStackTrace());
             log.error(e);
             throw e;
         }
@@ -66,7 +65,7 @@ public class TradingControllerImpl implements TradingController {
             Assert.isTrue(order != null && account != null && order.getAccount().equals(account) && order.isActual(), "Invalid parameters");
             marketManager.cancelOrder(order);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.debug(e.getStackTrace());
             log.error(e);
             throw e;
         }

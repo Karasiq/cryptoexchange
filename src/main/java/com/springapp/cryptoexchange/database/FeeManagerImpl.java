@@ -4,11 +4,11 @@ import com.bitcoin.daemon.Address;
 import com.bitcoin.daemon.CryptoCoinWallet;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.FreeBalance;
+import com.springapp.cryptoexchange.database.model.VirtualWallet;
+import com.springapp.cryptoexchange.utils.LockManager;
 import lombok.NonNull;
 import lombok.extern.apachecommons.CommonsLog;
 import net.anotheria.idbasedlock.IdBasedLock;
-import net.anotheria.idbasedlock.IdBasedLockManager;
-import net.anotheria.idbasedlock.SafeIdBasedLockManager;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -16,9 +16,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.Assert;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 @Repository
 @CommonsLog
@@ -30,27 +30,27 @@ public class FeeManagerImpl implements FeeManager {
     @Lazy
     DaemonManager daemonManager;
 
-    private final IdBasedLockManager<Long> freeBalanceLockManager = new SafeIdBasedLockManager<>();
+    @Autowired
+    LockManager lockManager;
 
-    private FreeBalance getFreeBalance(FreeBalance.FeeType type, @NonNull Currency currency) {
-        Session session = sessionFactory.getCurrentSession();
+    private FreeBalance getFreeBalance(Session session, @NonNull Currency currency) {
         FreeBalance balance = (FreeBalance) session.createCriteria(FreeBalance.class)
                 .add(Restrictions.eq("currency", currency))
-                .add(Restrictions.eq("type", type))
                 .uniqueResult();
         if(balance == null) {
-            balance = new FreeBalance(currency, type);
+            balance = new FreeBalance(currency);
             session.save(balance);
         }
         return balance;
     }
 
     @Transactional
-    public void submitCollectedFee(FreeBalance.FeeType type, @NonNull Currency currency, BigDecimal feeAmount) throws Exception {
+    public void submitCollectedFee(FreeBalance.FeeType type, @NonNull Currency currency, @NonNull BigDecimal feeAmount) throws Exception {
+        if (feeAmount.equals(BigDecimal.ZERO)) {
+            return;
+        }
         Session session = sessionFactory.getCurrentSession();
-        FreeBalance freeBalance = getFreeBalance(type, currency);
-        IdBasedLock<Long> lock = freeBalanceLockManager.obtainLock(freeBalance.getId());
-        lock.lock();
+        FreeBalance freeBalance = getFreeBalance(session, currency);
         try {
             BigDecimal newTotal = freeBalance.getAmount();
             if(newTotal == null) {
@@ -61,78 +61,63 @@ public class FeeManagerImpl implements FeeManager {
             log.info(String.format("%s fee collected: %s %s (total: %s)", type, feeAmount, currency.getCurrencyCode(), newTotal));
             session.update(freeBalance);
         } catch (Exception e) {
-            log.error(e);
+            log.fatal(e);
             throw e;
-        } finally {
-            lock.unlock();
         }
     }
 
     @Transactional
-    public BigDecimal getCollectedFee(FreeBalance.FeeType type, @NonNull Currency currency) {
-        return getFreeBalance(type, currency).getAmount();
+    public BigDecimal getCollectedFee(@NonNull Currency currency) {
+        return getFreeBalance(sessionFactory.getCurrentSession(), currency).getAmount();
     }
 
-    private void withdrawCrypto(Session session, @NonNull FreeBalance freeBalance, BigDecimal amount, String address) throws Exception {
-        IdBasedLock<Long> lock = freeBalanceLockManager.obtainLock(freeBalance.getId());
+    private Address.Transaction withdrawCrypto(Session session, FreeBalance freeBalance, BigDecimal amount, String address) throws Exception {
+        BigDecimal current = freeBalance.getAmount();
+        Assert.isTrue(current.compareTo(amount) >= 0, "Insufficient funds");
+        CryptoCoinWallet.Account cryptoCoinWallet = (CryptoCoinWallet.Account) daemonManager.getAccount(freeBalance.getCurrency());
+        Address.Transaction transaction = cryptoCoinWallet.sendToAddress(address, amount);
+        freeBalance.setAmount(current.subtract(amount).add(transaction.getFee()));
+        session.update(freeBalance);
+        log.info(String.format("Fee withdraw success: %s => %s (%s)", amount, address, transaction));
+        return transaction;
+    }
+
+    private void withdrawInternal(Session session, FreeBalance freeBalance, VirtualWallet virtualWallet, BigDecimal amount) {
+        BigDecimal current = freeBalance.getAmount();
+        Assert.isTrue(current.compareTo(amount) >= 0, "Insufficient funds");
+        virtualWallet.addBalance(amount);
+        freeBalance.setAmount(current.subtract(amount));
+        session.update(virtualWallet);
+        session.update(freeBalance);
+        log.info(String.format("Internal fee withdraw success: %s => %s", amount, virtualWallet));
+    }
+
+    @Override
+    @Transactional
+    public Object withdrawFee(@NonNull Currency currency, @NonNull BigDecimal amount, @NonNull Object receiverInfo) throws Exception {
+        Assert.isTrue(currency.isEnabled(), "Currency disabled");
+        Session session = sessionFactory.getCurrentSession();
+        FreeBalance freeBalance = getFreeBalance(session, currency);
+        Assert.notNull(freeBalance, "Balance not found");
+        IdBasedLock<Long> lock = lockManager.getCurrencyLockManager().obtainLock(currency.getId());
         lock.lock();
         try {
-            BigDecimal current = freeBalance.getAmount();
-            assert current.compareTo(amount) >= 0;
-            CryptoCoinWallet.Account cryptoCoinWallet = (CryptoCoinWallet.Account) daemonManager.getAccount(freeBalance.getCurrency());
-            Address.Transaction transaction = cryptoCoinWallet.sendToAddress(address, amount);
-            freeBalance.setAmount(current.add(transaction.getAmount()).add(transaction.getFee()));
-            session.update(freeBalance);
-            log.info(String.format("Fee withdraw success: %s => %s (%s)", amount, address, transaction));
+            if (receiverInfo instanceof VirtualWallet) { // Virtual transaction
+                withdrawInternal(session, freeBalance, (VirtualWallet) receiverInfo, amount);
+                return null;
+            } else switch (currency.getCurrencyType()) {
+                case CRYPTO:
+                    Assert.isInstanceOf(String.class, receiverInfo, "Invalid address");
+                    return withdrawCrypto(session, freeBalance, amount, (String) receiverInfo);
+                default:
+                    throw new IllegalArgumentException("Invalid currency type");
+            }
         } catch (Exception e) {
-            log.error(e);
+            log.debug(e.getStackTrace());
+            log.fatal(e);
             throw e;
         } finally {
             lock.unlock();
-        }
-    }
-
-    @Override
-    @Transactional
-    public void withdrawFee(FreeBalance.FeeType type, @NonNull Currency currency, BigDecimal amount, Object receiverInfo) throws Exception {
-        assert receiverInfo instanceof String; // Address
-        Session session = sessionFactory.getCurrentSession();
-        FreeBalance freeBalance = getFreeBalance(type, currency);
-        withdrawCrypto(session, freeBalance, amount, (String) receiverInfo);
-    }
-
-    @Override
-    @Transactional
-    @SuppressWarnings("unchecked")
-    public void withdrawFee(@NonNull Currency currency, BigDecimal amount, Object receiverInfo) throws Exception {
-        assert receiverInfo instanceof String; // Address
-        Session session = sessionFactory.getCurrentSession();
-        List<FreeBalance> freeBalanceList = session.createCriteria(FreeBalance.class)
-                .add(Restrictions.eq("currency", currency))
-                .list();
-        BigDecimal remaining = amount;
-        for(FreeBalance freeBalance : freeBalanceList) {
-            BigDecimal current = freeBalance.getAmount(), toSend = BigDecimal.ZERO;
-            switch (current.compareTo(remaining)) {
-                case 0:
-                case 1:
-                    toSend = remaining;
-                    break;
-                case -1:
-                    toSend = current;
-                    break;
-            }
-            withdrawCrypto(session, freeBalance, toSend, (String) receiverInfo);
-            remaining = remaining.subtract(toSend);
-            if(remaining.compareTo(BigDecimal.ZERO) <= 0) break;
-        }
-        switch (remaining.compareTo(BigDecimal.ZERO)) {
-            case 1:
-                log.warn(String.format("Insufficient funds to complete withdrawal: %s %s remaining", remaining, currency.getCurrencyCode()));
-                break;
-            case -1:
-                log.fatal(String.format("Remaining is negative: %s", remaining));
-                break;
         }
     }
 }

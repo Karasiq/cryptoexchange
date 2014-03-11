@@ -1,11 +1,8 @@
 package com.springapp.cryptoexchange.webapi.data;
 
-import com.bitcoin.daemon.*;
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
-import com.springapp.cryptoexchange.database.model.Address;
 import com.springapp.cryptoexchange.utils.ConvertService;
-import com.springapp.cryptoexchange.webapi.ApiDefs;
 import lombok.extern.apachecommons.CommonsLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
@@ -57,7 +54,7 @@ public class PrivateController {
             Assert.notNull(account);
             return convertService.createAccountBalanceInfo(account);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.debug(e.getStackTrace());
             log.error(e);
             throw e;
         }
@@ -74,7 +71,7 @@ public class PrivateController {
             Assert.isTrue(order.getAccount().equals(account), "This is not your order");
             return order;
         } catch (Exception e) {
-            e.printStackTrace();
+            log.debug(e.getStackTrace());
             log.error(e);
             throw e;
         }
@@ -89,7 +86,7 @@ public class PrivateController {
             Assert.notNull(account);
             return accountManager.getAccountOrders(account, 200);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.debug(e.getStackTrace());
             log.error(e);
             throw e;
         }
@@ -106,7 +103,7 @@ public class PrivateController {
             Assert.notNull(account);
             return accountManager.getAccountOrdersByPair(tradingPair, account, 200);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.debug(e.getStackTrace());
             log.error(e);
             throw e;
         }
@@ -121,7 +118,7 @@ public class PrivateController {
             Assert.notNull(account);
             return historyManager.getAccountHistory(account, 200);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.debug(e.getStackTrace());
             log.error(e);
             throw e;
         }
@@ -138,14 +135,14 @@ public class PrivateController {
             Assert.notNull(account);
             return historyManager.getAccountHistoryByPair(tradingPair, account, 200);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.debug(e.getStackTrace());
             log.error(e);
             throw e;
         }
     }
 
     @Transactional
-    @Cacheable(value = "getTransactions", key = "#principal.getName() + #currencyId")
+    @Cacheable(value = "getTransactions", key = "#principal.name + #currencyId")
     @RequestMapping(value = "/transactions/{currencyId}")
     @ResponseBody
     @SuppressWarnings("all")
@@ -153,11 +150,12 @@ public class PrivateController {
         try {
             Currency currency = settingsManager.getCurrency(currencyId);
             Account account = accountManager.getAccount(principal.getName());
-            Assert.isTrue(currency != null && account != null & currency.isEnabled() && account.isEnabled(), "Invalid parameters");
-            final List<com.bitcoin.daemon.Address.Transaction> transactionList = daemonManager.getWalletTransactions(account.getBalance(currency));
+            Assert.isTrue(currency != null && account != null & account.isEnabled(), "Invalid parameters");
+            Assert.isTrue(currency.isEnabled(), "Currency disabled");
+            final List<com.bitcoin.daemon.Address.Transaction> transactionList = daemonManager.getWalletTransactions(accountManager.getVirtualWallet(account, currency));
             return transactionList;
         } catch (Exception e) {
-            e.printStackTrace();
+            log.debug(e.getStackTrace());
             log.error(e);
             throw e;
         }
@@ -168,11 +166,13 @@ public class PrivateController {
     })
     @RequestMapping(value = "/address/{currencyId}", method = RequestMethod.POST)
     @ResponseBody
+    @SuppressWarnings("all")
     public String generateDepositAddress(@PathVariable long currencyId, Principal principal) throws Exception {
         try {
             Currency currency = settingsManager.getCurrency(currencyId);
             Account account = accountManager.getAccount(principal.getName());
-            Assert.isTrue(currency != null && account != null & currency.isEnabled() && account.isEnabled(), "Invalid parameters");
+            Assert.isTrue(currency != null && account != null && account.isEnabled(), "Invalid parameters");
+            Assert.isTrue(currency.isEnabled(), "Currency disabled");
             VirtualWallet virtualWallet = accountManager.getVirtualWallet(account, currency);
             List<Address> addressList = daemonManager.getAddressList(virtualWallet);
             String address;
@@ -184,7 +184,7 @@ public class PrivateController {
             }
             return address;
         } catch (Exception e) {
-            e.printStackTrace();
+            log.debug(e.getStackTrace());
             log.error(e);
             throw e;
         }

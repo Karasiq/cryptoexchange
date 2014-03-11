@@ -1,7 +1,6 @@
 package com.springapp.cryptoexchange.webapi.master;
 
 import com.springapp.cryptoexchange.database.model.Order;
-import com.springapp.cryptoexchange.webapi.ApiDefs;
 
 import java.math.BigDecimal;
 import java.security.Principal;

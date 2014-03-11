@@ -7,7 +7,6 @@ import java.math.BigDecimal;
 
 public interface FeeManager {
     void submitCollectedFee(FreeBalance.FeeType type, Currency currency, BigDecimal feeAmount) throws Exception;
-    BigDecimal getCollectedFee(FreeBalance.FeeType type, Currency currency);
-    void withdrawFee(FreeBalance.FeeType type, Currency currency, BigDecimal amount, Object receiverInfo) throws Exception;
-    void withdrawFee(Currency currency, BigDecimal amount, Object receiverInfo) throws Exception; // From all available
+    BigDecimal getCollectedFee(Currency currency);
+    Object withdrawFee(Currency currency, BigDecimal amount, Object receiverInfo) throws Exception;
 }

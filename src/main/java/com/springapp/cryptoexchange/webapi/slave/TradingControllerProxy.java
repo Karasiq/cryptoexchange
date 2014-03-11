@@ -1,7 +1,6 @@
 package com.springapp.cryptoexchange.webapi.slave;
 
 import com.springapp.cryptoexchange.database.model.Order;
-import com.springapp.cryptoexchange.webapi.ApiDefs;
 import com.springapp.cryptoexchange.webapi.master.TradingController;
 import lombok.extern.apachecommons.CommonsLog;
 import org.springframework.beans.factory.annotation.Autowired;

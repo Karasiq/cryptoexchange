@@ -21,7 +21,7 @@ import java.util.List;
 @Entity
 @NoArgsConstructor
 @Table(name = "accounts")
-@ToString(exclude = {"virtualWalletMap", "loginHistory", "passwordHash"})
+@ToString(exclude = {"passwordHash"})
 @EqualsAndHashCode(of = {"id", "login", "emailAddress", "passwordHash", "role"})
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
@@ -62,17 +62,16 @@ public class Account implements Serializable {
     }
 
     @Id
-    @Column(unique = true)
     @GeneratedValue
     long id;
 
-    @Column(unique = true, length = 30, name = "login")
+    @Column(length = 30, name = "login", unique = true, updatable = false)
     String login;
 
     @Column(length = 200, name = "password")
     String passwordHash;
 
-    @Column(length = 200, name = "email_address")
+    @Column(length = 200, name = "email_address", unique = true)
     String emailAddress;
 
     @Column(name = "enabled", nullable = false)
@@ -81,12 +80,6 @@ public class Account implements Serializable {
     @Column(name = "role", nullable = false)
     RoleClass role = RoleClass.USER;
 
-    @OneToMany(mappedBy = "account", fetch = FetchType.LAZY)
-    final List<VirtualWallet> virtualWalletMap = new ArrayList<>();
-
-    @OneToMany(mappedBy = "account", fetch = FetchType.LAZY)
-    final List<LoginHistory> loginHistory = new ArrayList<>();
-
     public static boolean validate(final String login, final String password, final String emailAddress) {
         return emailAddress.matches("[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}") &&
                 login.matches("[a-zA-Z][a-zA-Z0-9_-]{4,29}") &&
@@ -94,38 +87,13 @@ public class Account implements Serializable {
     }
 
     public Account(final String login, final String emailAddress, final String password) throws Exception {
-        this.login = login;
-        this.emailAddress = emailAddress;
-        this.passwordHash = generatePasswordHash(login, password);
+        setLogin(login);
+        setEmailAddress(emailAddress);
+        setPasswordHash(generatePasswordHash(login, password));
     }
 
     public static String generatePasswordHash(String login, String password) throws NoSuchAlgorithmException, UnsupportedEncodingException {
         ShaPasswordEncoder passwordEncoder = new ShaPasswordEncoder(256);
         return passwordEncoder.encodePassword(password, login);
-    }
-
-    public VirtualWallet createVirtualWallet(Currency currency) {
-        VirtualWallet v = new VirtualWallet(currency, this);
-        synchronized (virtualWalletMap) {
-            if(!virtualWalletMap.contains(v)) {
-                virtualWalletMap.add(v);
-            } else {
-                for(VirtualWallet wallet : virtualWalletMap) if (wallet.equals(v)) {
-                    return wallet;
-                }
-            }
-        }
-        return v;
-    }
-
-    public VirtualWallet getBalance(Currency currency) {
-        synchronized (virtualWalletMap) {
-            for(VirtualWallet wallet : virtualWalletMap) {
-                if(wallet.getCurrency().equals(currency)) {
-                    return wallet;
-                }
-            }
-        }
-        return null;
     }
 }

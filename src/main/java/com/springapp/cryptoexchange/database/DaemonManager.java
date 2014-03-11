@@ -5,7 +5,6 @@ import com.springapp.cryptoexchange.database.model.Address;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.Daemon;
 import com.springapp.cryptoexchange.database.model.VirtualWallet;
-import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;

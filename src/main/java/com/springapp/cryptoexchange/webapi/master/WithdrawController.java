@@ -1,7 +1,6 @@
 package com.springapp.cryptoexchange.webapi.master;
 
 import com.bitcoin.daemon.Address;
-import com.springapp.cryptoexchange.webapi.ApiDefs;
 
 import java.math.BigDecimal;
 import java.security.Principal;

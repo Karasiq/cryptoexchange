@@ -20,7 +20,6 @@ import java.math.BigDecimal;
 public class Address implements Serializable {
     @Id
     @GeneratedValue
-    @Column(unique = true)
     long id;
 
     @NonNull

@@ -2,7 +2,6 @@ package com.springapp.cryptoexchange.database;
 
 import com.springapp.cryptoexchange.database.model.News;
 import lombok.AccessLevel;
-import lombok.Cleanup;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
 import org.hibernate.Session;

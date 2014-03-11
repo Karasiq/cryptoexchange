@@ -23,7 +23,6 @@ public class Currency implements Serializable {
     }
     @Id
     @GeneratedValue
-    @Column(unique = true)
     long id;
 
     @Column(name = "enabled", nullable = false)
@@ -50,7 +49,7 @@ public class Currency implements Serializable {
             withdrawFee = BigDecimal.ONE;
         }
         if(currencyType == null) {
-            currencyType = CurrencyType.CRYPTO;
+            currencyType = CurrencyType.PURE_VIRTUAL;
         }
         if(minimalWithdrawAmount == null) {
             minimalWithdrawAmount = BigDecimal.ZERO;

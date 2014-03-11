@@ -24,7 +24,6 @@ import java.util.Date;
 public class TradingPair implements Serializable {
     @Id
     @GeneratedValue
-    @Column
     long id;
 
     @Column(name = "enabled")
@@ -49,7 +48,7 @@ public class TradingPair implements Serializable {
     @JsonIgnore
     Date lastReset = new Date();
 
-    @Column(name = "volume", precision = 38, scale = 2)
+    @Column(name = "volume", precision = 38, scale = 8)
     BigDecimal volume = BigDecimal.ZERO;
 
     @Column(name = "last_price", precision = 38, scale = 8)

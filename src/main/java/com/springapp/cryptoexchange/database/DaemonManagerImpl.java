@@ -1,25 +1,27 @@
 package com.springapp.cryptoexchange.database;
 
-import com.bitcoin.daemon.*;
+import com.bitcoin.daemon.AbstractWallet;
+import com.bitcoin.daemon.CryptoCoinWallet;
+import com.bitcoin.daemon.DaemonRpcException;
+import com.bitcoin.daemon.JsonRPC;
 import com.springapp.cryptoexchange.database.model.*;
-import com.springapp.cryptoexchange.database.model.Address;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.log.CryptoWithdrawHistory;
 import com.springapp.cryptoexchange.utils.CacheCleaner;
 import com.springapp.cryptoexchange.utils.Calculator;
 import com.springapp.cryptoexchange.utils.LockManager;
-import lombok.Cleanup;
-import lombok.NonNull;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
 import net.anotheria.idbasedlock.IdBasedLock;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
+import org.joda.time.DateTime;
+import org.joda.time.Period;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -31,8 +33,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @CommonsLog
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class DaemonManagerImpl implements DaemonManager {
-    private final Map<Long, AbstractWallet> daemonMap = new ConcurrentHashMap<>();
+    @Value private static final class DaemonInfo {
+        AbstractWallet wallet;
+        Daemon settings;
+    }
+    final Map<Long, DaemonInfo> daemonMap = new ConcurrentHashMap<>();
 
     @Autowired
     SessionFactory sessionFactory;
@@ -53,9 +60,20 @@ public class DaemonManagerImpl implements DaemonManager {
     CacheCleaner cacheCleaner;
 
     public void setDaemonSettings(Daemon settings) {
-        JsonRPC daemon = new JsonRPC(settings.getDaemonHost(), settings.getDaemonPort(), settings.getDaemonLogin(), settings.getDaemonPassword());
-        AbstractWallet wallet = CryptoCoinWallet.getDefaultAccount(daemon);
-        daemonMap.put(settings.getCurrency().getId(), wallet);
+        long currencyId = settings.getCurrency().getId();
+        DaemonInfo old = daemonMap.get(currencyId);
+
+        if(old == null || !old.getSettings().equals(settings)) {
+            if (old != null) {
+                AbstractWallet oldWallet = old.getWallet();
+                if (oldWallet instanceof CryptoCoinWallet.Account) {
+                    ((CryptoCoinWallet.Account)oldWallet).getJsonRPC().close(); // Close connections
+                    log.info("Daemon connections closed: " + settings.getCurrency());
+                }
+            }
+            JsonRPC daemon = new JsonRPC(settings.getDaemonHost(), settings.getDaemonPort(), settings.getDaemonLogin(), settings.getDaemonPassword());
+            daemonMap.put(currencyId, new DaemonInfo(CryptoCoinWallet.getDefaultAccount(daemon), settings));
+        }
     }
 
     @Transactional
@@ -78,7 +96,7 @@ public class DaemonManagerImpl implements DaemonManager {
                 Assert.notNull(settings, "Daemon settings not found");
                 setDaemonSettings(settings);
             } catch (Exception e) {
-                e.printStackTrace();
+                log.debug(e.getStackTrace());
                 log.error(e);
             }
         }
@@ -87,32 +105,36 @@ public class DaemonManagerImpl implements DaemonManager {
     @Scheduled(fixedDelay = 5 * 60 * 1000) // Every 5m
     @Transactional
     public synchronized void loadTransactions() throws Exception {
+        if (daemonMap.size() < 1) {
+            loadDaemons();
+        }
         log.info("Reloading transactions...");
         List<Currency> currencyList = settingsManager.getCurrencyList();
         boolean hasErrors = false;
         for(Currency currency : currencyList) if(currency.isEnabled() && currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
             try {
-                final AbstractWallet wallet = daemonMap.get(currency.getId());
+                final AbstractWallet wallet = daemonMap.get(currency.getId()).getWallet();
                 Assert.notNull(wallet, String.format("Daemon settings not found for currency: %s", currency));
                 wallet.loadTransactions(100);
             } catch (Exception exc) {
-                exc.printStackTrace();
+                log.debug(exc.getStackTrace());
                 log.error(exc);
                 hasErrors = true;
             }
         }
-        if (!hasErrors) {
+        cacheCleaner.cryptoBalanceEvict();
+        /* if (!hasErrors) {
             cacheCleaner.cryptoBalanceEvict(); // Only clear cache if no errors
             log.info("Crypto-balance cache flushed");
         } else {
             log.fatal("Cannot reload transactions, fallback to cache");
             loadDaemons(); // try to fix
-        }
+        } */
     }
 
     public AbstractWallet getAccount(Currency currency) {
         Assert.isTrue(currency.isEnabled(), "Currency disabled");
-        AbstractWallet wallet = daemonMap.get(currency.getId());
+        AbstractWallet wallet = daemonMap.get(currency.getId()).getWallet();
         Assert.notNull(wallet, "Daemon not found");
         return wallet;
     }
@@ -139,16 +161,23 @@ public class DaemonManagerImpl implements DaemonManager {
         return strings;
     }
 
+    @Transactional
     @Cacheable(value = "getCryptoBalance", key = "#virtualWallet.id")
     public BigDecimal getCryptoBalance(@NonNull VirtualWallet virtualWallet) throws Exception {
         try {
             final AbstractWallet wallet = getAccount(virtualWallet.getCurrency());
-            return wallet.summaryConfirmedBalance(getAddressSet(virtualWallet));
+            final BigDecimal externalBalance = wallet.summaryConfirmedBalance(getAddressSet(virtualWallet));
+            virtualWallet.setExternalBalance(externalBalance); // rewrite
+            sessionFactory.getCurrentSession().update(virtualWallet);
+        } catch(DaemonRpcException e) {
+            log.error("Cannot retrieve actual crypto balance, fallback to DB-backup", e);
+            // Just return DB backup, no throw
         } catch (Exception e) {
-            e.printStackTrace();
+            log.debug(e.getStackTrace());
             log.fatal(e);
             throw e;
         }
+        return virtualWallet.getExternalBalance();
     }
 
     @Transactional
@@ -167,11 +196,21 @@ public class DaemonManagerImpl implements DaemonManager {
         Session session = sessionFactory.getCurrentSession();
         final List<CryptoWithdrawHistory> withdrawHistoryList = session.createCriteria(CryptoWithdrawHistory.class)
                 .add(Restrictions.eq("sourceWallet", virtualWallet))
+                .add(Restrictions.ge("time", DateTime.now().minus(Period.weeks(1)).toDate()))
+                .setMaxResults(10)
                 .list();
         for(CryptoWithdrawHistory withdrawHistory : withdrawHistoryList) {
-            transactionList.add(daemon.getTransaction(withdrawHistory.getTransaction().getTxid()));
+            // Refreshing transaction:
+            final com.bitcoin.daemon.Address.Transaction transaction = daemon.getTransaction(withdrawHistory.getTransactionId());
+
+            // Fixes:
+            transaction.setCategory("send");
+            transaction.setAmount(withdrawHistory.getAmount());
+
+            transactionList.add(transaction);
         }
 
+        Collections.sort(transactionList);
         return transactionList;
     }
 
@@ -186,31 +225,30 @@ public class DaemonManagerImpl implements DaemonManager {
         try {
             session.refresh(wallet);
             CryptoCoinWallet.Account account = (CryptoCoinWallet.Account) getAccount(wallet.getCurrency());
-            BigDecimal balance = accountManager.getVirtualWalletBalance(wallet);
-            BigDecimal required = Calculator.withFee(amount, wallet.getCurrency().getWithdrawFee());
-            if(balance.compareTo(required) < 0 || account.summaryConfirmedBalance().compareTo(required) < 0) {
-                // throw new AccountManager.AccountException("Crypto-wallet account has insufficient funds");
+            BigDecimal balance = accountManager.getVirtualWalletBalance(wallet), sendAmount = Calculator.withoutFee(amount, wallet.getCurrency().getWithdrawFee());
+            if(balance.compareTo(amount) < 0) {
+                throw new IllegalArgumentException("Insufficient funds");
             }
-            wallet.addBalance(required.negate());
+            wallet.addBalance(amount.negate());
             session.update(wallet);
 
             log.info(String.format("Funds withdraw requested: from %s to %s <%s>", wallet, address, amount));
-            com.bitcoin.daemon.Address.Transaction transaction = account.sendToAddress(address, amount);
+            com.bitcoin.daemon.Address.Transaction transaction = account.sendToAddress(address, sendAmount);
             try {
                 log.info(String.format("Funds withdraw success: %s", transaction));
 
                 feeManager.submitCollectedFee(FreeBalance.FeeType.WITHDRAW, wallet.getCurrency(), Calculator.fee(amount, wallet.getCurrency().getWithdrawFee()).add(transaction.getFee())); // Tx fee is negative
 
-                CryptoWithdrawHistory withdrawHistory = new CryptoWithdrawHistory(wallet, transaction);
+                CryptoWithdrawHistory withdrawHistory = new CryptoWithdrawHistory(wallet, address, sendAmount, transaction.getTxid());
                 session.save(withdrawHistory);
             } catch (Exception e) {
-                e.printStackTrace();
-                log.fatal("Error after transaction: " + e);
+                log.debug(e.getStackTrace());
+                log.fatal("Error after transaction", e);
                 // do not throw!
             }
             return transaction;
         } catch (Exception e) {
-            e.printStackTrace();
+            log.debug(e.getStackTrace());
             log.error(e);
             throw e;
         } finally {
@@ -229,7 +267,17 @@ public class DaemonManagerImpl implements DaemonManager {
 
     @PostConstruct
     public void init() throws Exception {
-        loadDaemons();
-        loadTransactions();
+        final Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    loadTransactions();
+                } catch (Exception e) {
+                    log.debug(e.getStackTrace());
+                    log.error(e);
+                }
+            }
+        });
+        thread.start();
     }
 }

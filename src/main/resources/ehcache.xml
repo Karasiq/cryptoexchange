@@ -2,20 +2,20 @@
     <cacheManagerPeerProviderFactory class="net.sf.ehcache.distribution.RMICacheManagerPeerProviderFactory" properties="peerDiscovery=automatic, multicastGroupAddress=230.0.0.1, multicastGroupPort=4446, timeToLive=1" propertySeparator=","/>
     <cacheManagerPeerListenerFactory class="net.sf.ehcache.distribution.RMICacheManagerPeerListenerFactory"/>
 
-    <defaultCache maxElementsInMemory="500" eternal="false" timeToLiveSeconds="120" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
-    <cache name="getTradingPairs" timeToLiveSeconds="300" maxElementsInMemory="500" eternal="false" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
-    <cache name="getCurrencies" timeToLiveSeconds="300" maxElementsInMemory="500" eternal="false" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
+    <defaultCache maxElementsInMemory="200" eternal="false" timeToLiveSeconds="120" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getTradingPairs" timeToLiveSeconds="300" maxElementsInMemory="1" eternal="false" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getCurrencies" timeToLiveSeconds="300" maxElementsInMemory="1" eternal="false" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
     <cache name="getCurrencyInfo" timeToLiveSeconds="300" maxElementsInMemory="500" eternal="false" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
-    <cache name="getMarketPrices" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="120" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
-    <cache name="getMarketDepth" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="120" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
-    <cache name="getMarketHistory" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="120" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
-    <cache name="getAccountBalances" timeToLiveSeconds="120" maxElementsInMemory="500" eternal="false" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
-    <cache name="getAccountOrders" timeToLiveSeconds="120" maxElementsInMemory="500" eternal="false" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
-    <cache name="getAccountOrdersByPair" timeToLiveSeconds="120" maxElementsInMemory="500" eternal="false" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
-    <cache name="getAccountHistory" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="120" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
-    <cache name="getAccountHistoryByPair" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="120" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
-    <cache name="getTransactions" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="300" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
-    <cache name="getMarketChartData" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="300" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
-    <cache name="getCryptoBalance" maxElementsInMemory="10000" eternal="true" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getTradingPairInfo" maxElementsInMemory="500" eternal="false" timeToLiveSeconds="80" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getMarketDepth" maxElementsInMemory="100" eternal="false" timeToLiveSeconds="140" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getMarketHistory" maxElementsInMemory="40" eternal="false" timeToLiveSeconds="300" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getAccountBalances" timeToLiveSeconds="120" maxElementsInMemory="40" eternal="false" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getAccountOrders" timeToLiveSeconds="120" maxElementsInMemory="40" eternal="false" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getAccountOrdersByPair" timeToLiveSeconds="120" maxElementsInMemory="140" eternal="false" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getAccountHistory" maxElementsInMemory="40" eternal="false" timeToLiveSeconds="120" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getAccountHistoryByPair" maxElementsInMemory="40" eternal="false" timeToLiveSeconds="120" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getTransactions" maxElementsInMemory="40" eternal="false" timeToLiveSeconds="300" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getMarketChartData" maxElementsInMemory="40" eternal="false" timeToLiveSeconds="300" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
+    <cache name="getCryptoBalance" maxElementsInMemory="10000" eternal="true" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
     <cache name="getNews" maxElementsInMemory="1" eternal="true" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
 </ehcache>
