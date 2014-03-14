@@ -49,96 +49,60 @@ public class PrivateController {
     @RequestMapping("/balance")
     @ResponseBody
     public ConvertService.AccountBalanceInfo getAccountBalances(Principal principal) throws Exception {
-        try {
-            Account account = accountManager.getAccount(principal.getName());
-            Assert.notNull(account);
-            return convertService.createAccountBalanceInfo(account);
-        } catch (Exception e) {
-            log.debug(e.getStackTrace());
-            log.error(e);
-            throw e;
-        }
+        Account account = accountManager.getAccount(principal.getName());
+        Assert.notNull(account);
+        return convertService.createAccountBalanceInfo(account);
     }
 
     @RequestMapping(value = "/order/{orderId}", method = RequestMethod.GET)
     @ResponseBody
     @SuppressWarnings("all")
     public Order getOrderStatus(@PathVariable long orderId, Principal principal) {
-        try {
-            Order order = marketManager.getOrder(orderId);
-            Account account = accountManager.getAccount(principal.getName());
-            Assert.isTrue(order != null && account != null && account.isEnabled(), "Invalid parameters");
-            Assert.isTrue(order.getAccount().equals(account), "This is not your order");
-            return order;
-        } catch (Exception e) {
-            log.debug(e.getStackTrace());
-            log.error(e);
-            throw e;
-        }
+        Order order = marketManager.getOrder(orderId);
+        Account account = accountManager.getAccount(principal.getName());
+        Assert.isTrue(order != null && account != null && account.isEnabled(), "Invalid parameters");
+        Assert.isTrue(order.getAccount().equals(account), "This is not your order");
+        return order;
     }
 
     @Cacheable(value = "getAccountOrders", key = "#principal.name")
     @RequestMapping("/orders")
     @ResponseBody
     public List<Order> getAccountOrdersInfo(Principal principal) {
-        try {
-            Account account = accountManager.getAccount(principal.getName());
-            Assert.notNull(account);
-            return accountManager.getAccountOrders(account, 200);
-        } catch (Exception e) {
-            log.debug(e.getStackTrace());
-            log.error(e);
-            throw e;
-        }
+        Account account = accountManager.getAccount(principal.getName());
+        Assert.notNull(account);
+        return accountManager.getAccountOrders(account, 200);
     }
 
     @Cacheable(value = "getAccountOrdersByPair", key = "#principal.name + #tradingPairId")
     @RequestMapping("/orders/{tradingPairId}")
     @ResponseBody
     public List<Order> getAccountOrdersByPair(Principal principal, @PathVariable long tradingPairId) {
-        try {
-            TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
-            Account account = accountManager.getAccount(principal.getName());
-            Assert.notNull(tradingPair);
-            Assert.notNull(account);
-            return accountManager.getAccountOrdersByPair(tradingPair, account, 200);
-        } catch (Exception e) {
-            log.debug(e.getStackTrace());
-            log.error(e);
-            throw e;
-        }
+        TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
+        Account account = accountManager.getAccount(principal.getName());
+        Assert.notNull(tradingPair);
+        Assert.notNull(account);
+        return accountManager.getAccountOrdersByPair(tradingPair, account, 200);
     }
 
     @Cacheable(value = "getAccountHistory", key = "#principal.name")
     @RequestMapping("/history")
     @ResponseBody
     public List<Order> getAccountHistory(Principal principal) {
-        try {
-            Account account = accountManager.getAccount(principal.getName());
-            Assert.notNull(account);
-            return historyManager.getAccountHistory(account, 200);
-        } catch (Exception e) {
-            log.debug(e.getStackTrace());
-            log.error(e);
-            throw e;
-        }
+        Account account = accountManager.getAccount(principal.getName());
+        Assert.notNull(account);
+        return historyManager.getAccountHistory(account, 200);
     }
 
     @Cacheable(value = "getAccountHistoryByPair", key = "#principal.name + #tradingPairId.toString()")
     @RequestMapping("/history/{tradingPairId}")
     @ResponseBody
     public List<Order> getAccountHistoryByPair(Principal principal, @PathVariable Long tradingPairId) {
-        try {
-            TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
-            Account account = accountManager.getAccount(principal.getName());
-            Assert.notNull(tradingPair);
-            Assert.notNull(account);
-            return historyManager.getAccountHistoryByPair(tradingPair, account, 200);
-        } catch (Exception e) {
-            log.debug(e.getStackTrace());
-            log.error(e);
-            throw e;
-        }
+        TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
+        Account account = accountManager.getAccount(principal.getName());
+        Assert.notNull(tradingPair);
+        Assert.notNull(account);
+        return historyManager.getAccountHistoryByPair(tradingPair, account, 200);
     }
 
     @Transactional
@@ -147,18 +111,12 @@ public class PrivateController {
     @ResponseBody
     @SuppressWarnings("all")
     public List<com.bitcoin.daemon.Address.Transaction> getTransactions(@PathVariable long currencyId, Principal principal) throws Exception {
-        try {
-            Currency currency = settingsManager.getCurrency(currencyId);
-            Account account = accountManager.getAccount(principal.getName());
-            Assert.isTrue(currency != null && account != null & account.isEnabled(), "Invalid parameters");
-            Assert.isTrue(currency.isEnabled(), "Currency disabled");
-            final List<com.bitcoin.daemon.Address.Transaction> transactionList = daemonManager.getWalletTransactions(accountManager.getVirtualWallet(account, currency));
-            return transactionList;
-        } catch (Exception e) {
-            log.debug(e.getStackTrace());
-            log.error(e);
-            throw e;
-        }
+        Currency currency = settingsManager.getCurrency(currencyId);
+        Account account = accountManager.getAccount(principal.getName());
+        Assert.isTrue(currency != null && account != null & account.isEnabled(), "Invalid parameters");
+        Assert.isTrue(currency.isEnabled(), "Currency disabled");
+        final List<com.bitcoin.daemon.Address.Transaction> transactionList = daemonManager.getWalletTransactions(accountManager.getVirtualWallet(account, currency));
+        return transactionList;
     }
 
     @Caching(evict = {
@@ -168,25 +126,19 @@ public class PrivateController {
     @ResponseBody
     @SuppressWarnings("all")
     public String generateDepositAddress(@PathVariable long currencyId, Principal principal) throws Exception {
-        try {
-            Currency currency = settingsManager.getCurrency(currencyId);
-            Account account = accountManager.getAccount(principal.getName());
-            Assert.isTrue(currency != null && account != null && account.isEnabled(), "Invalid parameters");
-            Assert.isTrue(currency.isEnabled(), "Currency disabled");
-            VirtualWallet virtualWallet = accountManager.getVirtualWallet(account, currency);
-            List<Address> addressList = daemonManager.getAddressList(virtualWallet);
-            String address;
-            if(addressList == null || addressList.isEmpty()) {
-                address = daemonManager.createWalletAddress(virtualWallet);
-                log.info("Address generated: " + address);
-            } else {
-                address = addressList.get(0).getAddress();
-            }
-            return address;
-        } catch (Exception e) {
-            log.debug(e.getStackTrace());
-            log.error(e);
-            throw e;
+        Currency currency = settingsManager.getCurrency(currencyId);
+        Account account = accountManager.getAccount(principal.getName());
+        Assert.isTrue(currency != null && account != null && account.isEnabled(), "Invalid parameters");
+        Assert.isTrue(currency.isEnabled(), "Currency disabled");
+        VirtualWallet virtualWallet = accountManager.getVirtualWallet(account, currency);
+        List<Address> addressList = daemonManager.getAddressList(virtualWallet);
+        String address;
+        if(addressList == null || addressList.isEmpty()) {
+            address = daemonManager.createWalletAddress(virtualWallet);
+            log.info("Address generated: " + address);
+        } else {
+            address = addressList.get(0).getAddress();
         }
+        return address;
     }
 }

@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -102,7 +103,7 @@ public class DaemonManagerImpl implements DaemonManager {
         }
     }
 
-    @Scheduled(fixedDelay = 5 * 60 * 1000) // Every 5m
+    @Scheduled(fixedDelay = 10 * 60 * 1000) // Every 10m
     @Transactional
     public synchronized void loadTransactions() throws Exception {
         if (daemonMap.size() < 1) {
@@ -113,9 +114,9 @@ public class DaemonManagerImpl implements DaemonManager {
         boolean hasErrors = false;
         for(Currency currency : currencyList) if(currency.isEnabled() && currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
             try {
-                final AbstractWallet wallet = daemonMap.get(currency.getId()).getWallet();
-                Assert.notNull(wallet, String.format("Daemon settings not found for currency: %s", currency));
-                wallet.loadTransactions(100);
+                DaemonInfo daemonInfo = daemonMap.get(currency.getId());
+                Assert.notNull(daemonInfo, String.format("Daemon settings not found for currency: %s", currency));
+                daemonInfo.getWallet().loadTransactions(300);
             } catch (Exception exc) {
                 log.debug(exc.getStackTrace());
                 log.error(exc);
@@ -142,12 +143,13 @@ public class DaemonManagerImpl implements DaemonManager {
     @Transactional
     public String createWalletAddress(@NonNull VirtualWallet virtualWallet) throws Exception {
         Assert.isTrue(virtualWallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid currency type");
-        Session session = sessionFactory.getCurrentSession();
-        session.saveOrUpdate(virtualWallet);
         CryptoCoinWallet.Account account = (CryptoCoinWallet.Account) getAccount(virtualWallet.getCurrency());
+
         com.bitcoin.daemon.Address newAddress = account.generateNewAddress();
         Address address = new Address(newAddress.getAddress(), virtualWallet);
+        Session session = sessionFactory.getCurrentSession();
         session.saveOrUpdate(address);
+
         return newAddress.getAddress();
     }
 
@@ -174,7 +176,7 @@ public class DaemonManagerImpl implements DaemonManager {
             // Just return DB backup, no throw
         } catch (Exception e) {
             log.debug(e.getStackTrace());
-            log.fatal(e);
+            log.fatal("getCryptoBalance unhandled exception", e);
             throw e;
         }
         return virtualWallet.getExternalBalance();
@@ -249,7 +251,7 @@ public class DaemonManagerImpl implements DaemonManager {
             return transaction;
         } catch (Exception e) {
             log.debug(e.getStackTrace());
-            log.error(e);
+            log.error("Withdraw error", e);
             throw e;
         } finally {
             lock.unlock();
@@ -279,5 +281,17 @@ public class DaemonManagerImpl implements DaemonManager {
             }
         });
         thread.start();
+    }
+
+    @PreDestroy
+    public void destroy() {
+        log.info("Shutting down JSON-RPC connections");
+        for(DaemonInfo daemonInfo : daemonMap.values()) {
+            AbstractWallet wallet = daemonInfo.getWallet();
+            if (wallet instanceof CryptoCoinWallet.Account) {
+                ((CryptoCoinWallet.Account)wallet).getJsonRPC().close(); // Close connections
+            }
+        }
+        daemonMap.clear();
     }
 }

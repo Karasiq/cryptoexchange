@@ -137,14 +137,15 @@ public class MarketManagerImpl implements MarketManager {
             @CacheEvict(value = "getMarketDepth", key = "#order.tradingPair.id")
     })
     public void cancelOrder(@NonNull Order order) throws Exception {
-        Assert.isTrue(order.isActual(), "Order already closed");
         IdBasedLockManager<Long> currencyLockManager = lockManager.getCurrencyLockManager();
         IdBasedLock<Long> lock = currencyLockManager.obtainLock(order.getTradingPair().getFirstCurrency().getId()), lock1 = currencyLockManager.obtainLock(order.getTradingPair().getSecondCurrency().getId());
         lock.lock();
         lock1.lock();
         try {
-            log.info(String.format("cancelOrder => %s", order));
             Session session = sessionFactory.getCurrentSession();
+            session.refresh(order);
+            Assert.isTrue(order.isActual(), "Order already closed");
+            log.info(String.format("cancelOrder => %s", order));
             order.cancel(); // Change order status
             returnUnusedFunds(order); // Return money
             session.update(order);

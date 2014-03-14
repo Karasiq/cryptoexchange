@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Repository
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class HistoryManagerImpl implements HistoryManager {
-    @Getter @Setter Period chartPeriod = new Period(1, 0, 0, 0);
+    @Getter @Setter Period chartPeriod = Period.hours(1);
 
     @Autowired
     SettingsManager settingsManager;

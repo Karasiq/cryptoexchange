@@ -39,6 +39,6 @@
     <mvc:resources mapping="/bower_components/**" location="/WEB-INF/static/bower_components/" />
 
     <task:scheduler id="taskScheduler" />
-    <task:executor id="taskExecutor" pool-size="10" />
+    <task:executor id="taskExecutor" pool-size="40" />
     <task:annotation-driven executor="taskExecutor" scheduler="taskScheduler" />
 </beans>

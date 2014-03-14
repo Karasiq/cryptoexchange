@@ -46,18 +46,12 @@ public class WithdrawControllerImpl implements WithdrawController {
     @ResponseBody
     @SuppressWarnings("all")
     public Address.Transaction withdrawCrypto(@PathVariable long currencyId, @RequestParam String address, @RequestParam BigDecimal amount, Principal principal) throws Exception {
-        try {
-            Currency currency = settingsManager.getCurrency(currencyId);
-            Account account = accountManager.getAccount(principal.getName());
-            Assert.isTrue(currency != null && account != null & currency.isEnabled() && account.isEnabled() && currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid parameters");
-            VirtualWallet virtualWallet = accountManager.getVirtualWallet(account, currency);
-            Address.Transaction transaction = daemonManager.withdrawFunds(virtualWallet, address, amount);
-            log.info(String.format("Withdraw success: %s %s => %s", amount, currency.getCurrencyCode(), address));
-            return transaction;
-        } catch (Exception e) {
-            log.debug(e.getStackTrace());
-            log.error(e);
-            throw e;
-        }
+        Currency currency = settingsManager.getCurrency(currencyId);
+        Account account = accountManager.getAccount(principal.getName());
+        Assert.isTrue(currency != null && account != null & currency.isEnabled() && account.isEnabled() && currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid parameters");
+        VirtualWallet virtualWallet = accountManager.getVirtualWallet(account, currency);
+        Address.Transaction transaction = daemonManager.withdrawFunds(virtualWallet, address, amount);
+        log.info(String.format("Withdraw success: %s %s => %s", amount, currency.getCurrencyCode(), address));
+        return transaction;
     }
 }

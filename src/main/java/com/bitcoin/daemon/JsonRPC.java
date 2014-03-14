@@ -94,7 +94,7 @@ public class JsonRPC implements Closeable {
                     } catch (InterruptedException e) {
                         break;
                     }
-                    log.info("Closing expired and idle connections...");
+                    log.info(String.format("[%s] Closing expired and idle connections...", Thread.currentThread().getName()));
                     connectionManager.closeExpiredConnections();
                     connectionManager.closeIdleConnections(10, TimeUnit.MINUTES);
                 }
@@ -139,10 +139,8 @@ public class JsonRPC implements Closeable {
                 throw new DaemonRpcException(rpcResponse.error.message);
             }
             return rpcResponse.result;
-        } catch(Exception e) {
-            e.printStackTrace();
-            JsonRPC.log.error(e);
-            throw e;
+        } catch (IOException e) {
+            throw new DaemonRpcException("Couldn't reach the JSON-RPC daemon", e);
         }
     }
 
