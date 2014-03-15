@@ -21,9 +21,16 @@
     <import resource="remote.xml" />
 
     <bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
-        <property name="prefix" value="/WEB-INF/pages/"/>
-        <property name="suffix" value=""/>
+        <property name="prefix" value="/"/>
+        <property name="suffix" value=".html"/>
     </bean>
+
+    <mvc:view-controller path="/" view-name="index"/>
+    <mvc:resources mapping="/*.html" location="/WEB-INF/static/"/>
+    <mvc:resources mapping="/favicon.ico" location="/WEB-INF/static/"/>
+    <mvc:resources mapping="/bower_components/**" location="/WEB-INF/static/bower_components/"/>
+    <mvc:resources mapping="/scripts/**" location="/WEB-INF/static/scripts/"/>
+    <mvc:resources mapping="/styles/**" location="/WEB-INF/static/styles/"/>
 
     <bean id="jacksonMessageConverter" class="org.springframework.http.converter.json.MappingJackson2HttpMessageConverter"/>
 
@@ -34,9 +41,6 @@
           class="org.springframework.cache.ehcache.EhCacheCacheManager"
           p:cacheManager-ref="ehCacheManager" />
     <cache:annotation-driven cache-manager="cacheManager" />
-
-    <mvc:resources mapping="/static/**" location="/WEB-INF/static/" />
-    <mvc:resources mapping="/bower_components/**" location="/WEB-INF/static/bower_components/" />
 
     <task:scheduler id="taskScheduler" />
     <task:executor id="taskExecutor" pool-size="40" />

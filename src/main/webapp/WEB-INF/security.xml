@@ -14,8 +14,8 @@
         </authentication-provider>
     </authentication-manager>
 
-    <http access-denied-page="/static/403.html">
-        <intercept-url pattern="/static/admin.html" access="ROLE_ADMIN"/>
+    <http access-denied-page="/">
+        <intercept-url pattern="/admin.html" access="ROLE_ADMIN"/>
         <form-login />
         <logout />
         <remember-me user-service-ref="accountManagerImpl"/>
