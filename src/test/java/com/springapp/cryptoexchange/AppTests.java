@@ -32,7 +32,7 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppC
 @ContextConfiguration("file:src/main/webapp/WEB-INF/mvc-dispatcher-servlet.xml")
 @CommonsLog
 @ActiveProfiles({"master", "data"})
-public final class AppTests {
+public class AppTests {
     @Autowired
     SessionFactory sessionFactory;
 
@@ -62,10 +62,17 @@ public final class AppTests {
         this.mockMvc = webAppContextSetup(this.wac).build();
     }
 
-    //@Test
+    @Test
     public void mainPage() throws Exception {
         mockMvc.perform(get("/"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @Transactional
+    public void cleanTest() throws Exception {
+        ((AccountManagerImpl)accountManager).entryLogAutoClean();
+        ((MarketManagerImpl)marketManager).cleanCancelledOrders();
     }
 
     //@Test
@@ -81,7 +88,7 @@ public final class AppTests {
         System.out.println(result.getResponse().getContentAsString());
     }
 
-    @Test
+    //@Test
     public void jsonRpc() throws Exception {
         // Existing:
         JsonRPC rpc = new JsonRPC("localhost", 8779, "user", "password");
@@ -98,7 +105,7 @@ public final class AppTests {
         //System.out.println(account.summaryConfirmedBalance());
     }
 
-    @Test
+    //@Test
     @Transactional
     public void accountTest() throws Exception {
         List<Currency> currencyList = settingsManager.getCurrencyList();

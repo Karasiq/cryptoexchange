@@ -12,9 +12,12 @@ import net.anotheria.idbasedlock.IdBasedLockManager;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
+import org.joda.time.DateTime;
+import org.joda.time.Period;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -266,5 +269,16 @@ public class MarketManagerImpl implements MarketManager {
                 .add(Restrictions.in("status", new Order.Status[]{Order.Status.OPEN, Order.Status.PARTIALLY_COMPLETED}))
                 .add(Restrictions.eq("type", orderType))
                 .list();
+    }
+
+    @Transactional
+    @Scheduled(cron = "30 4 * * 1 *") // Sunday 4:30
+    public void cleanCancelledOrders() {
+        log.info("Cancelled orders auto-clean started");
+        Session session = sessionFactory.getCurrentSession();
+        session.createQuery("delete from Order where closeDate <= :time and status = :status")
+                .setDate("time", DateTime.now().minus(Period.months(1)).toDate())
+                .setParameter("status", Order.Status.CANCELLED)
+                .executeUpdate();
     }
 }
