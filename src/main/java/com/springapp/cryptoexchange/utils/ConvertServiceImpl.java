@@ -12,6 +12,10 @@ import org.springframework.stereotype.Service;
 import javax.transaction.Transactional;
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class ConvertServiceImpl implements ConvertService { // Convert layer
@@ -70,25 +74,38 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
     }
 
     @Transactional
-    public AccountBalanceInfo createAccountBalanceInfo(@NonNull Account account) throws Exception {
+    public AccountBalanceInfo createAccountBalanceInfo(final @NonNull Account account) throws Exception {
         sessionFactory.getCurrentSession().refresh(account);
         List<Currency> currencyList = settingsManager.getCurrencyList();
-        AccountBalanceInfo accountBalanceInfo = new AccountBalanceInfo();
-        for(Currency currency : currencyList) {
-            VirtualWallet wallet = accountManager.getVirtualWallet(account, currency);
-            BigDecimal balance = BigDecimal.ZERO;
-            String address = null;
-            if(wallet != null) {
-                balance = accountManager.getVirtualWalletBalance(wallet);
-                if(wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
-                    List<Address> addressList = daemonManager.getAddressList(wallet);
-                    if (!addressList.isEmpty()) {
-                        address = addressList.get(0).getAddress();
+        final AccountBalanceInfo accountBalanceInfo = new AccountBalanceInfo();
+        ExecutorService executor = Executors.newFixedThreadPool(10);
+        for(final Currency currency : currencyList) {
+            Runnable runnable = new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        VirtualWallet wallet = accountManager.getVirtualWallet(account, currency);
+                        BigDecimal balance = BigDecimal.ZERO;
+                        String address = null;
+                        if(wallet != null) {
+                            balance = accountManager.getVirtualWalletBalance(wallet);
+                            if(wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
+                                List<Address> addressList = daemonManager.getAddressList(wallet);
+                                if (!addressList.isEmpty()) {
+                                    address = addressList.get(0).getAddress();
+                                }
+                            }
+                        }
+                        accountBalanceInfo.add(currency, balance, address);
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
                 }
-            }
-            accountBalanceInfo.add(currency, balance, address);
+            };
+            executor.execute(runnable);
         }
+        executor.shutdown();
+        executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
         Collections.sort(accountBalanceInfo.getAccountBalances(), new Comparator<AccountBalanceInfo.AccountBalance>() {
             @Override
             public int compare(AccountBalanceInfo.AccountBalance o1, AccountBalanceInfo.AccountBalance o2) {

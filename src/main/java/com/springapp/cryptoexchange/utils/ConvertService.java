@@ -56,7 +56,7 @@ public interface ConvertService {
             private final String address;
         }
         private final List<AccountBalance> accountBalances = new ArrayList<>();
-        public void add(Currency currency, BigDecimal balance, String address) {
+        public synchronized void add(Currency currency, BigDecimal balance, String address) {
             accountBalances.add(new AccountBalance(currency, balance, address));
         }
     }
