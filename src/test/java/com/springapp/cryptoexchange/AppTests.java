@@ -72,7 +72,7 @@ public class AppTests {
     @Transactional
     public void cleanTest() throws Exception {
         ((AccountManagerImpl)accountManager).entryLogAutoClean();
-        ((MarketManagerImpl)marketManager).cleanCancelledOrders();
+        ((MarketManagerImpl)marketManager).cleanOrders();
     }
 
     //@Test

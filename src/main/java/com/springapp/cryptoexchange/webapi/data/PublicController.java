@@ -48,7 +48,14 @@ public class PublicController {
     @RequestMapping(value = "/currency")
     @ResponseBody
     public List<Currency> getCurrencies() {
-        return settingsManager.getCurrencyList();
+        List<Currency> currencyList = settingsManager.getCurrencyList();
+        Collections.sort(currencyList, new Comparator<Currency>() {
+            @Override
+            public int compare(Currency o1, Currency o2) {
+                return o1.getCurrencyName().compareTo(o2.getCurrencyName());
+            }
+        });
+        return currencyList;
     }
 
     @Cacheable(value = "getCurrencyInfo", key = "#currencyId")

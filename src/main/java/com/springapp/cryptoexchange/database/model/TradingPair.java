@@ -29,10 +29,10 @@ public class TradingPair implements Serializable {
     @Column(name = "enabled")
     boolean enabled = true;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     Currency firstCurrency;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     Currency secondCurrency;
 
     // Basic:

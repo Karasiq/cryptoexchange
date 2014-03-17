@@ -81,8 +81,16 @@ public class MarketManagerImpl implements MarketManager {
                 && secondOrder.getSourceWallet().getCurrency().equals(tradingPair.getSecondCurrency())
                 && secondOrder.getDestWallet().getCurrency().equals(tradingPair.getFirstCurrency()), "Invalid parameters");
 
-        BigDecimal price = firstOrder.getPrice(), tradingFee = tradingPair.getTradingFee(), total = Calculator.buyTotal(amount, price),
-                firstCurrencySend = Calculator.withoutFee(amount, tradingFee), secondCurrencySend = Calculator.withoutFee(total, tradingFee);
+        boolean zeroFee = firstOrder.getAccount().getRole().equals(Account.RoleClass.ADMIN) || secondOrder.getAccount().getRole().equals(Account.RoleClass.ADMIN);
+        if (zeroFee) {
+            log.info(String.format("Zero-fee trade: %s => %s", firstOrder, secondOrder));
+        }
+
+        BigDecimal price = firstOrder.getPrice(),
+                tradingFee = tradingPair.getTradingFee(),
+                total = Calculator.buyTotal(amount, price),
+                firstCurrencySend = zeroFee ? amount : Calculator.withoutFee(amount, tradingFee),
+                secondCurrencySend = zeroFee ? total : Calculator.withoutFee(total, tradingFee);
 
         Currency firstCurrency = tradingPair.getFirstCurrency(), secondCurrency = tradingPair.getSecondCurrency();
         Assert.isTrue(firstCurrency != null && secondCurrency != null, "Currency not found");
@@ -119,8 +127,10 @@ public class MarketManagerImpl implements MarketManager {
 
 
         // Collected fee:
-        feeManager.submitCollectedFee(FreeBalance.FeeType.TRADING, tradingPair.getFirstCurrency(), Calculator.fee(amount, tradingFee));
-        feeManager.submitCollectedFee(FreeBalance.FeeType.TRADING, tradingPair.getSecondCurrency(), Calculator.fee(total, tradingFee));
+        if (!zeroFee) {
+            feeManager.submitCollectedFee(FreeBalance.FeeType.TRADING, tradingPair.getFirstCurrency(), Calculator.fee(amount, tradingFee));
+            feeManager.submitCollectedFee(FreeBalance.FeeType.TRADING, tradingPair.getSecondCurrency(), Calculator.fee(total, tradingFee));
+        }
 
         // Uncache all:
         cacheCleaner.orderExecutionEvict(firstOrder, secondOrder);
@@ -192,9 +202,9 @@ public class MarketManagerImpl implements MarketManager {
         // Synchronization:
         IdBasedLockManager<Long> currencyLockManager = lockManager.getCurrencyLockManager();
         IdBasedLock<Long> lock = currencyLockManager.obtainLock(newOrder.getTradingPair().getFirstCurrency().getId()), lock1 = currencyLockManager.obtainLock(newOrder.getTradingPair().getSecondCurrency().getId());
-        lock.lock();
-        lock1.lock();
         try {
+            lock.lock();
+            lock1.lock();
             Session session = sessionFactory.getCurrentSession();
             log.info(String.format("executeOrder => %s", newOrder));
             Order.Type orderType = newOrder.getType();
@@ -273,12 +283,16 @@ public class MarketManagerImpl implements MarketManager {
 
     @Transactional
     @Scheduled(cron = "30 4 * * 1 *") // Sunday 4:30
-    public void cleanCancelledOrders() {
-        log.info("Cancelled orders auto-clean started");
+    public void cleanOrders() {
+        log.info("Orders auto-clean started");
         Session session = sessionFactory.getCurrentSession();
-        session.createQuery("delete from Order where closeDate <= :time and status = :status")
+        int affectedRows = session.createQuery("delete from Order where closeDate <= :time and status in (:statuses)")
                 .setDate("time", DateTime.now().minus(Period.months(1)).toDate())
-                .setParameter("status", Order.Status.CANCELLED)
-                .executeUpdate();
+                .setParameterList("statuses", new Order.Status[] {
+                        Order.Status.CANCELLED,
+                        Order.Status.PARTIALLY_CANCELLED,
+                        Order.Status.COMPLETED
+                }).executeUpdate();
+        log.info(String.format("Orders deleted: %d", affectedRows));
     }
 }

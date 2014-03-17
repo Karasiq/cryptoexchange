@@ -27,7 +27,7 @@ public class VirtualWallet implements Serializable {
     long id;
 
     @NonNull
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     Currency currency;
 
     @Column(name = "virtual_balance", precision = 38, scale = 8)

@@ -61,18 +61,18 @@ public class Order implements Serializable {
     @Column(name = "price", precision = 38, scale = 8)
     @NonNull BigDecimal price;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @NonNull TradingPair tradingPair;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JsonIgnore
     @NonNull VirtualWallet sourceWallet;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JsonIgnore
     @NonNull VirtualWallet destWallet;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JsonIgnore
     @NonNull Account account;
 

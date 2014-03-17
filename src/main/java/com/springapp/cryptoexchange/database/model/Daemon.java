@@ -23,7 +23,7 @@ public class Daemon implements Serializable {
     @Id
     long id;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.EAGER)
     @NonNull Currency currency;
 
     @JsonIgnore

@@ -174,8 +174,9 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
     public void entryLogAutoClean() {
         log.info("Login history auto-clean started");
         Session session = sessionFactory.getCurrentSession();
-        session.createQuery("delete from LoginHistory where time <= :time")
-                .setDate("time", DateTime.now().minus(Period.months(1)).toDate())
+        int affectedRows = session.createQuery("delete from LoginHistory where time <= :time")
+                .setDate("time", DateTime.now().minus(Period.weeks(1)).toDate())
                 .executeUpdate();
+        log.info(String.format("Entries deleted: %d", affectedRows));
     }
 }

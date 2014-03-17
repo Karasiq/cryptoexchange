@@ -27,7 +27,7 @@ public class Address implements Serializable {
     String address;
 
     @NonNull
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     VirtualWallet virtualWallet;
 
     @Column(name = "received_by_address")

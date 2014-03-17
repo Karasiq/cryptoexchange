@@ -2,6 +2,7 @@ package com.springapp.cryptoexchange.utils;
 
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
+import com.springapp.cryptoexchange.database.model.Currency;
 import lombok.NonNull;
 import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,8 +11,7 @@ import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Service
 public class ConvertServiceImpl implements ConvertService { // Convert layer
@@ -89,6 +89,12 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
             }
             accountBalanceInfo.add(currency, balance, address);
         }
+        Collections.sort(accountBalanceInfo.getAccountBalances(), new Comparator<AccountBalanceInfo.AccountBalance>() {
+            @Override
+            public int compare(AccountBalanceInfo.AccountBalance o1, AccountBalanceInfo.AccountBalance o2) {
+                return o1.getCurrency().getCurrencyName().compareTo(o2.getCurrency().getCurrencyName());
+            }
+        });
         return accountBalanceInfo;
     }
 

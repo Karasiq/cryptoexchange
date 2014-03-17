@@ -52,14 +52,14 @@ public class JsonRPC implements Closeable {
         ErrorStatus error;
         String id;
     }
-    String rpcServerUrl;
+    HttpHost httpHost;
     PoolingHttpClientConnectionManager connectionManager;
     HttpClient client;
 
     Thread monitorThread;
 
     public JsonRPC(String rpcHost, int rpcPort, String rpcUsername, String rpcPassword) {
-        this.rpcServerUrl = String.format("http://%s:%d", rpcHost, rpcPort);
+        httpHost = new HttpHost(rpcHost, rpcPort);
 
         connectionManager = new PoolingHttpClientConnectionManager();
         connectionManager.setMaxTotal(200);
@@ -67,10 +67,11 @@ public class JsonRPC implements Closeable {
 
         CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
         credentialsProvider.setCredentials(
-                new AuthScope(rpcHost, rpcPort),
-                new UsernamePasswordCredentials(rpcUsername, rpcPassword));
+                new AuthScope(httpHost),
+                new UsernamePasswordCredentials(rpcUsername, rpcPassword)
+        );
 
-        final int timeout = 2 * 1000;
+        final int timeout = 5 * 1000;
         RequestConfig.Builder requestBuilder = RequestConfig.custom()
                 .setSocketTimeout(timeout)
                 .setConnectTimeout(timeout)
@@ -132,7 +133,7 @@ public class JsonRPC implements Closeable {
     public <T> T executeRpcRequest(String method, List<Object> args, TypeReference<Response<T>> typeReference) throws Exception {
         try {
             String request = prepareJsonRequest(method, args);
-            String response = getResponseString(postRequest(rpcServerUrl, request));
+            String response = getResponseString(postRequest(httpHost.toURI(), request));
             ObjectMapper mapper = new ObjectMapper();
             Response<T> rpcResponse = mapper.readValue(response, typeReference);
             if(rpcResponse.error != null) {
@@ -140,6 +141,7 @@ public class JsonRPC implements Closeable {
             }
             return rpcResponse.result;
         } catch (IOException e) {
+            e.printStackTrace();
             throw new DaemonRpcException("Couldn't reach the JSON-RPC daemon", e);
         }
     }
