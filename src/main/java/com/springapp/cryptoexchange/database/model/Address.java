@@ -29,14 +29,4 @@ public class Address implements Serializable {
     @NonNull
     @ManyToOne(fetch = FetchType.LAZY)
     VirtualWallet virtualWallet;
-
-    @Column(name = "received_by_address")
-    BigDecimal receivedByAddress = BigDecimal.ZERO;
-
-    @PostLoad
-    void init() {
-        if(receivedByAddress == null) {
-            receivedByAddress = BigDecimal.ZERO;
-        }
-    }
 }

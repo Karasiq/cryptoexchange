@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
 
 
@@ -276,7 +277,7 @@ public class MarketManagerImpl implements MarketManager {
                 .addOrder(orderType.equals(Order.Type.SELL) ? org.hibernate.criterion.Order.asc("price") : org.hibernate.criterion.Order.desc("price"))
                 .addOrder(org.hibernate.criterion.Order.asc("openDate"))
                 .add(Restrictions.eq("tradingPair", tradingPair))
-                .add(Restrictions.in("status", new Order.Status[]{Order.Status.OPEN, Order.Status.PARTIALLY_COMPLETED}))
+                .add(Restrictions.in("status", Arrays.asList(Order.Status.OPEN, Order.Status.PARTIALLY_COMPLETED)))
                 .add(Restrictions.eq("type", orderType))
                 .list();
     }
@@ -288,11 +289,8 @@ public class MarketManagerImpl implements MarketManager {
         Session session = sessionFactory.getCurrentSession();
         int affectedRows = session.createQuery("delete from Order where closeDate <= :time and status in (:statuses)")
                 .setDate("time", DateTime.now().minus(Period.months(1)).toDate())
-                .setParameterList("statuses", new Order.Status[] {
-                        Order.Status.CANCELLED,
-                        Order.Status.PARTIALLY_CANCELLED,
-                        Order.Status.COMPLETED
-                }).executeUpdate();
+                .setParameterList("statuses", Arrays.asList(Order.Status.CANCELLED, Order.Status.PARTIALLY_CANCELLED, Order.Status.COMPLETED))
+                .executeUpdate();
         log.info(String.format("Orders deleted: %d", affectedRows));
     }
 }
