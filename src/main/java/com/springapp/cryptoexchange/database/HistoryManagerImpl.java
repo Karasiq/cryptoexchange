@@ -5,7 +5,8 @@ import com.springapp.cryptoexchange.database.model.Candle;
 import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
 import com.springapp.cryptoexchange.utils.CacheCleaner;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.NonNull;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -15,7 +16,11 @@ import org.joda.time.Period;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionCallbackWithoutResult;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
@@ -27,7 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Repository
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class HistoryManagerImpl implements HistoryManager {
-    @Getter @Setter Period chartPeriod = Period.hours(1);
+    static final Period chartPeriod = Period.hours(1);
 
     @Autowired
     SettingsManager settingsManager;
@@ -39,16 +44,6 @@ public class HistoryManagerImpl implements HistoryManager {
     CacheCleaner cacheCleaner;
 
     final Map<Long, Candle> historyMap = new ConcurrentHashMap<>(); // Cache
-
-    @PostConstruct
-    public void init() {
-        @Cleanup Session session = sessionFactory.openSession();
-        List<TradingPair> currencyList = settingsManager.getTradingPairs();
-        for(TradingPair tradingPair : currencyList) {
-            List<Candle> candles = getMarketChartData(session, tradingPair, 1);
-            if(candles.size() > 0) historyMap.put(tradingPair.getId(), candles.get(0));
-        }
-    }
 
     private void updateChartData(@NonNull TradingPair tradingPair, final BigDecimal lastPrice, final BigDecimal amount) {
         Candle lastCandle = historyMap.get(tradingPair.getId());
@@ -129,8 +124,10 @@ public class HistoryManagerImpl implements HistoryManager {
                 .list();
     }
 
+    @Transactional
     @SuppressWarnings("unchecked")
-    private List<Candle> getMarketChartData(Session session, TradingPair tradingPair, int max) {
+    public List<Candle> getMarketChartData(@NonNull TradingPair tradingPair, int max) {
+        Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Candle.class)
                 .setMaxResults(max)
                 .add(Restrictions.eq("tradingPair", tradingPair))
@@ -138,9 +135,21 @@ public class HistoryManagerImpl implements HistoryManager {
                 .list();
     }
 
-    @Transactional
-    public List<Candle> getMarketChartData(@NonNull TradingPair tradingPair, int max) {
-        Session session = sessionFactory.getCurrentSession();
-        return getMarketChartData(session, tradingPair, max);
+    @Autowired
+    PlatformTransactionManager transactionManager;
+
+    @PostConstruct
+    public void init() {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.execute(new TransactionCallbackWithoutResult() {
+            @Override
+            protected void doInTransactionWithoutResult(TransactionStatus transactionStatus) {
+                List<TradingPair> currencyList = settingsManager.getTradingPairs();
+                for(TradingPair tradingPair : currencyList) {
+                    List<Candle> candles = getMarketChartData(tradingPair, 1);
+                    if(candles.size() > 0) historyMap.put(tradingPair.getId(), candles.get(0));
+                }
+            }
+        });
     }
 }

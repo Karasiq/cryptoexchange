@@ -1,27 +1,35 @@
 package com.springapp.cryptoexchange.database;
 
+import com.bitcoin.daemon.AbstractWallet;
 import com.bitcoin.daemon.Address;
 import com.bitcoin.daemon.CryptoCoinWallet;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.FreeBalance;
 import com.springapp.cryptoexchange.database.model.VirtualWallet;
 import com.springapp.cryptoexchange.utils.LockManager;
+import lombok.AccessLevel;
 import lombok.NonNull;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
 import net.anotheria.idbasedlock.IdBasedLock;
+import net.anotheria.idbasedlock.IdBasedLockManager;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.context.annotation.Profile;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Repository
 @CommonsLog
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class FeeManagerImpl implements FeeManager {
     @Autowired
     SessionFactory sessionFactory;
@@ -32,6 +40,12 @@ public class FeeManagerImpl implements FeeManager {
 
     @Autowired
     LockManager lockManager;
+
+    @Autowired
+    SettingsManager settingsManager;
+
+    @Autowired
+    AccountManager accountManager;
 
     private FreeBalance getFreeBalance(Session session, @NonNull Currency currency) {
         FreeBalance balance = (FreeBalance) session.createCriteria(FreeBalance.class)
@@ -118,6 +132,48 @@ public class FeeManagerImpl implements FeeManager {
             throw e;
         } finally {
             lock.unlock();
+        }
+    }
+
+    @Profile("master")
+    @SuppressWarnings("unchecked")
+    @Transactional
+    @Scheduled(cron = "30 5 * * 2 *") // Monday 5:30
+    public void calculateDivergence() {
+        Session session = sessionFactory.getCurrentSession();
+        IdBasedLockManager<Long> currencyLockManager = lockManager.getCurrencyLockManager();
+        List<Currency> currencyList = settingsManager.getCurrencyList();
+        for(Currency currency : currencyList) if(currency.isEnabled() && !currency.getCurrencyType().equals(Currency.CurrencyType.PURE_VIRTUAL)) {
+            IdBasedLock<Long> lock = currencyLockManager.obtainLock(currency.getId());
+            lock.lock();
+            try {
+                BigDecimal overallBalance, databaseBalance = BigDecimal.ZERO;
+                switch (currency.getCurrencyType()) {
+                    case CRYPTO:
+                        AbstractWallet account = daemonManager.getAccount(currency);
+                        overallBalance = account.summaryConfirmedBalance();
+                        break;
+                    default:
+                        throw new IllegalArgumentException();
+                }
+                List<VirtualWallet> virtualWalletList = session.createCriteria(VirtualWallet.class)
+                        .add(Restrictions.eq("currency", currency))
+                        .list();
+                for (VirtualWallet virtualWallet : virtualWalletList) {
+                    databaseBalance = databaseBalance.add(accountManager.getVirtualWalletBalance(virtualWallet));
+                }
+                databaseBalance = databaseBalance.add(getFreeBalance(session, currency).getAmount());
+                if(!overallBalance.equals(databaseBalance)) {
+                    BigDecimal divergence = overallBalance.subtract(databaseBalance);
+                    log.fatal(String.format("Balance divergence for currency %s: EXTERNAL=%s, PERSISTED=%s, DIVERGENCE=%s", currency, overallBalance, databaseBalance, divergence));
+                    // submitCollectedFee(FreeBalance.FeeType.CORRECTION, currency, divergence);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                log.fatal(e);
+            } finally {
+                lock.unlock();
+            }
         }
     }
 }

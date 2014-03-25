@@ -1,7 +1,6 @@
 package com.springapp.cryptoexchange.database.model;
 
 
-import com.springapp.cryptoexchange.database.model.log.LoginHistory;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.Cache;

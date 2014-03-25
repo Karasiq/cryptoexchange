@@ -10,7 +10,9 @@ import com.springapp.cryptoexchange.database.model.log.CryptoWithdrawHistory;
 import com.springapp.cryptoexchange.utils.CacheCleaner;
 import com.springapp.cryptoexchange.utils.Calculator;
 import com.springapp.cryptoexchange.utils.LockManager;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.NonNull;
+import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
 import net.anotheria.idbasedlock.IdBasedLock;
@@ -23,7 +25,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionCallbackWithoutResult;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.Assert;
 
 import javax.annotation.PostConstruct;
@@ -267,11 +273,15 @@ public class DaemonManagerImpl implements DaemonManager {
                 .list();
     }
 
+    @Autowired
+    PlatformTransactionManager transactionManager;
+
     @PostConstruct
     public void init() throws Exception {
-        final Thread thread = new Thread(new Runnable() {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.execute(new TransactionCallbackWithoutResult() {
             @Override
-            public void run() {
+            protected void doInTransactionWithoutResult(TransactionStatus transactionStatus) {
                 try {
                     loadTransactions();
                 } catch (Exception e) {
@@ -280,7 +290,6 @@ public class DaemonManagerImpl implements DaemonManager {
                 }
             }
         });
-        thread.start();
     }
 
     @PreDestroy

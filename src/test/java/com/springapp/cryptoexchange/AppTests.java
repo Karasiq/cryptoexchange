@@ -51,6 +51,9 @@ public class AppTests {
     @Autowired
     MarketManager marketManager;
 
+    @Autowired
+    FeeManager feeManager;
+
     private MockMvc mockMvc;
 
     @SuppressWarnings("SpringJavaAutowiringInspection")
@@ -60,6 +63,7 @@ public class AppTests {
     @Before
     public void setup() throws Exception {
         this.mockMvc = webAppContextSetup(this.wac).build();
+        daemonManager.loadTransactions();
     }
 
     @Test
@@ -73,6 +77,7 @@ public class AppTests {
     public void cleanTest() throws Exception {
         ((AccountManagerImpl)accountManager).entryLogAutoClean();
         ((MarketManagerImpl)marketManager).cleanOrders();
+        ((FeeManagerImpl)feeManager).calculateDivergence();
     }
 
     //@Test

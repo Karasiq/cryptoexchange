@@ -60,7 +60,7 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
     @SuppressWarnings("all")
     public BigDecimal getVirtualWalletBalance(@NonNull VirtualWallet wallet) throws Exception {
         Currency currency = wallet.getCurrency();
-        Assert.isTrue(currency != null, "Invalid parameters");
+        Assert.notNull(currency, "Invalid parameters");
         BigDecimal externalBalance = wallet.getExternalBalance();
         if(currency.isEnabled()) switch (currency.getCurrencyType()) {
             case CRYPTO:
@@ -80,15 +80,6 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
         session.save(account);
         log.info(String.format("New account registered: %s", account));
         return account;
-    }
-
-    @Transactional
-    public void setAccountEnabled(long id, boolean enabled) {
-        Session session = sessionFactory.getCurrentSession();
-        Account account = (Account) session.load(Account.class, id);
-        account.setEnabled(enabled);
-        session.update(account);
-        log.info(String.format("Account modified: %s", account));
     }
 
     @Transactional

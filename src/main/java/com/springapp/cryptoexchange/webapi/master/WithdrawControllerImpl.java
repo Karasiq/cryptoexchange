@@ -8,6 +8,9 @@ import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.VirtualWallet;
 import lombok.extern.apachecommons.CommonsLog;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.criterion.Restrictions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
@@ -20,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.security.Principal;
+import java.util.List;
 
 @Controller
 @RequestMapping("/rest/withdraw.json")
@@ -28,6 +32,9 @@ import java.security.Principal;
 @Profile("master") // Main instance, cannot distribute
 public class WithdrawControllerImpl implements WithdrawController {
     @Autowired
+    SessionFactory sessionFactory;
+
+    @Autowired
     AccountManager accountManager;
 
     @Autowired
@@ -35,6 +42,20 @@ public class WithdrawControllerImpl implements WithdrawController {
 
     @Autowired
     DaemonManager daemonManager;
+
+    @SuppressWarnings("all")
+    private void assertCanWithdraw(Currency currency, Account account) throws Exception {
+        Session session = sessionFactory.getCurrentSession();
+        Assert.isTrue(currency != null && account != null & currency.isEnabled() && account.isEnabled() && currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid parameters");
+        Assert.notNull(accountManager.getVirtualWallet(account, currency));
+
+        List<VirtualWallet> virtualWalletList = session.createCriteria(VirtualWallet.class)
+                .add(Restrictions.eq("account", account))
+                .list();
+        for(VirtualWallet virtualWallet : virtualWalletList) {
+            Assert.isTrue(accountManager.getVirtualWalletBalance(virtualWallet).compareTo(BigDecimal.ZERO) < 0, "One of your balances is negative");
+        }
+    }
 
     @Caching(evict = {
             @CacheEvict(value = "getAccountBalances", key = "#principal.name"),
@@ -46,9 +67,10 @@ public class WithdrawControllerImpl implements WithdrawController {
     @ResponseBody
     @SuppressWarnings("all")
     public Address.Transaction withdrawCrypto(@PathVariable long currencyId, @RequestParam String address, @RequestParam BigDecimal amount, Principal principal) throws Exception {
+        Session session = sessionFactory.getCurrentSession();
         Currency currency = settingsManager.getCurrency(currencyId);
         Account account = accountManager.getAccount(principal.getName());
-        Assert.isTrue(currency != null && account != null & currency.isEnabled() && account.isEnabled() && currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid parameters");
+        assertCanWithdraw(currency, account); // Check prerequisites
         VirtualWallet virtualWallet = accountManager.getVirtualWallet(account, currency);
         Address.Transaction transaction = daemonManager.withdrawFunds(virtualWallet, address, amount);
         log.info(String.format("Withdraw success: %s %s => %s", amount, currency.getCurrencyCode(), address));

@@ -11,7 +11,6 @@ public interface AccountManager {
     public BigDecimal getVirtualWalletBalance(VirtualWallet wallet) throws Exception;
     public Account addAccount(Account account) throws Exception;
     public Account getAccount(String login);
-    public void setAccountEnabled(long id, boolean enabled);
     public void logEntry(Account account, String ip, String userAgentString);
     public List<LoginHistory> getLastEntriesByAccount(Account account, int maxDaysAgo, int max);
     public List<LoginHistory> getLastEntriesByIp(String ip, int maxDaysAgo, int max);

@@ -5,7 +5,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.NonNull;
-import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
 import org.springframework.util.Assert;

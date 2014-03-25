@@ -34,7 +34,7 @@ public class Order implements Serializable {
     @GeneratedValue
     long id;
 
-    @Column(name = "open_time", nullable = false)
+    @Column(name = "open_time", nullable = false, updatable = false)
     Date openDate = new Date();
 
     @Column(name = "update_time")
@@ -43,13 +43,13 @@ public class Order implements Serializable {
     @Column(name = "close_time")
     Date closeDate;
 
-    @Column(name = "status")
+    @Column(name = "status", nullable = false)
     Status status = Status.OPEN;
 
-    @Column(name = "type")
+    @Column(name = "type", nullable = false)
     @NonNull Type type;
 
-    @Column(name = "amount", precision = 38, scale = 8)
+    @Column(name = "amount", precision = 38, scale = 8, nullable = false)
     @NonNull BigDecimal amount;
 
     @Column(name = "completed_amount", precision = 38, scale = 8)
@@ -58,7 +58,7 @@ public class Order implements Serializable {
     @Column(name = "total_sum", precision = 38, scale = 8)
     BigDecimal total = BigDecimal.ZERO;
 
-    @Column(name = "price", precision = 38, scale = 8)
+    @Column(name = "price", precision = 38, scale = 8, nullable = false)
     @NonNull BigDecimal price;
 
     @ManyToOne(fetch = FetchType.EAGER)
