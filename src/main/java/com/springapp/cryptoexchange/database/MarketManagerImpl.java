@@ -6,6 +6,7 @@ import com.springapp.cryptoexchange.utils.Calculator;
 import lombok.NonNull;
 import lombok.experimental.NonFinal;
 import lombok.extern.apachecommons.CommonsLog;
+import org.hibernate.FetchMode;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -56,7 +57,6 @@ public class MarketManagerImpl implements MarketManager {
         BigDecimal returnAmount = Calculator.totalRequired(order.getType(), order.getAmount(), order.getPrice()).subtract(order.getTotal());
         if (returnAmount.compareTo(BigDecimal.ZERO) != 0) {
             VirtualWallet wallet = order.getSourceWallet();
-            session.refresh(wallet);
             wallet.addBalance(returnAmount);
             session.update(wallet);
             log.info(String.format("Returned unspent money (#%d): %s", order.getId(), returnAmount));
@@ -138,7 +138,7 @@ public class MarketManagerImpl implements MarketManager {
         return (Order) sessionFactory.getCurrentSession().get(Order.class, orderId);
     }
 
-    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
     @SuppressWarnings("unchecked")
     @Caching(evict = {
             @CacheEvict(value = "getAccountOrdersByPair", key = "#order.account.login + #order.tradingPair.id"),
@@ -148,7 +148,6 @@ public class MarketManagerImpl implements MarketManager {
     })
     public void cancelOrder(@NonNull Order order) throws Exception {
         Session session = sessionFactory.getCurrentSession();
-        session.refresh(order);
         Assert.isTrue(order.isActual(), "Order already closed");
         log.info(String.format("cancelOrder => %s", order));
         order.cancel(); // Change order status
@@ -163,7 +162,7 @@ public class MarketManagerImpl implements MarketManager {
             @CacheEvict(value = "getAccountOrders", key = "#newOrder.account.login"),
             @CacheEvict(value = "getAccountBalances", key = "#newOrder.account.login")
     })
-    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
     @SuppressWarnings("unchecked")
     public Order executeOrder(@NonNull Order newOrder) throws Exception {
         // Normalizing:
@@ -184,15 +183,12 @@ public class MarketManagerImpl implements MarketManager {
             throw new MarketError(String.format("Minimal trading amount is %s", newOrder.getTradingPair().getMinimalTradeAmount()));
         }
 
-        Session session = sessionFactory.getCurrentSession();
+        final Session session = sessionFactory.getCurrentSession();
         log.info(String.format("executeOrder => %s", newOrder));
-        Order.Type orderType = newOrder.getType();
-        VirtualWallet virtualWalletSource = newOrder.getSourceWallet(), virtualWalletDest = newOrder.getDestWallet();
-        session.refresh(virtualWalletSource);
-        session.refresh(virtualWalletDest);
-        BigDecimal balance = accountManager.getVirtualWalletBalance(virtualWalletSource);
-        BigDecimal remainingAmount = newOrder.getRemainingAmount();
-        BigDecimal required = Calculator.totalRequired(orderType, remainingAmount, newOrder.getPrice());
+        final Order.Type orderType = newOrder.getType();
+
+        VirtualWallet virtualWalletSource = newOrder.getSourceWallet();
+        final BigDecimal balance = accountManager.getVirtualWalletBalance(virtualWalletSource), remainingAmount = newOrder.getRemainingAmount(), required = Calculator.totalRequired(orderType, remainingAmount, newOrder.getPrice());
 
         if(balance.compareTo(required) < 0) {
             throw new MarketError("Insufficient funds");
@@ -202,6 +198,11 @@ public class MarketManagerImpl implements MarketManager {
 
         // Retrieving relevant orders:
         List<Order> orders = session.createCriteria(Order.class)
+                .setFetchSize(20)
+                .setFetchMode("tradingPair", FetchMode.JOIN)
+                .setFetchMode("sourceWallet", FetchMode.JOIN)
+                .setFetchMode("destWallet", FetchMode.JOIN)
+                .setFetchMode("account", FetchMode.JOIN)
                 .addOrder(orderType == Order.Type.BUY ? org.hibernate.criterion.Order.asc("price") : org.hibernate.criterion.Order.desc("price"))
                 .addOrder(org.hibernate.criterion.Order.asc("openDate"))
                 .add(Restrictions.in("status", new Order.Status[]{Order.Status.OPEN, Order.Status.PARTIALLY_COMPLETED}))

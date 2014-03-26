@@ -25,7 +25,7 @@ public class FreeBalance {
     @GeneratedValue
     long id;
 
-    @OneToOne(fetch = FetchType.EAGER)
+    @OneToOne(fetch = FetchType.LAZY)
     @NonNull Currency currency;
 
     @Column(name = "amount", precision = 38, scale = 8)

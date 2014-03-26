@@ -85,7 +85,7 @@ public class FeeManagerImpl implements FeeManager {
         final BigDecimal current = freeBalance.getAmount();
         Assert.isTrue(current.compareTo(amount) >= 0, "Insufficient funds");
         CryptoCoinWallet.Account cryptoCoinWallet = (CryptoCoinWallet.Account) daemonManager.getAccount(freeBalance.getCurrency());
-        Address.Transaction transaction = cryptoCoinWallet.sendToAddress(address, amount); // Admin function, protection from rollback not required
+        Address.Transaction transaction = cryptoCoinWallet.sendToAddress(address, amount);
         freeBalance.setAmount(current.subtract(amount).add(transaction.getFee()));
         session.update(freeBalance);
         log.info(String.format("Fee withdraw success: %s => %s (%s)", amount, address, transaction));
@@ -103,7 +103,7 @@ public class FeeManagerImpl implements FeeManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.SERIALIZABLE)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.REPEATABLE_READ)
     public Object withdrawFee(@NonNull Currency currency, @NonNull BigDecimal amount, @NonNull Object receiverInfo) throws Exception {
         Assert.isTrue(currency.isEnabled(), "Currency disabled");
         Session session = sessionFactory.getCurrentSession();

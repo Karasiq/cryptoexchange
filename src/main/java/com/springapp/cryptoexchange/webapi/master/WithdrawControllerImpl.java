@@ -17,6 +17,7 @@ import org.springframework.cache.annotation.Caching;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
@@ -61,7 +62,7 @@ public class WithdrawControllerImpl implements WithdrawController {
             @CacheEvict(value = "getAccountBalances", key = "#principal.name"),
             @CacheEvict(value = "getTransactions", key = "#principal.name + #currencyId")
     })
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     @Override
     @RequestMapping(value = "/crypto/{currencyId}", method = RequestMethod.POST)
     @ResponseBody

@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
@@ -34,7 +36,7 @@ public class TradingControllerImpl implements TradingController {
     @Autowired
     AccountManager accountManager;
 
-    @Transactional
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     @Override
     @RequestMapping(value = "/order/create/{tradingPairId}", method = RequestMethod.POST)
     @ResponseBody
@@ -53,7 +55,7 @@ public class TradingControllerImpl implements TradingController {
         }
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     @Override
     @RequestMapping(value = "/order/{orderId}/cancel", method = RequestMethod.POST)
     @ResponseBody
