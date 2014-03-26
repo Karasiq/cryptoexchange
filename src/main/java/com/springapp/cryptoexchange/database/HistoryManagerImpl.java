@@ -87,7 +87,7 @@ public class HistoryManagerImpl implements HistoryManager {
         cacheCleaner.marketPricesEvict(tradingPair);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     public List<Order> getMarketHistory(@NonNull TradingPair tradingPair, int max) {
         Session session = sessionFactory.getCurrentSession();
@@ -99,7 +99,7 @@ public class HistoryManagerImpl implements HistoryManager {
                 .list();
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     public List<Order> getAccountHistory(@NonNull Account account, int max) {
         Session session = sessionFactory.getCurrentSession();
@@ -111,7 +111,7 @@ public class HistoryManagerImpl implements HistoryManager {
                 .list();
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     public List<Order> getAccountHistoryByPair(@NonNull TradingPair tradingPair, @NonNull Account account, int max) {
         Session session = sessionFactory.getCurrentSession();
@@ -124,7 +124,7 @@ public class HistoryManagerImpl implements HistoryManager {
                 .list();
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     public List<Candle> getMarketChartData(@NonNull TradingPair tradingPair, int max) {
         Session session = sessionFactory.getCurrentSession();

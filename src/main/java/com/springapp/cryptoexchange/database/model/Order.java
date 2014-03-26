@@ -76,19 +76,19 @@ public class Order implements Serializable {
     @JsonIgnore
     @NonNull Account account;
 
-    public synchronized BigDecimal getRemainingAmount() {
+    public BigDecimal getRemainingAmount() {
         return amount.subtract(completedAmount);
     }
 
-    public synchronized void addCompletedAmount(final @NonNull BigDecimal amount) throws MarketManagerImpl.MarketError {
-        completedAmount = completedAmount.add(amount);
+    public void addCompletedAmount(final @NonNull BigDecimal amount) throws MarketManagerImpl.MarketError {
+        setCompletedAmount(completedAmount.add(amount));
         if(completedAmount.compareTo(getAmount()) > 0) {
             throw new MarketManagerImpl.MarketError("Critical internal error");
         }
     }
 
-    public synchronized void addTotal(final @NonNull BigDecimal total) {
-        this.total = this.total.add(total);
+    public void addTotal(final @NonNull BigDecimal total) {
+        setTotal(this.total.add(total));
     }
 
     public void updateCompletionStatus() {

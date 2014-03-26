@@ -46,7 +46,7 @@ public class Candle implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY) @JsonIgnore @NonNull
     TradingPair tradingPair;
 
-    public Candle(@NonNull final TradingPair tradingPair, @NonNull final BigDecimal lastPrice) { // open new candle
+    public Candle(final TradingPair tradingPair, @NonNull final BigDecimal lastPrice) { // open new candle
         this(tradingPair);
         setOpen(lastPrice);
         setClose(lastPrice);

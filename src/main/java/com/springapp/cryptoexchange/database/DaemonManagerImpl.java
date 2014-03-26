@@ -9,13 +9,11 @@ import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.log.CryptoWithdrawHistory;
 import com.springapp.cryptoexchange.utils.CacheCleaner;
 import com.springapp.cryptoexchange.utils.Calculator;
-import com.springapp.cryptoexchange.utils.LockManager;
 import lombok.AccessLevel;
 import lombok.NonNull;
 import lombok.Value;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
-import net.anotheria.idbasedlock.IdBasedLock;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -27,6 +25,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionCallbackWithoutResult;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -58,15 +58,12 @@ public class DaemonManagerImpl implements DaemonManager {
     AccountManager accountManager;
 
     @Autowired
-    LockManager lockManager;
-
-    @Autowired
     FeeManager feeManager;
 
     @Autowired
     CacheCleaner cacheCleaner;
 
-    public void setDaemonSettings(Daemon settings) {
+    public synchronized void setDaemonSettings(Daemon settings) {
         long currencyId = settings.getCurrency().getId();
         DaemonInfo old = daemonMap.get(currencyId);
 
@@ -83,7 +80,7 @@ public class DaemonManagerImpl implements DaemonManager {
         }
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public Daemon getDaemonSettings(@NonNull Currency currency) {
         Assert.isTrue(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid currency type");
         Session session = sessionFactory.getCurrentSession();
@@ -93,7 +90,7 @@ public class DaemonManagerImpl implements DaemonManager {
     }
 
     @Scheduled(fixedDelay = 60 * 60 * 1000) // Hourly reload
-    @Transactional
+    @Transactional(readOnly = true)
     public synchronized void loadDaemons() {
         log.info("Loading daemon settings...");
         List<Currency> currencyList = settingsManager.getCurrencyList();
@@ -110,7 +107,7 @@ public class DaemonManagerImpl implements DaemonManager {
     }
 
     @Scheduled(fixedDelay = 10 * 60 * 1000) // Every 10m
-    @Transactional
+    @Transactional(readOnly = true)
     public synchronized void loadTransactions() throws Exception {
         if (daemonMap.size() < 1) {
             loadDaemons();
@@ -146,7 +143,7 @@ public class DaemonManagerImpl implements DaemonManager {
         return wallet;
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public String createWalletAddress(@NonNull VirtualWallet virtualWallet) throws Exception {
         Assert.isTrue(virtualWallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid currency type");
         CryptoCoinWallet.Account account = (CryptoCoinWallet.Account) getAccount(virtualWallet.getCurrency());
@@ -159,6 +156,7 @@ public class DaemonManagerImpl implements DaemonManager {
         return newAddress.getAddress();
     }
 
+    @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     public Set getAddressSet(@NonNull VirtualWallet virtualWallet) {
         final List<Address> addressList = getAddressList(virtualWallet);
@@ -169,7 +167,7 @@ public class DaemonManagerImpl implements DaemonManager {
         return strings;
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @Cacheable(value = "getCryptoBalance", key = "#virtualWallet.id")
     public BigDecimal getCryptoBalance(@NonNull VirtualWallet virtualWallet) throws Exception {
         try {
@@ -188,7 +186,7 @@ public class DaemonManagerImpl implements DaemonManager {
         return virtualWallet.getExternalBalance();
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     public List<com.bitcoin.daemon.Address.Transaction> getWalletTransactions(@NonNull VirtualWallet virtualWallet) throws Exception {
         final List<com.bitcoin.daemon.Address.Transaction> transactionList = new ArrayList<>();
@@ -222,49 +220,39 @@ public class DaemonManagerImpl implements DaemonManager {
         return transactionList;
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.SERIALIZABLE)
     public com.bitcoin.daemon.Address.Transaction withdrawFunds(@NonNull VirtualWallet wallet, @NonNull String address, @NonNull BigDecimal amount) throws Exception {
         Assert.isTrue(wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO) && address.length() > 0 && amount.compareTo(BigDecimal.ZERO) > 0, "Invalid parameters");
         BigDecimal minAmount = wallet.getCurrency().getMinimalWithdrawAmount();
         Assert.isTrue(amount.compareTo(minAmount) >= 0, String.format("Minimal withdraw amount: %s %s", minAmount, wallet.getCurrency().getCurrencyCode()));
         Session session = sessionFactory.getCurrentSession();
-        IdBasedLock<Long> lock = lockManager.getCurrencyLockManager().obtainLock(wallet.getCurrency().getId()); // Critical
-        lock.lock();
+        session.refresh(wallet);
+        CryptoCoinWallet.Account account = (CryptoCoinWallet.Account) getAccount(wallet.getCurrency());
+        BigDecimal balance = accountManager.getVirtualWalletBalance(wallet), sendAmount = Calculator.withoutFee(amount, wallet.getCurrency().getWithdrawFee());
+        if(balance.compareTo(amount) < 0) {
+            throw new IllegalArgumentException("Insufficient funds");
+        }
+        wallet.addBalance(amount.negate());
+        session.update(wallet);
+
+        log.info(String.format("Funds withdraw requested: from %s to %s <%s>", wallet, address, amount));
+        com.bitcoin.daemon.Address.Transaction transaction = account.sendToAddress(address, sendAmount);
         try {
-            session.refresh(wallet);
-            CryptoCoinWallet.Account account = (CryptoCoinWallet.Account) getAccount(wallet.getCurrency());
-            BigDecimal balance = accountManager.getVirtualWalletBalance(wallet), sendAmount = Calculator.withoutFee(amount, wallet.getCurrency().getWithdrawFee());
-            if(balance.compareTo(amount) < 0) {
-                throw new IllegalArgumentException("Insufficient funds");
-            }
-            wallet.addBalance(amount.negate());
-            session.update(wallet);
+            log.info(String.format("Funds withdraw success: %s", transaction));
 
-            log.info(String.format("Funds withdraw requested: from %s to %s <%s>", wallet, address, amount));
-            com.bitcoin.daemon.Address.Transaction transaction = account.sendToAddress(address, sendAmount);
-            try {
-                log.info(String.format("Funds withdraw success: %s", transaction));
+            feeManager.submitCollectedFee(FreeBalance.FeeType.WITHDRAW, wallet.getCurrency(), Calculator.fee(amount, wallet.getCurrency().getWithdrawFee()).add(transaction.getFee())); // Tx fee is negative
 
-                feeManager.submitCollectedFee(FreeBalance.FeeType.WITHDRAW, wallet.getCurrency(), Calculator.fee(amount, wallet.getCurrency().getWithdrawFee()).add(transaction.getFee())); // Tx fee is negative
-
-                CryptoWithdrawHistory withdrawHistory = new CryptoWithdrawHistory(wallet, address, sendAmount, transaction.getTxid());
-                session.save(withdrawHistory);
-            } catch (Exception e) {
-                log.debug(e.getStackTrace());
-                log.fatal("Error after transaction", e);
-                // do not throw!
-            }
-            return transaction;
+            CryptoWithdrawHistory withdrawHistory = new CryptoWithdrawHistory(wallet, address, sendAmount, transaction.getTxid());
+            session.save(withdrawHistory);
         } catch (Exception e) {
             log.debug(e.getStackTrace());
-            log.error("Withdraw error", e);
-            throw e;
-        } finally {
-            lock.unlock();
+            log.fatal("Error after transaction", e);
+            // do not throw!
         }
+        return transaction;
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     public List<Address> getAddressList(@NonNull VirtualWallet wallet) {
         Session session = sessionFactory.getCurrentSession();

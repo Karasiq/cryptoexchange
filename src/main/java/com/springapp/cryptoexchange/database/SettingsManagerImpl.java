@@ -15,7 +15,7 @@ public class SettingsManagerImpl implements SettingsManager {
     @Autowired
     SessionFactory sessionFactory;
 
-    @Transactional
+    @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     public List<TradingPair> getTradingPairs() {
         Session session = sessionFactory.getCurrentSession();
@@ -23,7 +23,7 @@ public class SettingsManagerImpl implements SettingsManager {
                 .list();
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     public List<Currency> getCurrencyList() {
         Session session = sessionFactory.getCurrentSession();
@@ -31,13 +31,13 @@ public class SettingsManagerImpl implements SettingsManager {
                 .list();
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public TradingPair getTradingPair(long id) {
         Session session = sessionFactory.getCurrentSession();
         return (TradingPair) session.get(TradingPair.class, id);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public Currency getCurrency(long id) {
         Session session = sessionFactory.getCurrentSession();
         return (Currency) session.get(Currency.class, id);

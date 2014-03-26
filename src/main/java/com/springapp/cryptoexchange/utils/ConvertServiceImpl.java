@@ -42,7 +42,7 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
     public Depth createDepth(@NonNull List<Order> buyOrders, @NonNull List<Order> sellOrders) throws Exception {
         final Depth depth = new Depth();
         Depth.Entry depthEntry = new Depth.Entry();
-        if(buyOrders != null && !buyOrders.isEmpty()) {
+        if(!buyOrders.isEmpty()) {
             for(Order order : buyOrders) {
                 if(depthEntry.price != null && !depthEntry.price.equals(order.getPrice())) {
                     depth.buyOrders.add(depthEntry);
@@ -54,7 +54,7 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
             depthEntry = new Depth.Entry();
         }
 
-        if(sellOrders != null && !sellOrders.isEmpty()) {
+        if(!sellOrders.isEmpty()) {
             for(Order order : sellOrders) {
                 if(depthEntry.price != null && !depthEntry.price.equals(order.getPrice())) {
                     depth.sellOrders.add(depthEntry);
@@ -79,7 +79,7 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
         sessionFactory.getCurrentSession().refresh(account);
         List<Currency> currencyList = settingsManager.getCurrencyList();
         final AccountBalanceInfo accountBalanceInfo = new AccountBalanceInfo();
-        ExecutorService executor = Executors.newFixedThreadPool(10);
+        ExecutorService executor = Executors.newCachedThreadPool();
         for(final Currency currency : currencyList) {
             Runnable runnable = new Runnable() {
                 @Override

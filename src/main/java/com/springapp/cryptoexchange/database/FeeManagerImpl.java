@@ -6,13 +6,10 @@ import com.bitcoin.daemon.CryptoCoinWallet;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.FreeBalance;
 import com.springapp.cryptoexchange.database.model.VirtualWallet;
-import com.springapp.cryptoexchange.utils.LockManager;
 import lombok.AccessLevel;
 import lombok.NonNull;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
-import net.anotheria.idbasedlock.IdBasedLock;
-import net.anotheria.idbasedlock.IdBasedLockManager;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -21,6 +18,8 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
@@ -39,9 +38,6 @@ public class FeeManagerImpl implements FeeManager {
     DaemonManager daemonManager;
 
     @Autowired
-    LockManager lockManager;
-
-    @Autowired
     SettingsManager settingsManager;
 
     @Autowired
@@ -58,7 +54,7 @@ public class FeeManagerImpl implements FeeManager {
         return balance;
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.READ_COMMITTED)
     public void submitCollectedFee(FreeBalance.FeeType type, @NonNull Currency currency, @NonNull BigDecimal feeAmount) throws Exception {
         if (feeAmount.equals(BigDecimal.ZERO)) {
             return;
@@ -80,16 +76,16 @@ public class FeeManagerImpl implements FeeManager {
         }
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public BigDecimal getCollectedFee(@NonNull Currency currency) {
         return getFreeBalance(sessionFactory.getCurrentSession(), currency).getAmount();
     }
 
     private Address.Transaction withdrawCrypto(Session session, FreeBalance freeBalance, BigDecimal amount, String address) throws Exception {
-        BigDecimal current = freeBalance.getAmount();
+        final BigDecimal current = freeBalance.getAmount();
         Assert.isTrue(current.compareTo(amount) >= 0, "Insufficient funds");
         CryptoCoinWallet.Account cryptoCoinWallet = (CryptoCoinWallet.Account) daemonManager.getAccount(freeBalance.getCurrency());
-        Address.Transaction transaction = cryptoCoinWallet.sendToAddress(address, amount);
+        Address.Transaction transaction = cryptoCoinWallet.sendToAddress(address, amount); // Admin function, protection from rollback not required
         freeBalance.setAmount(current.subtract(amount).add(transaction.getFee()));
         session.update(freeBalance);
         log.info(String.format("Fee withdraw success: %s => %s (%s)", amount, address, transaction));
@@ -107,72 +103,52 @@ public class FeeManagerImpl implements FeeManager {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.SERIALIZABLE)
     public Object withdrawFee(@NonNull Currency currency, @NonNull BigDecimal amount, @NonNull Object receiverInfo) throws Exception {
         Assert.isTrue(currency.isEnabled(), "Currency disabled");
         Session session = sessionFactory.getCurrentSession();
         FreeBalance freeBalance = getFreeBalance(session, currency);
         Assert.notNull(freeBalance, "Balance not found");
-        IdBasedLock<Long> lock = lockManager.getCurrencyLockManager().obtainLock(currency.getId());
-        lock.lock();
-        try {
-            if (receiverInfo instanceof VirtualWallet) { // Virtual transaction
-                withdrawInternal(session, freeBalance, (VirtualWallet) receiverInfo, amount);
-                return null;
-            } else switch (currency.getCurrencyType()) {
-                case CRYPTO:
-                    Assert.isInstanceOf(String.class, receiverInfo, "Invalid address");
-                    return withdrawCrypto(session, freeBalance, amount, (String) receiverInfo);
-                default:
-                    throw new IllegalArgumentException("Invalid currency type");
-            }
-        } catch (Exception e) {
-            log.debug(e.getStackTrace());
-            log.fatal(e);
-            throw e;
-        } finally {
-            lock.unlock();
+        if (receiverInfo instanceof VirtualWallet) { // Virtual transaction
+            withdrawInternal(session, freeBalance, (VirtualWallet) receiverInfo, amount);
+            return null;
+        } else switch (currency.getCurrencyType()) {
+            case CRYPTO:
+                Assert.isInstanceOf(String.class, receiverInfo, "Invalid address");
+                return withdrawCrypto(session, freeBalance, amount, (String) receiverInfo);
+            default:
+                throw new IllegalArgumentException("Invalid currency type");
         }
     }
 
     @Profile("master")
     @SuppressWarnings("unchecked")
-    @Transactional
+    @Transactional(readOnly = true)
     @Scheduled(cron = "30 5 * * 2 *") // Monday 5:30
-    public void calculateDivergence() {
+    public void calculateDivergence() throws Exception {
         Session session = sessionFactory.getCurrentSession();
-        IdBasedLockManager<Long> currencyLockManager = lockManager.getCurrencyLockManager();
         List<Currency> currencyList = settingsManager.getCurrencyList();
         for(Currency currency : currencyList) if(currency.isEnabled() && !currency.getCurrencyType().equals(Currency.CurrencyType.PURE_VIRTUAL)) {
-            IdBasedLock<Long> lock = currencyLockManager.obtainLock(currency.getId());
-            lock.lock();
-            try {
-                BigDecimal overallBalance, databaseBalance = BigDecimal.ZERO;
-                switch (currency.getCurrencyType()) {
-                    case CRYPTO:
-                        AbstractWallet account = daemonManager.getAccount(currency);
-                        overallBalance = account.summaryConfirmedBalance();
-                        break;
-                    default:
-                        throw new IllegalArgumentException();
-                }
-                List<VirtualWallet> virtualWalletList = session.createCriteria(VirtualWallet.class)
-                        .add(Restrictions.eq("currency", currency))
-                        .list();
-                for (VirtualWallet virtualWallet : virtualWalletList) {
-                    databaseBalance = databaseBalance.add(accountManager.getVirtualWalletBalance(virtualWallet));
-                }
-                databaseBalance = databaseBalance.add(getFreeBalance(session, currency).getAmount());
-                if(!overallBalance.equals(databaseBalance)) {
-                    BigDecimal divergence = overallBalance.subtract(databaseBalance);
-                    log.fatal(String.format("Balance divergence for currency %s: EXTERNAL=%s, PERSISTED=%s, DIVERGENCE=%s", currency, overallBalance, databaseBalance, divergence));
-                    // submitCollectedFee(FreeBalance.FeeType.CORRECTION, currency, divergence);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-                log.fatal(e);
-            } finally {
-                lock.unlock();
+            BigDecimal overallBalance, databaseBalance = BigDecimal.ZERO;
+            switch (currency.getCurrencyType()) {
+                case CRYPTO:
+                    AbstractWallet account = daemonManager.getAccount(currency);
+                    overallBalance = account.summaryConfirmedBalance();
+                    break;
+                default:
+                    throw new IllegalArgumentException();
+            }
+            List<VirtualWallet> virtualWalletList = session.createCriteria(VirtualWallet.class)
+                    .add(Restrictions.eq("currency", currency))
+                    .list();
+            for (VirtualWallet virtualWallet : virtualWalletList) {
+                databaseBalance = databaseBalance.add(accountManager.getVirtualWalletBalance(virtualWallet));
+            }
+            databaseBalance = databaseBalance.add(getFreeBalance(session, currency).getAmount());
+            if(!overallBalance.equals(databaseBalance)) {
+                BigDecimal divergence = overallBalance.subtract(databaseBalance);
+                log.fatal(String.format("Balance divergence for currency %s: EXTERNAL=%s, PERSISTED=%s, DIVERGENCE=%s", currency, overallBalance, databaseBalance, divergence));
+                // submitCollectedFee(FreeBalance.FeeType.CORRECTION, currency, divergence);
             }
         }
     }

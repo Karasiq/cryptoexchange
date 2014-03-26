@@ -23,7 +23,7 @@ import java.security.Principal;
 @CommonsLog
 @Secured("ROLE_USER")
 @RequestMapping("/rest/trade.json")
-@Profile("master") // Main instance, cannot distribute
+@Profile("master")
 public class TradingControllerImpl implements TradingController {
     @Autowired
     SettingsManager settingsManager;

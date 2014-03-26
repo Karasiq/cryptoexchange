@@ -30,7 +30,7 @@ public class NewsManagerImpl implements NewsManager {
         log.info("News committed: " + news);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     public List<News> getNews(int limit) {
         Session session = sessionFactory.getCurrentSession();

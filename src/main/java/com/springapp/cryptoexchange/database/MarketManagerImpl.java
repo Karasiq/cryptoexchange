@@ -3,12 +3,9 @@ package com.springapp.cryptoexchange.database;
 import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.utils.CacheCleaner;
 import com.springapp.cryptoexchange.utils.Calculator;
-import com.springapp.cryptoexchange.utils.LockManager;
 import lombok.NonNull;
 import lombok.experimental.NonFinal;
 import lombok.extern.apachecommons.CommonsLog;
-import net.anotheria.idbasedlock.IdBasedLock;
-import net.anotheria.idbasedlock.IdBasedLockManager;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -19,6 +16,8 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
@@ -50,9 +49,6 @@ public class MarketManagerImpl implements MarketManager {
 
     @Autowired
     CacheCleaner cacheCleaner;
-
-    @Autowired
-    LockManager lockManager;
 
     private void returnUnusedFunds(@NonNull Order order) {
         Session session = sessionFactory.getCurrentSession();
@@ -137,12 +133,12 @@ public class MarketManagerImpl implements MarketManager {
         cacheCleaner.orderExecutionEvict(firstOrder, secondOrder);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public Order getOrder(long orderId) {
         return (Order) sessionFactory.getCurrentSession().get(Order.class, orderId);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     @SuppressWarnings("unchecked")
     @Caching(evict = {
             @CacheEvict(value = "getAccountOrdersByPair", key = "#order.account.login + #order.tradingPair.id"),
@@ -151,25 +147,13 @@ public class MarketManagerImpl implements MarketManager {
             @CacheEvict(value = "getMarketDepth", key = "#order.tradingPair.id")
     })
     public void cancelOrder(@NonNull Order order) throws Exception {
-        IdBasedLockManager<Long> currencyLockManager = lockManager.getCurrencyLockManager();
-        IdBasedLock<Long> lock = currencyLockManager.obtainLock(order.getTradingPair().getFirstCurrency().getId()), lock1 = currencyLockManager.obtainLock(order.getTradingPair().getSecondCurrency().getId());
-        lock.lock();
-        lock1.lock();
-        try {
-            Session session = sessionFactory.getCurrentSession();
-            session.refresh(order);
-            Assert.isTrue(order.isActual(), "Order already closed");
-            log.info(String.format("cancelOrder => %s", order));
-            order.cancel(); // Change order status
-            returnUnusedFunds(order); // Return money
-            session.update(order);
-        } catch (Exception e) {
-            log.error("cancelOrder error", e);
-            throw e;
-        } finally {
-            lock.unlock();
-            lock1.unlock();
-        }
+        Session session = sessionFactory.getCurrentSession();
+        session.refresh(order);
+        Assert.isTrue(order.isActual(), "Order already closed");
+        log.info(String.format("cancelOrder => %s", order));
+        order.cancel(); // Change order status
+        returnUnusedFunds(order); // Return money
+        session.update(order);
     }
 
     @Caching(evict = {
@@ -179,7 +163,7 @@ public class MarketManagerImpl implements MarketManager {
             @CacheEvict(value = "getAccountOrders", key = "#newOrder.account.login"),
             @CacheEvict(value = "getAccountBalances", key = "#newOrder.account.login")
     })
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     @SuppressWarnings("unchecked")
     public Order executeOrder(@NonNull Order newOrder) throws Exception {
         // Normalizing:
@@ -200,64 +184,50 @@ public class MarketManagerImpl implements MarketManager {
             throw new MarketError(String.format("Minimal trading amount is %s", newOrder.getTradingPair().getMinimalTradeAmount()));
         }
 
-        // Synchronization:
-        IdBasedLockManager<Long> currencyLockManager = lockManager.getCurrencyLockManager();
-        IdBasedLock<Long> lock = currencyLockManager.obtainLock(newOrder.getTradingPair().getFirstCurrency().getId()), lock1 = currencyLockManager.obtainLock(newOrder.getTradingPair().getSecondCurrency().getId());
-        try {
-            lock.lock();
-            lock1.lock();
-            Session session = sessionFactory.getCurrentSession();
-            log.info(String.format("executeOrder => %s", newOrder));
-            Order.Type orderType = newOrder.getType();
-            VirtualWallet virtualWalletSource = newOrder.getSourceWallet(), virtualWalletDest = newOrder.getDestWallet();
-            session.refresh(virtualWalletSource);
-            session.refresh(virtualWalletDest);
-            BigDecimal balance = accountManager.getVirtualWalletBalance(virtualWalletSource);
-            BigDecimal remainingAmount = newOrder.getRemainingAmount();
-            BigDecimal required = Calculator.totalRequired(orderType, remainingAmount, newOrder.getPrice());
+        Session session = sessionFactory.getCurrentSession();
+        log.info(String.format("executeOrder => %s", newOrder));
+        Order.Type orderType = newOrder.getType();
+        VirtualWallet virtualWalletSource = newOrder.getSourceWallet(), virtualWalletDest = newOrder.getDestWallet();
+        session.refresh(virtualWalletSource);
+        session.refresh(virtualWalletDest);
+        BigDecimal balance = accountManager.getVirtualWalletBalance(virtualWalletSource);
+        BigDecimal remainingAmount = newOrder.getRemainingAmount();
+        BigDecimal required = Calculator.totalRequired(orderType, remainingAmount, newOrder.getPrice());
 
-            if(balance.compareTo(required) < 0) {
-                throw new MarketError("Insufficient funds");
-            } else {
-                virtualWalletSource.addBalance(required.negate()); // Lock funds
-            }
-
-            // Retrieving relevant orders:
-            List<Order> orders = session.createCriteria(Order.class)
-                    .addOrder(orderType == Order.Type.BUY ? org.hibernate.criterion.Order.asc("price") : org.hibernate.criterion.Order.desc("price"))
-                    .addOrder(org.hibernate.criterion.Order.asc("openDate"))
-                    .add(Restrictions.in("status", new Order.Status[]{Order.Status.OPEN, Order.Status.PARTIALLY_COMPLETED}))
-                    .add(Restrictions.eq("tradingPair", newOrder.getTradingPair()))
-                    .add(orderType.equals(Order.Type.BUY) ? Restrictions.le("price", newOrder.getPrice()) : Restrictions.ge("price", newOrder.getPrice()))
-                    .add(Restrictions.eq("type", orderType.equals(Order.Type.BUY) ? Order.Type.SELL : Order.Type.BUY))
-                    .list();
-
-            // Performing trade:
-            for(Order order : orders) {
-                BigDecimal orderRemainingAmount = order.getRemainingAmount();
-                int compareResult = orderRemainingAmount.compareTo(remainingAmount);
-                final BigDecimal tradeAmount = compareResult >= 0 ? remainingAmount : orderRemainingAmount;
-                if(order.getType().equals(Order.Type.SELL)) {
-                    remapFunds(order, newOrder, tradeAmount);
-                }
-                else {
-                    remapFunds(newOrder, order, tradeAmount);
-                }
-                session.update(order);
-                if(newOrder.getStatus().equals(Order.Status.COMPLETED)) {
-                    break; // Order executed
-                }
-            }
-            session.save(newOrder);
-            return newOrder;
-        } catch (Exception e) {
-            log.debug(e.getStackTrace());
-            log.error("executeOrder error", e);
-            throw e;
-        } finally {
-            lock.unlock();
-            lock1.unlock();
+        if(balance.compareTo(required) < 0) {
+            throw new MarketError("Insufficient funds");
+        } else {
+            virtualWalletSource.addBalance(required.negate()); // Lock funds
         }
+
+        // Retrieving relevant orders:
+        List<Order> orders = session.createCriteria(Order.class)
+                .addOrder(orderType == Order.Type.BUY ? org.hibernate.criterion.Order.asc("price") : org.hibernate.criterion.Order.desc("price"))
+                .addOrder(org.hibernate.criterion.Order.asc("openDate"))
+                .add(Restrictions.in("status", new Order.Status[]{Order.Status.OPEN, Order.Status.PARTIALLY_COMPLETED}))
+                .add(Restrictions.eq("tradingPair", newOrder.getTradingPair()))
+                .add(orderType.equals(Order.Type.BUY) ? Restrictions.le("price", newOrder.getPrice()) : Restrictions.ge("price", newOrder.getPrice()))
+                .add(Restrictions.eq("type", orderType.equals(Order.Type.BUY) ? Order.Type.SELL : Order.Type.BUY))
+                .list();
+
+        // Performing trade:
+        for(Order order : orders) {
+            BigDecimal orderRemainingAmount = order.getRemainingAmount();
+            int compareResult = orderRemainingAmount.compareTo(remainingAmount);
+            final BigDecimal tradeAmount = compareResult >= 0 ? remainingAmount : orderRemainingAmount;
+            if(order.getType().equals(Order.Type.SELL)) {
+                remapFunds(order, newOrder, tradeAmount);
+            }
+            else {
+                remapFunds(newOrder, order, tradeAmount);
+            }
+            session.update(order);
+            if(newOrder.getStatus().equals(Order.Status.COMPLETED)) {
+                break; // Order executed
+            }
+        }
+        session.save(newOrder);
+        return newOrder;
     }
 
     @Transactional
@@ -268,7 +238,7 @@ public class MarketManagerImpl implements MarketManager {
         log.info(String.format("setTradingPairEnabled: %s", tradingPair));
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     public List<Order> getOpenOrders(TradingPair tradingPair, Order.Type orderType, int max) {
         Session session = sessionFactory.getCurrentSession();

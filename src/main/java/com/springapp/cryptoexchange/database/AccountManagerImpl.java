@@ -82,7 +82,7 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
         return account;
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public Account getAccount(String login) {
         Session session = sessionFactory.getCurrentSession();
         return (Account) session.createCriteria(Account.class)
@@ -99,7 +99,7 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
         log.info("Authenticated: " + loginHistory);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     public List<LoginHistory> getLastEntriesByAccount(@NonNull Account account, int maxDaysAgo, int max) {
         Session session = sessionFactory.getCurrentSession();
@@ -111,7 +111,7 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
                 .list();
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     public List<LoginHistory> getLastEntriesByIp(String ip, int maxDaysAgo, int max) {
         Session session = sessionFactory.getCurrentSession();
@@ -123,7 +123,7 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
                 .list();
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         Account user = getAccount(username);
@@ -135,7 +135,7 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
         }
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     public List<Order> getAccountOrders(@NonNull Account account, int max) {
         Session session = sessionFactory.getCurrentSession();
@@ -147,7 +147,7 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
                 .list();
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     public List<Order> getAccountOrdersByPair(@NonNull TradingPair tradingPair, @NonNull Account account, int max) {
         Session session = sessionFactory.getCurrentSession();

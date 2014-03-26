@@ -29,7 +29,7 @@ import java.util.List;
 @RequestMapping("/rest/withdraw.json")
 @CommonsLog
 @Secured("ROLE_USER")
-@Profile("master") // Main instance, cannot distribute
+@Profile("master")
 public class WithdrawControllerImpl implements WithdrawController {
     @Autowired
     SessionFactory sessionFactory;
@@ -67,7 +67,6 @@ public class WithdrawControllerImpl implements WithdrawController {
     @ResponseBody
     @SuppressWarnings("all")
     public Address.Transaction withdrawCrypto(@PathVariable long currencyId, @RequestParam String address, @RequestParam BigDecimal amount, Principal principal) throws Exception {
-        Session session = sessionFactory.getCurrentSession();
         Currency currency = settingsManager.getCurrency(currencyId);
         Account account = accountManager.getAccount(principal.getName());
         assertCanWithdraw(currency, account); // Check prerequisites
