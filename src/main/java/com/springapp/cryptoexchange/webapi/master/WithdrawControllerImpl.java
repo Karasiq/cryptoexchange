@@ -62,7 +62,7 @@ public class WithdrawControllerImpl implements WithdrawController {
             @CacheEvict(value = "getAccountBalances", key = "#principal.name"),
             @CacheEvict(value = "getTransactions", key = "#principal.name + #currencyId")
     })
-    @Transactional(isolation = Isolation.SERIALIZABLE)
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     @Override
     @RequestMapping(value = "/crypto/{currencyId}", method = RequestMethod.POST)
     @ResponseBody

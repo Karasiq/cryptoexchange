@@ -6,6 +6,7 @@ import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.Order;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.Criteria;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -16,12 +17,13 @@ import java.util.List;
 
 public interface ConvertService {
     @Data
+    @NoArgsConstructor
     public static class MarketHistory implements Serializable {
-        public Order.Type type;
-        public BigDecimal price;
-        public BigDecimal amount;
-        public Date time;
-        protected MarketHistory(Order order) {
+        Order.Type type;
+        BigDecimal price;
+        BigDecimal amount;
+        Date time;
+        public MarketHistory(Order order) {
             type = order.getType();
             price = order.getPrice();
             amount = order.getCompletedAmount();
@@ -62,8 +64,8 @@ public interface ConvertService {
         }
     }
 
-    public Depth createDepth(List<Order> buyOrders, List<Order> sellOrders) throws Exception;
-    public List<MarketHistory> createHistory(List<Order> orders) throws Exception;
+    public Depth createDepth(Criteria buyOrders, Criteria sellOrders, int depthSize) throws Exception;
+    public List<MarketHistory> createHistory(Criteria orders) throws Exception;
     public AccountBalanceInfo createAccountBalanceInfo(Account account) throws Exception;
     public Object[][] createHighChartsOHLCData(List<Candle> candleList) throws Exception;
 }

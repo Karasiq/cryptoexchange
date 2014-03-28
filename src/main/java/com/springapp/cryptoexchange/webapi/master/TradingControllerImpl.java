@@ -36,7 +36,7 @@ public class TradingControllerImpl implements TradingController {
     @Autowired
     AccountManager accountManager;
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
     @Override
     @RequestMapping(value = "/order/create/{tradingPairId}", method = RequestMethod.POST)
     @ResponseBody
@@ -55,7 +55,7 @@ public class TradingControllerImpl implements TradingController {
         }
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
     @Override
     @RequestMapping(value = "/order/{orderId}/cancel", method = RequestMethod.POST)
     @ResponseBody

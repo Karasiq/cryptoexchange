@@ -6,6 +6,7 @@ import com.springapp.cryptoexchange.utils.Calculator;
 import lombok.NonNull;
 import lombok.experimental.NonFinal;
 import lombok.extern.apachecommons.CommonsLog;
+import org.hibernate.Criteria;
 import org.hibernate.FetchMode;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -25,6 +26,7 @@ import org.springframework.util.Assert;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 
 @Repository
@@ -165,6 +167,7 @@ public class MarketManagerImpl implements MarketManager {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
     @SuppressWarnings("unchecked")
     public Order executeOrder(@NonNull Order newOrder) throws Exception {
+        final long start = System.nanoTime();
         // Normalizing:
         newOrder.setAmount(newOrder.getAmount().setScale(8, BigDecimal.ROUND_FLOOR));
         newOrder.setPrice(newOrder.getPrice().setScale(8, BigDecimal.ROUND_FLOOR));
@@ -228,29 +231,20 @@ public class MarketManagerImpl implements MarketManager {
             }
         }
         session.save(newOrder);
+        log.info(String.format("Order executed in %d ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start)));
         return newOrder;
-    }
-
-    @Transactional
-    public void setTradingPairEnabled(TradingPair tradingPair, boolean enabled) {
-        Session session = sessionFactory.getCurrentSession();
-        tradingPair.setEnabled(enabled);
-        session.update(tradingPair);
-        log.info(String.format("setTradingPairEnabled: %s", tradingPair));
     }
 
     @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
-    public List<Order> getOpenOrders(TradingPair tradingPair, Order.Type orderType, int max) {
+    public Criteria getOpenOrders(TradingPair tradingPair, Order.Type orderType) {
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Order.class)
-                .setMaxResults(max)
                 .addOrder(orderType.equals(Order.Type.SELL) ? org.hibernate.criterion.Order.asc("price") : org.hibernate.criterion.Order.desc("price"))
                 .addOrder(org.hibernate.criterion.Order.asc("openDate"))
                 .add(Restrictions.eq("tradingPair", tradingPair))
                 .add(Restrictions.in("status", Arrays.asList(Order.Status.OPEN, Order.Status.PARTIALLY_COMPLETED)))
-                .add(Restrictions.eq("type", orderType))
-                .list();
+                .add(Restrictions.eq("type", orderType));
     }
 
     @Transactional

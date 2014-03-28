@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -89,13 +90,14 @@ public class PublicController {
         return settingsManager.getTradingPair(tradingPairId);
     }
 
+    @Transactional(readOnly = true)
     @Cacheable(value = "getMarketHistory", key = "#tradingPairId")
     @RequestMapping("/history/{tradingPairId}")
     @ResponseBody
     public List<ConvertService.MarketHistory> getMarketHistory(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         Assert.isTrue(tradingPair != null && tradingPair.isEnabled(), "Invalid pair");
-        return convertService.createHistory(historyManager.getMarketHistory(tradingPair, 100));
+        return convertService.createHistory(historyManager.getMarketHistory(tradingPair).setMaxResults(100));
     }
 
     @Cacheable(value = "getMarketChartData", key = "#tradingPairId")
@@ -107,13 +109,14 @@ public class PublicController {
         return convertService.createHighChartsOHLCData(historyManager.getMarketChartData(tradingPair, 100));
     }
 
+    @Transactional(readOnly = true)
     @Cacheable(value = "getMarketDepth", key = "#tradingPairId")
     @RequestMapping("/depth/{tradingPairId}")
     @ResponseBody
     public ConvertService.Depth getMarketDepth(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         Assert.isTrue(tradingPair != null && tradingPair.isEnabled(), "Invalid pair");
-        return convertService.createDepth(marketManager.getOpenOrders(tradingPair, Order.Type.BUY, 100), marketManager.getOpenOrders(tradingPair, Order.Type.SELL, 100));
+        return convertService.createDepth(marketManager.getOpenOrders(tradingPair, Order.Type.BUY), marketManager.getOpenOrders(tradingPair, Order.Type.SELL), 20);
     }
 
 

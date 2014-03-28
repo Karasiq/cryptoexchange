@@ -11,6 +11,11 @@ import org.springframework.util.Assert;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 
 @CommonsLog
 public class CryptoCoinWallet {
@@ -57,9 +62,8 @@ public class CryptoCoinWallet {
                 return transactionList;
             }
             synchronized (addressList) {
-                for(String strAddress : (Set<String>) addresses) {
-                    Address address = addressList.get(strAddress);
-                    if(address != null) transactionList.addAll(address.getTransactionList().values());
+                for(String strAddress : (Set<String>) addresses) if(addressList.containsKey(strAddress)) {
+                    transactionList.addAll(addressList.get(strAddress).getTransactionList().values());
                 }
             }
             return transactionList;
@@ -77,11 +81,23 @@ public class CryptoCoinWallet {
             if (addresses.size() < 1) {
                 return confirmed; // 0
             }
-            synchronized (addressList) {
-                for(String strAddress : (Set<String>) addresses) {
-                    confirmed = confirmed.add(getReceivedByAddress(strAddress));
-                }
+
+            List<Future<BigDecimal>> futureList = new ArrayList<>(addresses.size());
+            ExecutorService executorService = Executors.newCachedThreadPool();
+            for(final String strAddress : (Set<String>) addresses) {
+                futureList.add(executorService.submit(new Callable<BigDecimal>() {
+                    @Override
+                    public BigDecimal call() throws Exception {
+                        return getReceivedByAddress(strAddress);
+                    }
+                }));
             }
+
+            for(Future<BigDecimal> future : futureList) {
+                confirmed = confirmed.add(future.get());
+            }
+
+            executorService.shutdown();
             return confirmed;
         }
 

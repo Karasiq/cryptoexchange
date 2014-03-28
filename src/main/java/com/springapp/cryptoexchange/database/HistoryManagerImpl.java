@@ -8,6 +8,7 @@ import com.springapp.cryptoexchange.utils.CacheCleaner;
 import lombok.AccessLevel;
 import lombok.NonNull;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -18,6 +19,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionCallbackWithoutResult;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -61,7 +64,7 @@ public class HistoryManagerImpl implements HistoryManager {
         sessionFactory.getCurrentSession().saveOrUpdate(lastCandle);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.SUPPORTS, isolation = Isolation.READ_UNCOMMITTED)
     @Async
     public void updateMarketInfo(@NonNull TradingPair tradingPair, final BigDecimal price, final BigDecimal amount) {
         Session session = sessionFactory.getCurrentSession();
@@ -89,14 +92,12 @@ public class HistoryManagerImpl implements HistoryManager {
 
     @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
-    public List<Order> getMarketHistory(@NonNull TradingPair tradingPair, int max) {
+    public Criteria getMarketHistory(@NonNull TradingPair tradingPair) {
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Order.class)
                 .add(Restrictions.eq("tradingPair", tradingPair))
-                .add(Restrictions.in("status", new Order.Status[] { Order.Status.COMPLETED, Order.Status.PARTIALLY_CANCELLED }))
-                .addOrder(org.hibernate.criterion.Order.desc("updateDate"))
-                .setMaxResults(max)
-                .list();
+                .add(Restrictions.in("status", new Order.Status[]{Order.Status.COMPLETED, Order.Status.PARTIALLY_CANCELLED}))
+                .addOrder(org.hibernate.criterion.Order.desc("updateDate"));
     }
 
     @Transactional(readOnly = true)
@@ -141,6 +142,7 @@ public class HistoryManagerImpl implements HistoryManager {
     @PostConstruct
     public void init() {
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.setReadOnly(true);
         transactionTemplate.execute(new TransactionCallbackWithoutResult() {
             @Override
             protected void doInTransactionWithoutResult(TransactionStatus transactionStatus) {

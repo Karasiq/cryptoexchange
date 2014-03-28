@@ -89,7 +89,6 @@ public class DaemonManagerImpl implements DaemonManager {
                 .uniqueResult();
     }
 
-    @Scheduled(fixedDelay = 60 * 60 * 1000) // Hourly reload
     @Transactional(readOnly = true)
     public synchronized void loadDaemons() {
         log.info("Loading daemon settings...");
@@ -109,9 +108,7 @@ public class DaemonManagerImpl implements DaemonManager {
     @Scheduled(fixedDelay = 10 * 60 * 1000) // Every 10m
     @Transactional(readOnly = true)
     public synchronized void loadTransactions() throws Exception {
-        if (daemonMap.size() < 1) {
-            loadDaemons();
-        }
+        loadDaemons();
         log.info("Reloading transactions...");
         List<Currency> currencyList = settingsManager.getCurrencyList();
         boolean hasErrors = false;

@@ -3,43 +3,43 @@ package com.springapp.cryptoexchange.utils;
 import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 @Service
-public class CacheCleaner { // Костыль
-    @Caching(evict = {
-            @CacheEvict(value = "getCryptoBalance", allEntries = true),
-            @CacheEvict(value = "getTransactions", allEntries = true)
-    })
+public class CacheCleaner {
+    @Autowired
+    CacheManager cacheManager;
+
     public void cryptoBalanceEvict() {
-        // nothing
+        cacheManager.getCache("getCryptoBalance").clear();
+        cacheManager.getCache("getTransactions").clear();
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "getAccountBalances", key = "#firstOrder.account.login"),
-            @CacheEvict(value = "getAccountBalances", key = "#secondOrder.account.login"),
-            @CacheEvict(value = "getAccountOrdersByPair", key = "#firstOrder.account.login + #firstOrder.tradingPair.id"),
-            @CacheEvict(value = "getAccountOrders", key = "#firstOrder.account.login"),
-            @CacheEvict(value = "getAccountOrdersByPair", key = "#secondOrder.account.login + #secondOrder.tradingPair.id"),
-            @CacheEvict(value = "getAccountOrders", key = "#secondOrder.account.login")
-    })
+    private void clearOrderCache(Order order) {
+        String login = order.getAccount().getLogin();
+        Cache balance = cacheManager.getCache("getAccountBalances"),
+                orders = cacheManager.getCache("getAccountOrders"),
+                ordersByPair = cacheManager.getCache("getAccountOrdersByPair");
+        balance.evict(login);
+        ordersByPair.evict(login + order.getTradingPair().getId());
+        orders.evict(login);
+    }
+
     public void orderExecutionEvict(Order firstOrder, Order secondOrder) {
-        // nothing
+        clearOrderCache(firstOrder);
+        clearOrderCache(secondOrder);
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "getTradingPairInfo", key = "#tradingPair.id")
-    })
     public void marketPricesEvict(TradingPair tradingPair) {
-        // nothing
+        cacheManager.getCache("getTradingPairInfo").evict(tradingPair.getId());
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "getAccountBalances", key = "#account.login")
-    })
     public void balancesEvict(Account account) {
-        // nothing
+        cacheManager.getCache("getAccountBalances").evict(account.getLogin());
     }
 }
