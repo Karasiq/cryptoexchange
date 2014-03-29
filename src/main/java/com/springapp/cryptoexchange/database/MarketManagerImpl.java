@@ -140,7 +140,7 @@ public class MarketManagerImpl implements MarketManager {
         return (Order) sessionFactory.getCurrentSession().get(Order.class, orderId);
     }
 
-    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     @SuppressWarnings("unchecked")
     @Caching(evict = {
             @CacheEvict(value = "getAccountOrdersByPair", key = "#order.account.login + #order.tradingPair.id"),
@@ -164,7 +164,7 @@ public class MarketManagerImpl implements MarketManager {
             @CacheEvict(value = "getAccountOrders", key = "#newOrder.account.login"),
             @CacheEvict(value = "getAccountBalances", key = "#newOrder.account.login")
     })
-    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     @SuppressWarnings("unchecked")
     public Order executeOrder(@NonNull Order newOrder) throws Exception {
         final long start = System.nanoTime();

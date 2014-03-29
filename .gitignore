@@ -2,7 +2,7 @@
 *.iml
 target/
 src/test/resources/jdbc.properties
-webapp/
 trash/
 src/main/resources/rebel-remote.xml
 src/main/resources/rebel.xml
+src/main/webapp/WEB-INF/static/

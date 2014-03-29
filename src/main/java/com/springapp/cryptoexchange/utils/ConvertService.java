@@ -49,6 +49,7 @@ public interface ConvertService {
         List<Entry> buyOrders = new ArrayList<>();
     }
 
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
     public static class AccountBalanceInfo implements Serializable  {
         @Value
         public static class AccountBalance implements Serializable  {
@@ -56,7 +57,7 @@ public interface ConvertService {
             BigDecimal balance;
             String address;
         }
-        @Getter private final List<AccountBalance> accountBalances = new ArrayList<AccountBalance>();
+        @Getter List<AccountBalance> accountBalances = new ArrayList<>();
         public void add(Currency currency, BigDecimal balance, String address) {
             synchronized (accountBalances) {
                 accountBalances.add(new AccountBalance(currency, balance, address));

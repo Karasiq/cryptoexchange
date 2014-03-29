@@ -100,6 +100,7 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
 
     @Transactional
     public AccountBalanceInfo createAccountBalanceInfo(final @NonNull Account account) throws Exception {
+        final long start = System.nanoTime();
         sessionFactory.getCurrentSession().refresh(account);
         List<Currency> currencyList = settingsManager.getCurrencyList();
         final AccountBalanceInfo accountBalanceInfo = new AccountBalanceInfo();
@@ -108,23 +109,21 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
             Runnable runnable = new Runnable() {
                 @Override
                 public void run() {
+                    BigDecimal balance = BigDecimal.ZERO;
+                    String address = null;
                     try {
                         VirtualWallet wallet = accountManager.getVirtualWallet(account, currency);
-                        BigDecimal balance = BigDecimal.ZERO;
-                        String address = null;
                         if(wallet != null) {
                             balance = accountManager.getVirtualWalletBalance(wallet);
                             if(wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
                                 List<Address> addressList = daemonManager.getAddressList(wallet);
-                                if (!addressList.isEmpty()) {
-                                    address = addressList.get(0).getAddress();
-                                }
+                                if (!addressList.isEmpty()) address = addressList.get(0).getAddress();
                             }
                         }
-                        accountBalanceInfo.add(currency, balance, address);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
+                    accountBalanceInfo.add(currency, balance, address);
                 }
             };
             executor.execute(runnable);
@@ -137,22 +136,34 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
                 return o1.getCurrency().getCurrencyName().compareTo(o2.getCurrency().getCurrencyName());
             }
         });
+        log.info(String.format("Balance info generated in %d ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start)));
         return accountBalanceInfo;
     }
 
     @Override
-    public Object[][] createHighChartsOHLCData(@NonNull List<Candle> candleList) throws Exception {
-        int length = candleList.size();
-        Object[][] result = new Object[length][6];
+    public Object[][] createHighChartsOHLCData(final @NonNull List<Candle> candleList) throws Exception {
+        final long start = System.nanoTime();
+        final int length = candleList.size();
+        final Object[][] result = new Object[length][6];
+        ExecutorService executorService = Executors.newCachedThreadPool();
         for(int i = 0; i < length; i++) {
-            Candle candle = candleList.get(length - i - 1);
-            result[i][0] = candle.getOpenTime().getTime();
-            result[i][1] = candle.getOpen();
-            result[i][2] = candle.getHigh();
-            result[i][3] = candle.getLow();
-            result[i][4] = candle.getClose();
-            result[i][5] = candle.getVolume();
+            final int index = i;
+            executorService.execute(new Runnable() {
+                @Override
+                public void run() {
+                    Candle candle = candleList.get(length - index - 1);
+                    result[index][0] = candle.getOpenTime().getTime();
+                    result[index][1] = candle.getOpen();
+                    result[index][2] = candle.getHigh();
+                    result[index][3] = candle.getLow();
+                    result[index][4] = candle.getClose();
+                    result[index][5] = candle.getVolume();
+                }
+            });
         }
+        executorService.shutdown();
+        executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+        log.info(String.format("Chart data generated in %d ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start)));
         return result;
     }
 }
