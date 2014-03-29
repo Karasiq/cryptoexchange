@@ -117,9 +117,8 @@ public class DaemonManagerImpl implements DaemonManager {
                 DaemonInfo daemonInfo = daemonMap.get(currency.getId());
                 Assert.notNull(daemonInfo, String.format("Daemon settings not found for currency: %s", currency));
                 daemonInfo.getWallet().loadTransactions(300);
-            } catch (Exception exc) {
-                log.debug(exc.getStackTrace());
-                log.error(exc);
+            } catch (DaemonRpcException exc) {
+                log.error("Daemon error for currency: " + currency, exc);
                 hasErrors = true;
             }
         }
@@ -173,7 +172,7 @@ public class DaemonManagerImpl implements DaemonManager {
             virtualWallet.setExternalBalance(externalBalance); // rewrite
             sessionFactory.getCurrentSession().update(virtualWallet);
         } catch(DaemonRpcException e) {
-            log.error("Cannot retrieve actual crypto balance, fallback to DB-backup", e);
+            log.error("Cannot retrieve actual crypto balance, fallback to DB-backup: " + virtualWallet.getCurrency(), e);
             // Just return DB backup, no throw
         } catch (Exception e) {
             log.debug(e.getStackTrace());
@@ -264,6 +263,7 @@ public class DaemonManagerImpl implements DaemonManager {
     @PostConstruct
     public void init() throws Exception {
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.setReadOnly(true);
         transactionTemplate.execute(new TransactionCallbackWithoutResult() {
             @Override
             protected void doInTransactionWithoutResult(TransactionStatus transactionStatus) {

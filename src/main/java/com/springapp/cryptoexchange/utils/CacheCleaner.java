@@ -18,6 +18,7 @@ public class CacheCleaner {
     public void cryptoBalanceEvict() {
         cacheManager.getCache("getCryptoBalance").clear();
         cacheManager.getCache("getTransactions").clear();
+        cacheManager.getCache("getAccountBalances").clear();
     }
 
     private void clearOrderCache(Order order) {

@@ -55,7 +55,7 @@ public class WithdrawControllerImpl implements WithdrawController {
                 .add(Restrictions.eq("account", account))
                 .list();
         for(VirtualWallet virtualWallet : virtualWalletList) {
-            Assert.isTrue(accountManager.getVirtualWalletBalance(virtualWallet).compareTo(BigDecimal.ZERO) < 0, "One of your balances is negative");
+            Assert.isTrue(accountManager.getVirtualWalletBalance(virtualWallet).compareTo(BigDecimal.ZERO) >= 0, "One of your balances is negative");
         }
     }
 

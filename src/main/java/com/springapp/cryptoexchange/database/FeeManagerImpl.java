@@ -103,7 +103,7 @@ public class FeeManagerImpl implements FeeManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.REPEATABLE_READ)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.SERIALIZABLE)
     public Object withdrawFee(@NonNull Currency currency, @NonNull BigDecimal amount, @NonNull Object receiverInfo) throws Exception {
         Assert.isTrue(currency.isEnabled(), "Currency disabled");
         Session session = sessionFactory.getCurrentSession();

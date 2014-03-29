@@ -11,10 +11,7 @@ import org.springframework.util.Assert;
 
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 @CommonsLog
@@ -93,11 +90,15 @@ public class CryptoCoinWallet {
                 }));
             }
 
-            for(Future<BigDecimal> future : futureList) {
+            for(Future<BigDecimal> future : futureList) try {
                 confirmed = confirmed.add(future.get());
+            } catch (ExecutionException e) {
+                throw e.getCause() != null ? (Exception) e.getCause() : e;
+            } finally {
+                executorService.shutdown();
             }
 
-            executorService.shutdown();
+
             return confirmed;
         }
 

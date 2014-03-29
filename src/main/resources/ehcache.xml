@@ -4,7 +4,7 @@
 
     <diskStore path="java.io.tmpdir"/>
 
-    <defaultCache maxEntriesLocalHeap="200" eternal="false" timeToLiveSeconds="120" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
+    <defaultCache maxEntriesLocalHeap="700" eternal="false" timeToIdleSeconds="600" timeToLiveSeconds="3600" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
 
     <cache name="getNews" timeToLiveSeconds="3600" maxEntriesLocalHeap="1" eternal="false" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
     <cache name="getTradingPairs" timeToLiveSeconds="3600" maxEntriesLocalHeap="1" eternal="false" overflowToDisk="false" memoryStoreEvictionPolicy="LFU"/>
@@ -17,7 +17,7 @@
     <cache name="getMarketHistory" maxEntriesLocalHeap="40" eternal="false" timeToIdleSeconds="300" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
     <cache name="getMarketChartData" maxEntriesLocalHeap="40" eternal="false" timeToLiveSeconds="300" overflowToDisk="true" memoryStoreEvictionPolicy="LFU"/>
 
-    <cache name="getAccountBalances" timeToIdleSeconds="1200" maxEntriesLocalHeap="40" eternal="false" overflowToDisk="true" memoryStoreEvictionPolicy="LRU"/>
+    <cache name="getAccountBalances" timeToIdleSeconds="400" maxEntriesLocalHeap="40" eternal="false" overflowToDisk="true" memoryStoreEvictionPolicy="LRU"/>
     <cache name="getAccountOrders" timeToIdleSeconds="300" maxEntriesLocalHeap="40" eternal="false" overflowToDisk="true" memoryStoreEvictionPolicy="LRU"/>
     <cache name="getAccountOrdersByPair" timeToIdleSeconds="300" maxEntriesLocalHeap="140" eternal="false" overflowToDisk="true" memoryStoreEvictionPolicy="LRU"/>
     <cache name="getAccountHistory" maxEntriesLocalHeap="40" eternal="false" timeToIdleSeconds="300" overflowToDisk="true" memoryStoreEvictionPolicy="LRU"/>

@@ -114,11 +114,11 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
                     try {
                         VirtualWallet wallet = accountManager.getVirtualWallet(account, currency);
                         if(wallet != null) {
-                            balance = accountManager.getVirtualWalletBalance(wallet);
                             if(wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
                                 List<Address> addressList = daemonManager.getAddressList(wallet);
                                 if (!addressList.isEmpty()) address = addressList.get(0).getAddress();
                             }
+                            balance = accountManager.getVirtualWalletBalance(wallet);
                         }
                     } catch (Exception e) {
                         e.printStackTrace();

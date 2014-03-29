@@ -5,6 +5,7 @@ import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.utils.CacheCleaner;
 import lombok.extern.apachecommons.CommonsLog;
+import org.hibernate.FetchMode;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -14,6 +15,8 @@ import org.springframework.cache.annotation.Caching;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
@@ -49,32 +52,34 @@ public class AdminController {
     @Autowired
     CacheCleaner cacheCleaner;
 
-    @Transactional
+    @Transactional(readOnly = true)
     @ResponseBody
     @RequestMapping(value = "/fee", method = RequestMethod.GET)
     @SuppressWarnings("unchecked")
     public List<FreeBalance> getFreeBalance() {
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(FreeBalance.class)
+                .setFetchSize(10)
+                .setFetchMode("currency", FetchMode.JOIN)
                 .add(Restrictions.gt("amount", BigDecimal.ZERO))
                 .list();
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @ResponseBody
     @RequestMapping(value = "/fee/{currencyId}", method = RequestMethod.GET)
-    @SuppressWarnings("unchecked")
-    public List<FreeBalance> getFreeBalance(@PathVariable long currencyId) {
+    public FreeBalance getFreeBalance(@PathVariable long currencyId) {
         Session session = sessionFactory.getCurrentSession();
         Currency currency = settingsManager.getCurrency(currencyId);
         Assert.notNull(currency, "Currency not found");
-        return session.createCriteria(FreeBalance.class)
+        return (FreeBalance) session.createCriteria(FreeBalance.class)
+                .setFetchMode("currency", FetchMode.JOIN)
                 .add(Restrictions.eq("currency", currency))
                 .add(Restrictions.gt("amount", BigDecimal.ZERO))
-                .list();
+                .uniqueResult();
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
     @RequestMapping(value = "/modify_currency/{currencyId}", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     @Caching(evict = {
@@ -102,7 +107,7 @@ public class AdminController {
         return currency;
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     @RequestMapping(value = "/add_currency", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     @Caching(evict = {
@@ -122,7 +127,7 @@ public class AdminController {
         return currency;
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
     @RequestMapping(value = "/modify_trading_pair/{tradingPairId}", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     @Caching(evict = {
@@ -143,7 +148,7 @@ public class AdminController {
         return tradingPair;
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     @RequestMapping(value = "/add_trading_pair", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     @Caching(evict = {
@@ -160,7 +165,7 @@ public class AdminController {
         return tradingPair;
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
     @RequestMapping(value = "/set_daemon_settings/{currencyId}", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     public boolean setDaemonSettings(@PathVariable long currencyId, @RequestParam String daemonHost, @RequestParam Integer daemonPort, @RequestParam String daemonLogin, @RequestParam String daemonPassword) throws Exception {
