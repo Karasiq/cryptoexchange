@@ -147,7 +147,7 @@ public class DaemonManagerImpl implements DaemonManager {
         com.bitcoin.daemon.Address newAddress = account.generateNewAddress();
         Address address = new Address(newAddress.getAddress(), virtualWallet);
         Session session = sessionFactory.getCurrentSession();
-        session.saveOrUpdate(address);
+        session.save(address);
 
         return newAddress.getAddress();
     }
@@ -218,13 +218,14 @@ public class DaemonManagerImpl implements DaemonManager {
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     public com.bitcoin.daemon.Address.Transaction withdrawFunds(@NonNull VirtualWallet wallet, @NonNull String address, @NonNull BigDecimal amount) throws Exception {
-        Assert.isTrue(wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO) && address.length() > 0 && amount.compareTo(BigDecimal.ZERO) > 0, "Invalid parameters");
-        BigDecimal minAmount = wallet.getCurrency().getMinimalWithdrawAmount();
-        Assert.isTrue(amount.compareTo(minAmount) >= 0, String.format("Minimal withdraw amount: %s %s", minAmount, wallet.getCurrency().getCurrencyCode()));
+        Currency currency = wallet.getCurrency();
+        Assert.isTrue(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO) && address.length() > 0 && amount.compareTo(BigDecimal.ZERO) > 0, "Invalid parameters");
+        BigDecimal minAmount = currency.getMinimalWithdrawAmount();
+        Assert.isTrue(amount.compareTo(minAmount) >= 0, String.format("Minimal withdraw amount: %s %s", minAmount, currency.getCurrencyCode()));
         Session session = sessionFactory.getCurrentSession();
         session.refresh(wallet);
-        CryptoCoinWallet.Account account = (CryptoCoinWallet.Account) getAccount(wallet.getCurrency());
-        BigDecimal balance = accountManager.getVirtualWalletBalance(wallet), sendAmount = Calculator.withoutFee(amount, wallet.getCurrency().getWithdrawFee());
+        CryptoCoinWallet.Account account = (CryptoCoinWallet.Account) getAccount(currency);
+        BigDecimal balance = accountManager.getVirtualWalletBalance(wallet), sendAmount = Calculator.withoutFee(amount, currency.getWithdrawFee());
         if(balance.compareTo(amount) < 0) {
             throw new IllegalArgumentException("Insufficient funds");
         }
@@ -236,7 +237,17 @@ public class DaemonManagerImpl implements DaemonManager {
         try {
             log.info(String.format("Funds withdraw success: %s", transaction));
 
-            feeManager.submitCollectedFee(FreeBalance.FeeType.WITHDRAW, wallet.getCurrency(), Calculator.fee(amount, wallet.getCurrency().getWithdrawFee()).add(transaction.getFee())); // Tx fee is negative
+            BigDecimal withdrawFeeAmount = Calculator.fee(amount, currency.getWithdrawFee()),
+                    transactionFeeAmount = transaction.getFee().negate(),
+                    summaryFeeAmount = withdrawFeeAmount.subtract(transactionFeeAmount);
+
+            log.info(String.format("Calculated withdraw fee: %s, transaction fee: %s, summary: %s",
+                    withdrawFeeAmount, transactionFeeAmount, summaryFeeAmount));
+
+            if (summaryFeeAmount.compareTo(BigDecimal.ZERO) < 0) // Negative
+                log.fatal(String.format("Deficit: %s %s", summaryFeeAmount, currency.getCurrencyCode()));
+
+            feeManager.submitCollectedFee(FreeBalance.FeeType.WITHDRAW, currency, summaryFeeAmount);
 
             CryptoWithdrawHistory withdrawHistory = new CryptoWithdrawHistory(wallet, address, sendAmount, transaction.getTxid());
             session.save(withdrawHistory);

@@ -40,6 +40,11 @@ class JsonRpcRequest {
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class JsonRPC implements Closeable {
     static JsonFactory jsonFactory = new JsonFactory();
+    static ThreadGroup monitorThreadsGroup = new ThreadGroup("JsonRpcMonitor");
+    static {
+        monitorThreadsGroup.setDaemon(true);
+    }
+
     @Data @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Response<ResultType> {
         @Data @JsonIgnoreProperties(ignoreUnknown = true)
@@ -85,7 +90,7 @@ public class JsonRPC implements Closeable {
                 .setRetryHandler(retryHandler)
                 .build();
 
-        monitorThread = new Thread(new Runnable() {
+        monitorThread = new Thread(monitorThreadsGroup, new Runnable() {
             @Override
             public void run() {
                 while (!Thread.currentThread().isInterrupted()) {

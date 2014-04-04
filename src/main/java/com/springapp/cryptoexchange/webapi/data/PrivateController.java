@@ -94,10 +94,10 @@ public class PrivateController {
         return historyManager.getAccountHistory(account, 40);
     }
 
-    @Cacheable(value = "getAccountHistoryByPair", key = "#principal.name + #tradingPairId.toString()")
+    @Cacheable(value = "getAccountHistoryByPair", key = "#principal.name + #tradingPairId")
     @RequestMapping("/history/{tradingPairId}")
     @ResponseBody
-    public List<Order> getAccountHistoryByPair(Principal principal, @PathVariable Long tradingPairId) {
+    public List<Order> getAccountHistoryByPair(Principal principal, @PathVariable long tradingPairId) {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         Account account = accountManager.getAccount(principal.getName());
         Assert.notNull(tradingPair);

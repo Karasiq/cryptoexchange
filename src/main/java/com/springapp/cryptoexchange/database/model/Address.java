@@ -25,7 +25,7 @@ public class Address implements Serializable {
     long id;
 
     @NonNull
-    @Column(name = "address", nullable = false)
+    @Column(name = "address", nullable = false, unique = true)
     String address;
 
     @NonNull
