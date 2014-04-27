@@ -74,7 +74,7 @@ public class PrivateController {
         return accountManager.getAccountOrders(account, 100);
     }
 
-    @Cacheable(value = "getAccountOrdersByPair", key = "#principal.name + #tradingPairId")
+    @Cacheable(value = "getAccountOrdersByPair", key = "#principal.name + '/' + #tradingPairId")
     @RequestMapping("/orders/{tradingPairId}")
     @ResponseBody
     public List<Order> getAccountOrdersByPair(Principal principal, @PathVariable long tradingPairId) {
@@ -94,7 +94,7 @@ public class PrivateController {
         return historyManager.getAccountHistory(account, 40);
     }
 
-    @Cacheable(value = "getAccountHistoryByPair", key = "#principal.name + #tradingPairId")
+    @Cacheable(value = "getAccountHistoryByPair", key = "#principal.name + '/' + #tradingPairId")
     @RequestMapping("/history/{tradingPairId}")
     @ResponseBody
     public List<Order> getAccountHistoryByPair(Principal principal, @PathVariable long tradingPairId) {
@@ -106,7 +106,7 @@ public class PrivateController {
     }
 
     @Transactional
-    @Cacheable(value = "getTransactions", key = "#principal.name + #currencyId")
+    @Cacheable(value = "getTransactions", key = "#principal.name + '/' + #currencyId")
     @RequestMapping(value = "/transactions/{currencyId}")
     @ResponseBody
     @SuppressWarnings("all")

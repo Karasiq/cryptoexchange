@@ -27,6 +27,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -96,7 +97,7 @@ public class HistoryManagerImpl implements HistoryManager {
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Order.class)
                 .add(Restrictions.eq("tradingPair", tradingPair))
-                .add(Restrictions.in("status", new Order.Status[]{Order.Status.COMPLETED, Order.Status.PARTIALLY_CANCELLED}))
+                .add(Restrictions.in("status", Arrays.asList(Order.Status.COMPLETED, Order.Status.PARTIALLY_CANCELLED)))
                 .addOrder(org.hibernate.criterion.Order.desc("updateDate"));
     }
 
@@ -106,7 +107,7 @@ public class HistoryManagerImpl implements HistoryManager {
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Order.class)
                 .add(Restrictions.eq("account", account))
-                .add(Restrictions.in("status", new Order.Status[] { Order.Status.COMPLETED, Order.Status.PARTIALLY_CANCELLED }))
+                .add(Restrictions.in("status", Arrays.asList(Order.Status.COMPLETED, Order.Status.PARTIALLY_CANCELLED)))
                 .addOrder(org.hibernate.criterion.Order.desc("updateDate"))
                 .setMaxResults(max)
                 .list();
@@ -119,7 +120,7 @@ public class HistoryManagerImpl implements HistoryManager {
         return session.createCriteria(Order.class)
                 .add(Restrictions.eq("account", account))
                 .add(Restrictions.eq("tradingPair", tradingPair))
-                .add(Restrictions.in("status", new Order.Status[] { Order.Status.COMPLETED, Order.Status.PARTIALLY_CANCELLED }))
+                .add(Restrictions.in("status", Arrays.asList(Order.Status.COMPLETED, Order.Status.PARTIALLY_CANCELLED)))
                 .addOrder(org.hibernate.criterion.Order.desc("updateDate"))
                 .setMaxResults(max)
                 .list();

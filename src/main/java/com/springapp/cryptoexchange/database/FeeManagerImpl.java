@@ -94,6 +94,7 @@ public class FeeManagerImpl implements FeeManager {
 
     private void withdrawInternal(Session session, FreeBalance freeBalance, VirtualWallet virtualWallet, BigDecimal amount) {
         BigDecimal current = freeBalance.getAmount();
+        Assert.isTrue(freeBalance.getCurrency().equals(virtualWallet.getCurrency()), "Invalid wallet");
         Assert.isTrue(current.compareTo(amount) >= 0, "Insufficient funds");
         virtualWallet.addBalance(amount);
         freeBalance.setAmount(current.subtract(amount));

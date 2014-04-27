@@ -45,7 +45,6 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
     @Transactional
     public VirtualWallet getVirtualWallet(@NonNull Account account, @NonNull Currency currency) {
         Session session = sessionFactory.getCurrentSession();
-        session.refresh(account);
         VirtualWallet v = (VirtualWallet) session.createCriteria(VirtualWallet.class)
                 .add(Restrictions.eq("account", account))
                 .add(Restrictions.eq("currency", currency))

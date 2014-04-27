@@ -39,11 +39,8 @@ class JsonRpcRequest {
 @CommonsLog
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class JsonRPC implements Closeable {
-    static JsonFactory jsonFactory = new JsonFactory();
-    static ThreadGroup monitorThreadsGroup = new ThreadGroup("JsonRpcMonitor");
-    static {
-        monitorThreadsGroup.setDaemon(true);
-    }
+    static final JsonFactory jsonFactory = new JsonFactory();
+    static final ThreadGroup monitorThreadsGroup = new ThreadGroup("JsonRpcMonitor") {{ setDaemon(true); }};
 
     @Data @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Response<ResultType> {

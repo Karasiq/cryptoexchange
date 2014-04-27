@@ -72,7 +72,7 @@ public class MarketManagerImpl implements MarketManager {
         TradingPair tradingPair = firstOrder.getTradingPair();
         Assert.isTrue(
                 // Orders matching:
-                firstOrder.getType() == Order.Type.SELL && secondOrder.getType() == Order.Type.BUY // First sell, then buy
+                firstOrder.getType().equals(Order.Type.SELL) && secondOrder.getType().equals(Order.Type.BUY) // First sell, then buy
                 && firstOrder.isActual() && secondOrder.isActual() // Orders not closed
                 // Currencies matching:
                 && firstOrder.getSourceWallet().getCurrency().equals(tradingPair.getFirstCurrency())
@@ -112,9 +112,17 @@ public class MarketManagerImpl implements MarketManager {
 
         // Updating balances:
         VirtualWallet firstDest = firstOrder.getDestWallet(), secondDest = secondOrder.getDestWallet();
-        firstDest.addBalance(firstCurrencySend);
-        secondDest.addBalance(secondCurrencySend);
+
+        // firstDest - seller, receives second currency from pair
+        Assert.isTrue(firstDest.getCurrency().equals(secondCurrency));
+        log.info(String.format("%s +%s %s", firstDest, secondCurrencySend, secondCurrency.getCurrencyCode()));
+        firstDest.addBalance(secondCurrencySend);
         session.update(firstDest);
+
+        // secondDest - buyer, receives first currency from pair
+        Assert.isTrue(secondDest.getCurrency().equals(firstCurrency));
+        log.info(String.format("%s +%s %s", secondDest, firstCurrencySend, firstCurrency.getCurrencyCode()));
+        secondDest.addBalance(firstCurrencySend);
         session.update(secondDest);
 
         if(firstOrder.getStatus() == Order.Status.COMPLETED) {
@@ -143,7 +151,7 @@ public class MarketManagerImpl implements MarketManager {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     @SuppressWarnings("unchecked")
     @Caching(evict = {
-            @CacheEvict(value = "getAccountOrdersByPair", key = "#order.account.login + #order.tradingPair.id"),
+            @CacheEvict(value = "getAccountOrdersByPair", key = "#order.account.login + '/' + #order.tradingPair.id"),
             @CacheEvict(value = "getAccountOrders", key = "#order.account.login"),
             @CacheEvict(value = "getAccountBalances", key = "#order.account.login"),
             @CacheEvict(value = "getMarketDepth", key = "#order.tradingPair.id")
@@ -160,7 +168,7 @@ public class MarketManagerImpl implements MarketManager {
     @Caching(evict = {
             @CacheEvict(value = "getMarketDepth", key = "#newOrder.tradingPair.id"),
             @CacheEvict(value = "getMarketHistory", key = "#newOrder.tradingPair.id"),
-            @CacheEvict(value = "getAccountOrdersByPair", key = "#newOrder.account.login + #newOrder.tradingPair.id"),
+            @CacheEvict(value = "getAccountOrdersByPair", key = "#newOrder.account.login + '/' + #newOrder.tradingPair.id"),
             @CacheEvict(value = "getAccountOrders", key = "#newOrder.account.login"),
             @CacheEvict(value = "getAccountBalances", key = "#newOrder.account.login")
     })
@@ -172,26 +180,41 @@ public class MarketManagerImpl implements MarketManager {
         newOrder.setAmount(newOrder.getAmount().setScale(8, BigDecimal.ROUND_FLOOR));
         newOrder.setPrice(newOrder.getPrice().setScale(8, BigDecimal.ROUND_FLOOR));
 
+        final Order.Type orderType = newOrder.getType();
+        final TradingPair tradingPair = newOrder.getTradingPair();
+
         // Checking input parameters:
         Assert.isTrue(
                 // Checking order:
                 newOrder.isActual() && newOrder.getId() == 0
                 // Checking trading pair:
-                && newOrder.getTradingPair() != null && newOrder.getTradingPair().isEnabled()
+                && tradingPair != null && tradingPair.isEnabled()
                 // Checking price:
                 && newOrder.getPrice().compareTo(BigDecimal.ZERO) > 0, "Invalid parameters"
         );
 
-        if (newOrder.getAmount().compareTo(newOrder.getTradingPair().getMinimalTradeAmount()) < 0) {
-            throw new MarketError(String.format("Minimal trading amount is %s", newOrder.getTradingPair().getMinimalTradeAmount()));
+        if (newOrder.getAmount().compareTo(tradingPair.getMinimalTradeAmount()) < 0) {
+            throw new MarketError(String.format("Minimal trading amount is %s", tradingPair.getMinimalTradeAmount()));
         }
 
         final Session session = sessionFactory.getCurrentSession();
         log.info(String.format("executeOrder => %s", newOrder));
-        final Order.Type orderType = newOrder.getType();
+
+        switch (orderType) {
+            case BUY:
+                Assert.isTrue(newOrder.getSourceWallet().getCurrency().equals(tradingPair.getSecondCurrency()) &&
+                    newOrder.getDestWallet().getCurrency().equals(tradingPair.getFirstCurrency()), "Invalid currencies");
+                break;
+            case SELL:
+                Assert.isTrue(newOrder.getSourceWallet().getCurrency().equals(tradingPair.getFirstCurrency()) &&
+                        newOrder.getDestWallet().getCurrency().equals(tradingPair.getSecondCurrency()), "Invalid currencies");
+                break;
+        }
 
         VirtualWallet virtualWalletSource = newOrder.getSourceWallet();
-        final BigDecimal balance = accountManager.getVirtualWalletBalance(virtualWalletSource), remainingAmount = newOrder.getRemainingAmount(), required = Calculator.totalRequired(orderType, remainingAmount, newOrder.getPrice());
+        final BigDecimal balance = accountManager.getVirtualWalletBalance(virtualWalletSource),
+                remainingAmount = newOrder.getRemainingAmount(),
+                required = Calculator.totalRequired(orderType, remainingAmount, newOrder.getPrice());
 
         if(balance.compareTo(required) < 0) {
             throw new MarketError("Insufficient funds");
@@ -208,8 +231,8 @@ public class MarketManagerImpl implements MarketManager {
                 .setFetchMode("account", FetchMode.JOIN)
                 .addOrder(orderType == Order.Type.BUY ? org.hibernate.criterion.Order.asc("price") : org.hibernate.criterion.Order.desc("price"))
                 .addOrder(org.hibernate.criterion.Order.asc("openDate"))
-                .add(Restrictions.in("status", new Order.Status[]{Order.Status.OPEN, Order.Status.PARTIALLY_COMPLETED}))
-                .add(Restrictions.eq("tradingPair", newOrder.getTradingPair()))
+                .add(Restrictions.in("status", Arrays.asList(Order.Status.OPEN, Order.Status.PARTIALLY_COMPLETED)))
+                .add(Restrictions.eq("tradingPair", tradingPair))
                 .add(orderType.equals(Order.Type.BUY) ? Restrictions.le("price", newOrder.getPrice()) : Restrictions.ge("price", newOrder.getPrice()))
                 .add(Restrictions.eq("type", orderType.equals(Order.Type.BUY) ? Order.Type.SELL : Order.Type.BUY))
                 .list();
@@ -217,14 +240,13 @@ public class MarketManagerImpl implements MarketManager {
         // Performing trade:
         for(Order order : orders) {
             BigDecimal orderRemainingAmount = order.getRemainingAmount();
-            int compareResult = orderRemainingAmount.compareTo(remainingAmount);
-            final BigDecimal tradeAmount = compareResult >= 0 ? remainingAmount : orderRemainingAmount;
-            if(order.getType().equals(Order.Type.SELL)) {
+            final BigDecimal tradeAmount = orderRemainingAmount.compareTo(remainingAmount) >= 0 ? remainingAmount : orderRemainingAmount;
+
+            if(order.getType().equals(Order.Type.SELL))
                 remapFunds(order, newOrder, tradeAmount);
-            }
-            else {
+            else
                 remapFunds(newOrder, order, tradeAmount);
-            }
+
             session.update(order);
             if(newOrder.getStatus().equals(Order.Status.COMPLETED)) {
                 break; // Order executed

@@ -61,7 +61,7 @@ public class WithdrawControllerImpl implements WithdrawController {
 
     @Caching(evict = {
             @CacheEvict(value = "getAccountBalances", key = "#principal.name"),
-            @CacheEvict(value = "getTransactions", key = "#principal.name + #currencyId")
+            @CacheEvict(value = "getTransactions", key = "#principal.name + '/' + #currencyId")
     })
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     @Override

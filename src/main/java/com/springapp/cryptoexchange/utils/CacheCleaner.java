@@ -27,7 +27,7 @@ public class CacheCleaner {
                 orders = cacheManager.getCache("getAccountOrders"),
                 ordersByPair = cacheManager.getCache("getAccountOrdersByPair");
         balance.evict(login);
-        ordersByPair.evict(login + order.getTradingPair().getId());
+        ordersByPair.evict(login + "/" + order.getTradingPair().getId());
         orders.evict(login);
     }
 
