@@ -10,6 +10,7 @@ import lombok.AccessLevel;
 import lombok.NonNull;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
+import org.hibernate.FetchMode;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
@@ -43,7 +44,7 @@ public class FeeManagerImpl implements FeeManager {
     @Autowired
     AccountManager accountManager;
 
-    private FreeBalance getFreeBalance(Session session, @NonNull Currency currency) {
+    private FreeBalance getFreeBalance(Session session, Currency currency) {
         FreeBalance balance = (FreeBalance) session.createCriteria(FreeBalance.class)
                 .add(Restrictions.eq("currency", currency))
                 .uniqueResult();
@@ -52,6 +53,21 @@ public class FeeManagerImpl implements FeeManager {
             session.save(balance);
         }
         return balance;
+    }
+
+    @Transactional(readOnly = true)
+    @SuppressWarnings("unchecked")
+    public List<FreeBalance> getFreeBalances() {
+        Session session = sessionFactory.getCurrentSession();
+        return session.createCriteria(FreeBalance.class)
+                .setFetchSize(10)
+                .setFetchMode("currency", FetchMode.JOIN)
+                .list();
+    }
+
+    @Transactional(readOnly = true)
+    public FreeBalance getFreeBalance(@NonNull Currency currency) {
+        return getFreeBalance(sessionFactory.getCurrentSession(), currency);
     }
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.READ_COMMITTED)
@@ -139,17 +155,20 @@ public class FeeManagerImpl implements FeeManager {
                 default:
                     throw new IllegalArgumentException();
             }
-            List<VirtualWallet> virtualWalletList = session.createCriteria(VirtualWallet.class)
+            final List<VirtualWallet> virtualWalletList = session.createCriteria(VirtualWallet.class)
                     .add(Restrictions.eq("currency", currency))
                     .list();
             for (VirtualWallet virtualWallet : virtualWalletList) {
                 databaseBalance = databaseBalance.add(accountManager.getVirtualWalletBalance(virtualWallet));
             }
-            databaseBalance = databaseBalance.add(getFreeBalance(session, currency).getAmount());
+            FreeBalance freeBalance = getFreeBalance(session, currency);
+            databaseBalance = databaseBalance.add(freeBalance.getAmount());
             if(!overallBalance.equals(databaseBalance)) {
-                BigDecimal divergence = overallBalance.subtract(databaseBalance);
-                log.fatal(String.format("Balance divergence for currency %s: EXTERNAL=%s, PERSISTED=%s, DIVERGENCE=%s", currency, overallBalance, databaseBalance, divergence));
-                // submitCollectedFee(FreeBalance.FeeType.CORRECTION, currency, divergence);
+                final BigDecimal divergence = overallBalance.subtract(databaseBalance),
+                        actualFreeBalance = freeBalance.getAmount().add(divergence);
+                log.fatal(String.format("Balance divergence for currency %s: EXTERNAL=%s, PERSISTED=%s, DIVERGENCE=%s, ACTUAL FREE=%s", currency, overallBalance, databaseBalance, divergence, actualFreeBalance));
+                // freeBalance.setAmount(actualFreeBalance);
+                // session.update(freeBalance);
             }
         }
     }

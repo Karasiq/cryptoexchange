@@ -10,4 +10,7 @@ public interface SettingsManager {
     public List<Currency> getCurrencyList();
     public TradingPair getTradingPair(long id);
     public Currency getCurrency(long id);
+    public void addCurrency(Currency currency) throws Exception;
+    public void addTradingPair(TradingPair tradingPair) throws Exception;
+    public void removeTradingPair(TradingPair tradingPair) throws Exception;
 }

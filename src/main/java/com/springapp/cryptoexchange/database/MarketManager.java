@@ -4,27 +4,25 @@ import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
 import org.hibernate.Criteria;
 
-import java.util.List;
-
 public interface MarketManager {
-    public static class MarketError extends Exception {
-        public MarketError() {
+    public static class MarketException extends Exception {
+        public MarketException() {
             super();
         }
 
-        public MarketError(String message) {
+        public MarketException(String message) {
             super(message);
         }
 
-        public MarketError(String message, Throwable cause) {
+        public MarketException(String message, Throwable cause) {
             super(message, cause);
         }
 
-        public MarketError(Throwable cause) {
+        public MarketException(Throwable cause) {
             super(cause);
         }
 
-        protected MarketError(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+        protected MarketException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
             super(message, cause, enableSuppression, writableStackTrace);
         }
     }

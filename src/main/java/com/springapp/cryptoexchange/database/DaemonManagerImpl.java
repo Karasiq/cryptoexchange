@@ -77,6 +77,7 @@ public class DaemonManagerImpl implements DaemonManager {
             }
             JsonRPC daemon = new JsonRPC(settings.getDaemonHost(), settings.getDaemonPort(), settings.getDaemonLogin(), settings.getDaemonPassword());
             daemonMap.put(currencyId, new DaemonInfo(CryptoCoinWallet.getDefaultAccount(daemon), settings));
+            log.info("Daemon settings changed for currency: " + settings.getCurrency());
         }
     }
 
@@ -153,10 +154,9 @@ public class DaemonManagerImpl implements DaemonManager {
     }
 
     @Transactional(readOnly = true)
-    @SuppressWarnings("unchecked")
-    public Set getAddressSet(@NonNull VirtualWallet virtualWallet) {
+    public Set<String> getAddressSet(@NonNull VirtualWallet virtualWallet) {
         final List<Address> addressList = getAddressList(virtualWallet);
-        final Set strings = new HashSet();
+        final Set<String> strings = new HashSet<>();
         for (Address address : addressList) {
             strings.add(address.getAddress());
         }

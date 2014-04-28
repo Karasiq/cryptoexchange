@@ -61,7 +61,9 @@ public class MarketManagerImpl implements MarketManager {
             VirtualWallet wallet = order.getSourceWallet();
             wallet.addBalance(returnAmount);
             session.update(wallet);
-            log.info(String.format("Returned unspent money (#%d): %s", order.getId(), returnAmount));
+            if(log.isDebugEnabled()) {
+                log.debug(String.format("Returned unspent money: %s %s => %s (%s)", returnAmount, wallet.getCurrency().getCurrencyCode(), wallet, order));
+            }
             cacheCleaner.balancesEvict(order.getAccount());
         }
     }
@@ -81,8 +83,8 @@ public class MarketManagerImpl implements MarketManager {
                 && secondOrder.getDestWallet().getCurrency().equals(tradingPair.getFirstCurrency()), "Invalid parameters");
 
         boolean zeroFee = firstOrder.getAccount().getRole().equals(Account.RoleClass.ADMIN) || secondOrder.getAccount().getRole().equals(Account.RoleClass.ADMIN);
-        if (zeroFee) {
-            log.info(String.format("Zero-fee trade: %s => %s", firstOrder, secondOrder));
+        if (zeroFee && log.isDebugEnabled()) {
+            log.debug(String.format("Zero-fee trade: %s => %s", firstOrder, secondOrder));
         }
 
         BigDecimal price = firstOrder.getPrice(),
@@ -115,13 +117,13 @@ public class MarketManagerImpl implements MarketManager {
 
         // firstDest - seller, receives second currency from pair
         Assert.isTrue(firstDest.getCurrency().equals(secondCurrency));
-        log.info(String.format("%s +%s %s", firstDest, secondCurrencySend, secondCurrency.getCurrencyCode()));
+        if(log.isDebugEnabled()) log.debug(String.format("%s +%s %s", firstDest, secondCurrencySend, secondCurrency.getCurrencyCode()));
         firstDest.addBalance(secondCurrencySend);
         session.update(firstDest);
 
         // secondDest - buyer, receives first currency from pair
         Assert.isTrue(secondDest.getCurrency().equals(firstCurrency));
-        log.info(String.format("%s +%s %s", secondDest, firstCurrencySend, firstCurrency.getCurrencyCode()));
+        if(log.isDebugEnabled()) log.debug(String.format("%s +%s %s", secondDest, firstCurrencySend, firstCurrency.getCurrencyCode()));
         secondDest.addBalance(firstCurrencySend);
         session.update(secondDest);
 
@@ -194,7 +196,7 @@ public class MarketManagerImpl implements MarketManager {
         );
 
         if (newOrder.getAmount().compareTo(tradingPair.getMinimalTradeAmount()) < 0) {
-            throw new MarketError(String.format("Minimal trading amount is %s", tradingPair.getMinimalTradeAmount()));
+            throw new MarketException(String.format("Minimal trading amount is %s", tradingPair.getMinimalTradeAmount()));
         }
 
         final Session session = sessionFactory.getCurrentSession();
@@ -217,7 +219,7 @@ public class MarketManagerImpl implements MarketManager {
                 required = Calculator.totalRequired(orderType, remainingAmount, newOrder.getPrice());
 
         if(balance.compareTo(required) < 0) {
-            throw new MarketError("Insufficient funds");
+            throw new MarketException("Insufficient funds");
         } else {
             virtualWalletSource.addBalance(required.negate()); // Lock funds
         }

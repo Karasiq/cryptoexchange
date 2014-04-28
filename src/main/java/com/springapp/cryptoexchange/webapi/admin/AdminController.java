@@ -5,10 +5,8 @@ import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.utils.CacheCleaner;
 import lombok.extern.apachecommons.CommonsLog;
-import org.hibernate.FetchMode;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
-import org.hibernate.criterion.Restrictions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
@@ -57,26 +55,16 @@ public class AdminController {
     @RequestMapping(value = "/fee", method = RequestMethod.GET)
     @SuppressWarnings("unchecked")
     public List<FreeBalance> getFreeBalance() {
-        Session session = sessionFactory.getCurrentSession();
-        return session.createCriteria(FreeBalance.class)
-                .setFetchSize(10)
-                .setFetchMode("currency", FetchMode.JOIN)
-                .add(Restrictions.gt("amount", BigDecimal.ZERO))
-                .list();
+        return feeManager.getFreeBalances();
     }
 
     @Transactional(readOnly = true)
     @ResponseBody
     @RequestMapping(value = "/fee/{currencyId}", method = RequestMethod.GET)
     public FreeBalance getFreeBalance(@PathVariable long currencyId) {
-        Session session = sessionFactory.getCurrentSession();
         Currency currency = settingsManager.getCurrency(currencyId);
         Assert.notNull(currency, "Currency not found");
-        return (FreeBalance) session.createCriteria(FreeBalance.class)
-                .setFetchMode("currency", FetchMode.JOIN)
-                .add(Restrictions.eq("currency", currency))
-                .add(Restrictions.gt("amount", BigDecimal.ZERO))
-                .uniqueResult();
+        return feeManager.getFreeBalance(currency);
     }
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
@@ -114,16 +102,14 @@ public class AdminController {
             @CacheEvict(value = "getCurrencies", allEntries = true),
             @CacheEvict(value = "getAccountBalances", allEntries = true)
     })
-    public Currency addCurrency(@RequestParam String currencyCode, @RequestParam String currencyName, @RequestParam Currency.CurrencyType currencyType, @RequestParam BigDecimal withdrawFee, @RequestParam BigDecimal minimalWithdrawAmount) {
-        Session session = sessionFactory.getCurrentSession();
+    public Currency addCurrency(@RequestParam String currencyCode, @RequestParam String currencyName, @RequestParam Currency.CurrencyType currencyType, @RequestParam BigDecimal withdrawFee, @RequestParam BigDecimal minimalWithdrawAmount) throws Exception {
         Currency currency = new Currency(currencyCode, currencyName, currencyType);
         currency.setWithdrawFee(withdrawFee);
         currency.setMinimalWithdrawAmount(minimalWithdrawAmount);
         if(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
             currency.setEnabled(false); // Daemon not configured
         }
-        session.save(currency);
-        log.info("New currency added: " + currency);
+        settingsManager.addCurrency(currency);
         return currency;
     }
 
@@ -154,14 +140,12 @@ public class AdminController {
     @Caching(evict = {
             @CacheEvict(value = "getTradingPairs", allEntries = true)
     })
-    public TradingPair addTradingPair(@RequestParam long firstCurrencyId, @RequestParam long secondCurrencyId) {
+    public TradingPair addTradingPair(@RequestParam long firstCurrencyId, @RequestParam long secondCurrencyId) throws Exception {
         Assert.isTrue(firstCurrencyId != secondCurrencyId, "Currencies must not be the same");
-        Session session = sessionFactory.getCurrentSession();
         Currency currency = settingsManager.getCurrency(firstCurrencyId), currency1 = settingsManager.getCurrency(secondCurrencyId);
         Assert.isTrue(currency != null && currency1 != null, "Invalid currency ID");
         TradingPair tradingPair = new TradingPair(currency, currency1);
-        session.save(tradingPair);
-        log.info("New trading pair added: " + tradingPair);
+        settingsManager.addTradingPair(tradingPair);
         return tradingPair;
     }
 
@@ -185,7 +169,6 @@ public class AdminController {
 
         session.saveOrUpdate(daemon);
         daemonManager.setDaemonSettings(daemon);
-        log.info("Daemon settings changed for currency: " + currency);
         cacheCleaner.cryptoBalanceEvict();
         return true;
     }

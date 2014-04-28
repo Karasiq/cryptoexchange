@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit;
 @Value
 class JsonRpcRequest {
     String method;
-    List<Object> params;
+    List<? extends Serializable> params;
 }
 
 @CommonsLog
@@ -123,7 +123,7 @@ public class JsonRPC implements Closeable {
         }
     }
 
-    private static String prepareJsonRequest(String method, List<Object> args) throws IOException {
+    private static String prepareJsonRequest(String method, List<? extends Serializable> args) throws IOException {
         ByteArrayOutputStream writer = new ByteArrayOutputStream();
         JsonGenerator generator = jsonFactory.createGenerator(writer);
         ObjectMapper mapper = new ObjectMapper();
@@ -131,7 +131,7 @@ public class JsonRPC implements Closeable {
         return writer.toString();
     }
 
-    public <T> T executeRpcRequest(String method, List<Object> args, TypeReference<Response<T>> typeReference) throws Exception {
+    public <T> T executeRpcRequest(String method, List<? extends Serializable> args, TypeReference<Response<T>> typeReference) throws Exception {
         try {
             String request = prepareJsonRequest(method, args);
             String response = getResponseString(postRequest(httpHost.toURI(), request));

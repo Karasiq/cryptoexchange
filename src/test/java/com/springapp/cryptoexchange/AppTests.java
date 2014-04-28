@@ -1,10 +1,13 @@
 package com.springapp.cryptoexchange;
 
+import com.bitcoin.daemon.AbstractWallet;
 import com.bitcoin.daemon.CryptoCoinWallet;
 import com.bitcoin.daemon.JsonRPC;
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.utils.Calculator;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -24,6 +27,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -34,6 +38,7 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppC
 @ContextConfiguration("file:src/main/webapp/WEB-INF/mvc-dispatcher-servlet.xml")
 @CommonsLog
 @ActiveProfiles({"master", "data"})
+@FieldDefaults(level = AccessLevel.PROTECTED)
 public class AppTests {
     @Autowired
     SessionFactory sessionFactory;
@@ -56,11 +61,11 @@ public class AppTests {
     @Autowired
     FeeManager feeManager;
 
-    private MockMvc mockMvc;
+    MockMvc mockMvc;
 
     @SuppressWarnings("SpringJavaAutowiringInspection")
     @Autowired
-    protected WebApplicationContext wac;
+    WebApplicationContext wac;
 
     @Before
     public void setup() throws Exception {
@@ -90,33 +95,24 @@ public class AppTests {
         log.debug(result.getResponse().getContentAsString());
     }
 
-    //@Test
+    @Test
     public void jsonRpc() throws Exception {
-        // Existing:
-        JsonRPC rpc = new JsonRPC("localhost", 8779, "user", "password");
-        CryptoCoinWallet.Account account = new CryptoCoinWallet.Account(rpc, "PZcojt26ozH2nh5u7zqG1DfuzG6FUuvbZ3");
-
-        account.loadTransactions(1000);
-        for(int i = 0; i < 1000; i++) {
-            log.info(String.format("Account balance: %s", account.summaryConfirmedBalance()));
-        }
-
-        // New:
-        //CryptoCoinWallet.Account account1 = CryptoCoinWallet.generateAccount(rpc, "test");
-        //System.out.println(account.sendToAddress(account1.generateNewAddress().getAddress(), BigDecimal.valueOf(3.0)));
-        //System.out.println(account.summaryConfirmedBalance());
+        Currency currency = settingsManager.getCurrencyList().get(0);
+        AbstractWallet wallet = daemonManager.getAccount(currency);
+        log.info(String.format("%s wallet balance = %s %s", currency.getCurrencyName(),
+                wallet.summaryConfirmedBalance(wallet.getAddressSet()), currency.getCurrencyCode()));
     }
 
     @Test
     @Transactional
-    public void accountTest() throws Exception {
+    public void account() throws Exception {
         log.debug(accountManager.addAccount(new Account("username", "username@mail.com", "password")));
         log.debug(accountManager.getAccount("username"));
     }
 
     @Test
     @Transactional
-    public void marketTest() throws Exception {
+    public void market() throws Exception {
         Session session = sessionFactory.getCurrentSession();
         Account firstAccount = accountManager.getAccount("buyer"), secondAccount = accountManager.getAccount("seller");
         if(firstAccount == null) {
@@ -168,5 +164,40 @@ public class AppTests {
 
         List<Candle> history = historyManager.getMarketChartData(tradingPair, 24);
         log.debug(history);
+    }
+
+    @Test
+    @Transactional
+    public void deleteTradingPair() throws Exception {
+        TradingPair tradingPair = new TradingPair(new Currency("TEST1", "TestCurrency1", Currency.CurrencyType.PURE_VIRTUAL),
+                new Currency("TEST2", "TestCurrency2", Currency.CurrencyType.PURE_VIRTUAL));
+
+        settingsManager.addCurrency(tradingPair.getFirstCurrency());
+        settingsManager.addCurrency(tradingPair.getSecondCurrency());
+        settingsManager.addTradingPair(tradingPair);
+        log.debug(tradingPair);
+
+        Account account = new Account("testaccount", "testaccount@mail.com", "testaccount");
+        accountManager.addAccount(account);
+        log.debug(account);
+
+        VirtualWallet virtualWalletSource = accountManager.getVirtualWallet(account, tradingPair.getSecondCurrency()),
+        virtualWalletDest = accountManager.getVirtualWallet(account, tradingPair.getFirstCurrency());
+
+        int initialBalance = 100;
+
+        virtualWalletSource.addBalance(BigDecimal.valueOf(initialBalance));
+        log.debug(virtualWalletSource);
+        log.debug(virtualWalletDest);
+
+        long startTime = System.nanoTime();
+        for(int i = 0; i < initialBalance; i++) marketManager.executeOrder(new Order(Order.Type.BUY, BigDecimal.ONE, BigDecimal.ONE, tradingPair, virtualWalletSource, virtualWalletDest, account));
+        log.info(String.format("%d orders executed in %d ms", initialBalance, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)));
+
+        startTime = System.nanoTime();
+        settingsManager.removeTradingPair(tradingPair);
+        Assert.isTrue(accountManager.getVirtualWalletBalance(virtualWalletSource)
+                .compareTo(BigDecimal.valueOf(initialBalance)) == 0, "Invalid resulting balances");
+        log.info(String.format("%d orders cancelled and deleted in %d ms", initialBalance, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)));
     }
 }

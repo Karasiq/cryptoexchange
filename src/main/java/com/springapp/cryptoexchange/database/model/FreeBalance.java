@@ -18,7 +18,7 @@ import java.math.BigDecimal;
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class FreeBalance {
     public enum FeeType {
-        CORRECTION, TRADING, WITHDRAW
+        TRADING, WITHDRAW
     }
 
     @Id

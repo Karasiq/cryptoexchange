@@ -71,7 +71,7 @@ public class PrivateController {
     public List<Order> getAccountOrdersInfo(Principal principal) {
         Account account = accountManager.getAccount(principal.getName());
         Assert.notNull(account);
-        return accountManager.getAccountOrders(account, 100);
+        return accountManager.getAccountOrders(account, 50);
     }
 
     @Cacheable(value = "getAccountOrdersByPair", key = "#principal.name + '/' + #tradingPairId")
@@ -82,7 +82,7 @@ public class PrivateController {
         Account account = accountManager.getAccount(principal.getName());
         Assert.notNull(tradingPair);
         Assert.notNull(account);
-        return accountManager.getAccountOrdersByPair(tradingPair, account, 30);
+        return accountManager.getAccountOrdersByPair(tradingPair, account, 20);
     }
 
     @Cacheable(value = "getAccountHistory", key = "#principal.name")
@@ -91,7 +91,7 @@ public class PrivateController {
     public List<Order> getAccountHistory(Principal principal) {
         Account account = accountManager.getAccount(principal.getName());
         Assert.notNull(account);
-        return historyManager.getAccountHistory(account, 40);
+        return historyManager.getAccountHistory(account, 20);
     }
 
     @Cacheable(value = "getAccountHistoryByPair", key = "#principal.name + '/' + #tradingPairId")

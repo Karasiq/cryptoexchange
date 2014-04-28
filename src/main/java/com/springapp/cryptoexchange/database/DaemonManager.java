@@ -12,7 +12,7 @@ import java.util.Set;
 
 public interface DaemonManager {
     AbstractWallet getAccount(Currency currency);
-    Set getAddressSet(VirtualWallet virtualWallet);
+    Set<String> getAddressSet(VirtualWallet virtualWallet);
     List<Address> getAddressList(VirtualWallet wallet);
     String createWalletAddress(VirtualWallet virtualWallet) throws Exception;
     com.bitcoin.daemon.Address.Transaction withdrawFunds(VirtualWallet wallet, String address, BigDecimal amount) throws Exception;

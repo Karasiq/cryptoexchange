@@ -8,6 +8,7 @@ import com.springapp.cryptoexchange.utils.CacheCleaner;
 import lombok.AccessLevel;
 import lombok.NonNull;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.apachecommons.CommonsLog;
 import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -17,24 +18,16 @@ import org.joda.time.Period;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionCallbackWithoutResult;
-import org.springframework.transaction.support.TransactionTemplate;
 
-import javax.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Repository
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@CommonsLog
 public class HistoryManagerImpl implements HistoryManager {
     static final Period chartPeriod = Period.hours(1);
 
@@ -47,29 +40,33 @@ public class HistoryManagerImpl implements HistoryManager {
     @Autowired
     CacheCleaner cacheCleaner;
 
-    final Map<Long, Candle> historyMap = new ConcurrentHashMap<>(); // Cache
-
+    @SuppressWarnings("unchecked")
     private void updateChartData(@NonNull TradingPair tradingPair, final BigDecimal lastPrice, final BigDecimal amount) {
-        Candle lastCandle = historyMap.get(tradingPair.getId());
-        if (lastCandle == null) {
-            lastCandle = new Candle(tradingPair);
-            historyMap.put(tradingPair.getId(), lastCandle);
-        }
+        Session session = sessionFactory.getCurrentSession();
+        final List<Candle> candleList = session.createCriteria(Candle.class)
+                .add(Restrictions.eq("tradingPair", tradingPair))
+                .add(Restrictions.isNull("closeTime"))
+                .addOrder(org.hibernate.criterion.Order.desc("openTime"))
+                .setMaxResults(1)
+                .list();
+
+        Candle lastCandle = candleList == null || candleList.isEmpty() ? new Candle(tradingPair) : candleList.get(0);
         lastCandle.update(lastPrice, amount);
         if (lastCandle.isClosed(chartPeriod)) { // next
             lastCandle.close();
-            sessionFactory.getCurrentSession().saveOrUpdate(lastCandle);
+            session.saveOrUpdate(lastCandle);
+            log.info("Closed: " + lastCandle);
             lastCandle = new Candle(tradingPair, lastPrice);
-            historyMap.put(tradingPair.getId(), lastCandle);
         }
-        sessionFactory.getCurrentSession().saveOrUpdate(lastCandle);
+        session.saveOrUpdate(lastCandle);
+        log.info(lastCandle);
     }
 
-    @Transactional(propagation = Propagation.SUPPORTS, isolation = Isolation.READ_UNCOMMITTED)
+    @Transactional
     @Async
     public void updateMarketInfo(@NonNull TradingPair tradingPair, final BigDecimal price, final BigDecimal amount) {
         Session session = sessionFactory.getCurrentSession();
-        tradingPair = (TradingPair) session.load(TradingPair.class, tradingPair.getId());
+        tradingPair = (TradingPair) session.get(TradingPair.class, tradingPair.getId());
         if(tradingPair.getLastReset() == null || DateTime.now().minus(Period.days(1)).isAfter(new DateTime(tradingPair.getLastReset()))) {
             tradingPair.setLastReset(new Date());
             tradingPair.setDayHigh(null);
@@ -135,24 +132,5 @@ public class HistoryManagerImpl implements HistoryManager {
                 .add(Restrictions.eq("tradingPair", tradingPair))
                 .addOrder(org.hibernate.criterion.Order.desc("openTime"))
                 .list();
-    }
-
-    @Autowired
-    PlatformTransactionManager transactionManager;
-
-    @PostConstruct
-    public void init() {
-        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-        transactionTemplate.setReadOnly(true);
-        transactionTemplate.execute(new TransactionCallbackWithoutResult() {
-            @Override
-            protected void doInTransactionWithoutResult(TransactionStatus transactionStatus) {
-                List<TradingPair> currencyList = settingsManager.getTradingPairs();
-                for(TradingPair tradingPair : currencyList) {
-                    List<Candle> candles = getMarketChartData(tradingPair, 1);
-                    if(candles.size() > 0) historyMap.put(tradingPair.getId(), candles.get(0));
-                }
-            }
-        });
     }
 }
