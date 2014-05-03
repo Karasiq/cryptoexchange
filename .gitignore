@@ -6,3 +6,4 @@ trash/
 src/main/resources/rebel-remote.xml
 src/main/resources/rebel.xml
 src/main/webapp/WEB-INF/static/
+src/test/resources/
