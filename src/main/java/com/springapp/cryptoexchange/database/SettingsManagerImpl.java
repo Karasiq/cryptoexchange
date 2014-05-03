@@ -89,18 +89,12 @@ public class SettingsManagerImpl implements SettingsManager {
     @SuppressWarnings("unchecked")
     public void removeTradingPair(TradingPair tradingPair) throws Exception {
         Session session = sessionFactory.getCurrentSession();
-        List<Order> orderList = session.createCriteria(Order.class)
+        final List<Order> orderList = session.createCriteria(Order.class)
                 .setFetchSize(200)
                 .add(Restrictions.eq("tradingPair", tradingPair))
                 .add(Restrictions.in("status", Arrays.asList(Order.Status.OPEN, Order.Status.PARTIALLY_COMPLETED)))
                 .list();
-        int deletedOrders = 0;
-        for(Order order : orderList) {
-            marketManager.cancelOrder(order);
-            session.delete(order);
-            deletedOrders++;
-        }
-        log.info(String.format("Deleted %d orders", deletedOrders));
+        for(Order order : orderList) marketManager.cancelOrder(order);
         session.delete(tradingPair);
         log.info("Trading pair removed: " + tradingPair);
     }

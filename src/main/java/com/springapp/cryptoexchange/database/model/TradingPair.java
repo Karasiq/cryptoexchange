@@ -6,13 +6,18 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.*;
 import org.hibernate.annotations.Cache;
-import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.CascadeType;
 
 import javax.persistence.*;
+import javax.persistence.Entity;
+import javax.persistence.OrderBy;
+import javax.persistence.Table;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.List;
 
 @Data
 @Entity
@@ -65,7 +70,7 @@ public class TradingPair implements Serializable {
     BigDecimal minimalTradeAmount = BigDecimal.ZERO;
 
     @Column(name = "trading_fee", nullable = false)
-    BigDecimal tradingFee = BigDecimal.valueOf(0.2);
+    BigDecimal tradingFee = BigDecimal.ZERO;
 
     public TradingPair(Currency firstCurrency, Currency secondCurrency) {
         setName(String.format("%s/%s", firstCurrency.getCurrencyCode(), secondCurrency.getCurrencyCode()));
@@ -73,4 +78,16 @@ public class TradingPair implements Serializable {
         setFirstCurrency(firstCurrency);
         setSecondCurrency(secondCurrency);
     }
+
+    @Cascade(CascadeType.DELETE)
+    @OneToMany(fetch = FetchType.LAZY, orphanRemoval = true, mappedBy = "tradingPair")
+    @OrderBy("openTime desc")
+    @JsonIgnore
+    List<Candle> history;
+
+    @Cascade(CascadeType.DELETE)
+    @OneToMany(fetch = FetchType.LAZY, orphanRemoval = true, mappedBy = "tradingPair")
+    @OrderBy("openDate desc")
+    @JsonIgnore
+    List<Order> orders;
 }

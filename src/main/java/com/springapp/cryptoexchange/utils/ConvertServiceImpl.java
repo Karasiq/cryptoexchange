@@ -56,7 +56,7 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
                 .list();
         if(!orderList.isEmpty()) {
             for(Order order : orderList) {
-                if(depthEntry.price != null && !depthEntry.price.equals(order.getPrice())) {
+                if(depthEntry.getPrice() != null && !depthEntry.getPrice().equals(order.getPrice())) {
                     if(list.size() < depthSize) {
                         list.add(depthEntry);
                         depthEntry = new Depth.Entry();
@@ -66,7 +66,7 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
                 }
                 depthEntry.addOrder(order);
             }
-            if (list.size() < depthSize && depthEntry.amount.compareTo(BigDecimal.ZERO) > 0 && (list.size() < 1 || !list.get(list.size() - 1).equals(depthEntry))) {
+            if (list.size() < depthSize && depthEntry.getAmount().compareTo(BigDecimal.ZERO) > 0 && (list.size() < 1 || !list.get(list.size() - 1).equals(depthEntry))) {
                 list.add(depthEntry);
             }
         }

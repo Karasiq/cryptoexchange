@@ -35,7 +35,7 @@ public class Currency implements Serializable {
     @NonNull String currencyName;
 
     @Column(name = "withdraw_fee", precision = 5, scale = 2)
-    BigDecimal withdrawFee = BigDecimal.ONE;
+    BigDecimal withdrawFee = BigDecimal.valueOf(0.2);
 
     @Column(name = "min_withdraw_amount", precision = 38, scale = 8)
     @NonNull BigDecimal minimalWithdrawAmount = BigDecimal.ZERO;

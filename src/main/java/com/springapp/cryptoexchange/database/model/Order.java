@@ -4,10 +4,13 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.springapp.cryptoexchange.database.MarketManager;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.*;
 import org.hibernate.annotations.Cache;
-import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.CascadeType;
 
 import javax.persistence.*;
+import javax.persistence.Entity;
+import javax.persistence.Table;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Date;
@@ -64,10 +67,12 @@ public class Order implements Serializable {
     @ManyToOne(fetch = FetchType.EAGER)
     @NonNull TradingPair tradingPair;
 
+    @Cascade({ CascadeType.SAVE_UPDATE, CascadeType.REFRESH, CascadeType.LOCK })
     @ManyToOne(fetch = FetchType.LAZY)
     @JsonIgnore
     @NonNull VirtualWallet sourceWallet;
 
+    @Cascade({ CascadeType.SAVE_UPDATE, CascadeType.REFRESH, CascadeType.LOCK })
     @ManyToOne(fetch = FetchType.LAZY)
     @JsonIgnore
     @NonNull VirtualWallet destWallet;

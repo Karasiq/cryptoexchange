@@ -70,13 +70,13 @@ public class DaemonManagerImpl implements DaemonManager {
         if(old == null || !old.getSettings().equals(settings)) {
             if (old != null) {
                 AbstractWallet oldWallet = old.getWallet();
-                if (oldWallet instanceof CryptoCoinWallet.Account) {
-                    ((CryptoCoinWallet.Account)oldWallet).getJsonRPC().close(); // Close connections
+                if (oldWallet instanceof CryptoCoinWallet) {
+                    ((CryptoCoinWallet)oldWallet).getJsonRPC().close(); // Close connections
                     log.info("Daemon connections closed: " + settings.getCurrency());
                 }
             }
             JsonRPC daemon = new JsonRPC(settings.getDaemonHost(), settings.getDaemonPort(), settings.getDaemonLogin(), settings.getDaemonPassword());
-            daemonMap.put(currencyId, new DaemonInfo(CryptoCoinWallet.getDefaultAccount(daemon), settings));
+            daemonMap.put(currencyId, new DaemonInfo(new CryptoCoinWallet(daemon), settings));
             log.info("Daemon settings changed for currency: " + settings.getCurrency());
         }
     }
@@ -143,9 +143,9 @@ public class DaemonManagerImpl implements DaemonManager {
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public String createWalletAddress(@NonNull VirtualWallet virtualWallet) throws Exception {
         Assert.isTrue(virtualWallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid currency type");
-        CryptoCoinWallet.Account account = (CryptoCoinWallet.Account) getAccount(virtualWallet.getCurrency());
+        CryptoCoinWallet account = (CryptoCoinWallet) getAccount(virtualWallet.getCurrency());
 
-        com.bitcoin.daemon.Address newAddress = account.generateNewAddress();
+        com.bitcoin.daemon.Address newAddress = account.getDefaultAccount().generateNewAddress();
         Address address = new Address(newAddress.getAddress(), virtualWallet);
         Session session = sessionFactory.getCurrentSession();
         session.save(address);
@@ -223,8 +223,7 @@ public class DaemonManagerImpl implements DaemonManager {
         BigDecimal minAmount = currency.getMinimalWithdrawAmount();
         Assert.isTrue(amount.compareTo(minAmount) >= 0, String.format("Minimal withdraw amount: %s %s", minAmount, currency.getCurrencyCode()));
         Session session = sessionFactory.getCurrentSession();
-        session.refresh(wallet);
-        CryptoCoinWallet.Account account = (CryptoCoinWallet.Account) getAccount(currency);
+        CryptoCoinWallet account = (CryptoCoinWallet) getAccount(currency);
         BigDecimal balance = accountManager.getVirtualWalletBalance(wallet), sendAmount = Calculator.withoutFee(amount, currency.getWithdrawFee());
         if(balance.compareTo(amount) < 0) {
             throw new IllegalArgumentException("Insufficient funds");
@@ -293,8 +292,8 @@ public class DaemonManagerImpl implements DaemonManager {
         log.info("Shutting down JSON-RPC connections");
         for(DaemonInfo daemonInfo : daemonMap.values()) {
             AbstractWallet wallet = daemonInfo.getWallet();
-            if (wallet instanceof CryptoCoinWallet.Account) {
-                ((CryptoCoinWallet.Account)wallet).getJsonRPC().close(); // Close connections
+            if (wallet instanceof CryptoCoinWallet) {
+                ((CryptoCoinWallet)wallet).getJsonRPC().close(); // Close connections
             }
         }
         daemonMap.clear();

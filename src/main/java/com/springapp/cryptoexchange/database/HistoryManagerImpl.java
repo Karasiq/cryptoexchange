@@ -16,6 +16,8 @@ import org.hibernate.criterion.Restrictions;
 import org.joda.time.DateTime;
 import org.joda.time.Period;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,19 +53,22 @@ public class HistoryManagerImpl implements HistoryManager {
                 .list();
 
         Candle lastCandle = candleList == null || candleList.isEmpty() ? new Candle(tradingPair) : candleList.get(0);
-        lastCandle.update(lastPrice, amount);
-        if (lastCandle.isClosed(chartPeriod)) { // next
+        if (lastCandle.timeToClose(chartPeriod)) { // next
             lastCandle.close();
             session.saveOrUpdate(lastCandle);
             log.info("Closed: " + lastCandle);
-            lastCandle = new Candle(tradingPair, lastPrice);
+            lastCandle = new Candle(tradingPair, lastCandle);
+            log.info("New candle opened: " + lastCandle);
         }
+        lastCandle.update(lastPrice, amount);
         session.saveOrUpdate(lastCandle);
         log.info(lastCandle);
     }
 
     @Transactional
-    @Async
+    @Caching(evict = {
+            @CacheEvict(value = "getMarketChartData", key = "#tradingPair.id")
+    })
     public void updateMarketInfo(@NonNull TradingPair tradingPair, final BigDecimal price, final BigDecimal amount) {
         Session session = sessionFactory.getCurrentSession();
         tradingPair = (TradingPair) session.get(TradingPair.class, tradingPair.getId());

@@ -5,8 +5,11 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.Generated;
+import org.hibernate.annotations.GenerationTime;
 import org.joda.time.DateTime;
 import org.joda.time.Period;
+import org.springframework.util.Assert;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -26,11 +29,15 @@ public class Candle implements Serializable {
     @Id @GeneratedValue @JsonIgnore
     long id;
 
-    @Column(name = "open_time")
+    @Column(name = "open_time", updatable = false)
     Date openTime = new Date();
 
     @Column(name = "close_time")
     Date closeTime;
+
+    @Version
+    @Column(name = "update_time")
+    Date updateTime;
 
     @Column(name = "open", precision = 38, scale = 8)
     BigDecimal open;
@@ -46,14 +53,12 @@ public class Candle implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY) @JsonIgnore @NonNull
     TradingPair tradingPair;
 
-    public Candle(final TradingPair tradingPair, @NonNull final BigDecimal lastPrice) { // open new candle
+    public Candle(final TradingPair tradingPair, @NonNull final Candle previousCandle) { // open new candle
         this(tradingPair);
-        setOpen(lastPrice);
-        setClose(lastPrice);
-        setHigh(lastPrice);
-        setLow(lastPrice);
+        Assert.isTrue(previousCandle.isClosed(), "Candle is still open");
+        update(previousCandle.getClose(), BigDecimal.ZERO);
     }
-    
+
     public void update(final @NonNull BigDecimal lastPrice, final @NonNull BigDecimal amount) {
         if(getHigh() == null || lastPrice.compareTo(getHigh()) > 0) {
             setHigh(lastPrice);
@@ -72,10 +77,15 @@ public class Candle implements Serializable {
         }
         setVolume(volume);
         setClose(lastPrice);
+        setUpdateTime(new Date());
     }
 
-    public boolean isClosed(final @NonNull Period chartPeriod) {
-        return DateTime.now().minus(chartPeriod).isAfter(new DateTime(getOpenTime()));
+    public boolean timeToClose(final @NonNull Period chartPeriod) {
+        return getOpenTime() != null && DateTime.now().minus(chartPeriod).isAfter(new DateTime(getOpenTime()));
+    }
+
+    public boolean isClosed() {
+        return getCloseTime() != null;
     }
 
     public void close() {

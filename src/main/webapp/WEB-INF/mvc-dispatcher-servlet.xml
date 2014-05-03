@@ -25,6 +25,7 @@
     </bean>
 
     <mvc:view-controller path="/" view-name="index"/>
+    <mvc:view-controller path="/admin" view-name="admin"/>
     <mvc:resources mapping="/*.html" location="/WEB-INF/static/"/>
     <mvc:resources mapping="/favicon.ico" location="/WEB-INF/static/"/>
     <mvc:resources mapping="/bower_components/**" location="/WEB-INF/static/bower_components/"/>

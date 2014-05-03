@@ -17,6 +17,7 @@ import org.hibernate.criterion.Restrictions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Isolation;
@@ -79,10 +80,7 @@ public class FeeManagerImpl implements FeeManager {
         FreeBalance freeBalance = getFreeBalance(session, currency);
         try {
             BigDecimal newTotal = freeBalance.getAmount();
-            if(newTotal == null) {
-                newTotal = BigDecimal.ZERO;
-            }
-            newTotal = newTotal.add(feeAmount);
+            newTotal = newTotal == null ? feeAmount : newTotal.add(feeAmount);
             freeBalance.setAmount(newTotal);
             log.info(String.format("%s fee collected: %s %s (total: %s)", type, feeAmount, currency.getCurrencyCode(), newTotal));
             session.update(freeBalance);
@@ -100,7 +98,7 @@ public class FeeManagerImpl implements FeeManager {
     private Address.Transaction withdrawCrypto(Session session, FreeBalance freeBalance, BigDecimal amount, String address) throws Exception {
         final BigDecimal current = freeBalance.getAmount();
         Assert.isTrue(current.compareTo(amount) >= 0, "Insufficient funds");
-        CryptoCoinWallet.Account cryptoCoinWallet = (CryptoCoinWallet.Account) daemonManager.getAccount(freeBalance.getCurrency());
+        CryptoCoinWallet cryptoCoinWallet = (CryptoCoinWallet) daemonManager.getAccount(freeBalance.getCurrency());
         Address.Transaction transaction = cryptoCoinWallet.sendToAddress(address, amount);
         freeBalance.setAmount(current.subtract(amount).add(transaction.getFee()));
         session.update(freeBalance);
@@ -122,7 +120,6 @@ public class FeeManagerImpl implements FeeManager {
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.SERIALIZABLE)
     public Object withdrawFee(@NonNull Currency currency, @NonNull BigDecimal amount, @NonNull Object receiverInfo) throws Exception {
-        Assert.isTrue(currency.isEnabled(), "Currency disabled");
         Session session = sessionFactory.getCurrentSession();
         FreeBalance freeBalance = getFreeBalance(session, currency);
         Assert.notNull(freeBalance, "Balance not found");
@@ -131,6 +128,7 @@ public class FeeManagerImpl implements FeeManager {
             return null;
         } else switch (currency.getCurrencyType()) {
             case CRYPTO:
+                Assert.isTrue(currency.isEnabled(), "Currency disabled");
                 Assert.isInstanceOf(String.class, receiverInfo, "Invalid address");
                 return withdrawCrypto(session, freeBalance, amount, (String) receiverInfo);
             default:

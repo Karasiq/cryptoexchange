@@ -68,7 +68,7 @@ public class AdminController {
     }
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
-    @RequestMapping(value = "/modify_currency/{currencyId}", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
+    @RequestMapping(value = "/currency/{currencyId}/modify", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     @Caching(evict = {
             @CacheEvict(value = "getCurrencies", allEntries = true),
@@ -96,7 +96,7 @@ public class AdminController {
     }
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
-    @RequestMapping(value = "/add_currency", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
+    @RequestMapping(value = "/currency/add", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     @Caching(evict = {
             @CacheEvict(value = "getCurrencies", allEntries = true),
@@ -114,7 +114,7 @@ public class AdminController {
     }
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
-    @RequestMapping(value = "/modify_trading_pair/{tradingPairId}", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
+    @RequestMapping(value = "/trading_pair/{tradingPairId}/modify", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     @Caching(evict = {
             @CacheEvict(value = "getTradingPairs", allEntries = true),
@@ -135,7 +135,7 @@ public class AdminController {
     }
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
-    @RequestMapping(value = "/add_trading_pair", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
+    @RequestMapping(value = "/trading_pair/add", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     @Caching(evict = {
             @CacheEvict(value = "getTradingPairs", allEntries = true)
@@ -149,8 +149,17 @@ public class AdminController {
         return tradingPair;
     }
 
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
+    @RequestMapping(value = "/trading_pair/{tradingPairId}/delete", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
+    @ResponseBody
+    public void removeTradingPair(@PathVariable long tradingPairId) throws Exception {
+        TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
+        Assert.notNull(tradingPair, "Trading pair not found");
+        settingsManager.removeTradingPair(tradingPair);
+    }
+
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
-    @RequestMapping(value = "/set_daemon_settings/{currencyId}", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
+    @RequestMapping(value = "/daemon/{currencyId}/set", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     public boolean setDaemonSettings(@PathVariable long currencyId, @RequestParam String daemonHost, @RequestParam Integer daemonPort, @RequestParam String daemonLogin, @RequestParam String daemonPassword) throws Exception {
         Session session = sessionFactory.getCurrentSession();
@@ -174,7 +183,7 @@ public class AdminController {
     }
 
     @Transactional
-    @RequestMapping(value = "/commit_news", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
+    @RequestMapping(value = "/news/commit", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     public News commitNews(@RequestParam long id, @RequestParam String title, @RequestParam String text) {
         News news = new News(title, text);
@@ -184,15 +193,15 @@ public class AdminController {
     }
 
     @Transactional
-    @RequestMapping(value = "/remove_news", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
+    @RequestMapping(value = "/news/{newsId}/remove", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
-    public boolean removeNews(@RequestParam long id) {
-        newsManager.removeNews(id);
+    public boolean removeNews(@PathVariable long newsId) {
+        newsManager.removeNews(newsId);
         return true;
     }
 
     @Transactional
-    @RequestMapping(value = "/withdraw_fee/crypto/{currencyId}", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
+    @RequestMapping(value = "/fee/{currencyId}/withdraw/crypto", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     public Address.Transaction withdrawCryptoFee(@PathVariable long currencyId, @RequestParam String address, @RequestParam BigDecimal amount) throws Exception {
         Currency currency = settingsManager.getCurrency(currencyId);
@@ -205,12 +214,12 @@ public class AdminController {
             @CacheEvict(value = "getAccountBalances", key = "#principal.name")
     })
     @Transactional
-    @RequestMapping(value = "/withdraw_fee/internal/{currencyId}", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
+    @RequestMapping(value = "/fee/{currencyId}/withdraw/internal", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     @SuppressWarnings("all")
     public void withdrawInternalFee(@PathVariable long currencyId, @RequestParam(required = false, defaultValue = "") String username, @RequestParam BigDecimal amount, Principal principal) throws Exception {
         Currency currency = settingsManager.getCurrency(currencyId);
-        Assert.isTrue(currency != null && currency.isEnabled() && currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid parameters");
+        Assert.notNull(currency, "Currency not found");
         if(username.length() < 1) username = principal.getName();
         Account account = accountManager.getAccount(username);
         Assert.isTrue(account != null && account.isEnabled(), "Account not found or disabled");

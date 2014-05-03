@@ -17,31 +17,30 @@ import java.util.List;
 public interface ConvertService {
     @Data
     @NoArgsConstructor
+    @AllArgsConstructor
     public static class MarketHistory implements Serializable {
         Order.Type type;
         BigDecimal price;
         BigDecimal amount;
         Date time;
         public MarketHistory(Order order) {
-            type = order.getType();
-            price = order.getPrice();
-            amount = order.getCompletedAmount();
-            time = order.getCloseDate();
+            this(order.getType(), order.getPrice(), order.getCompletedAmount(), order.getCloseDate());
         }
     }
 
     @Data @FieldDefaults(level = AccessLevel.PUBLIC, makeFinal = true)
     public static class Depth implements Serializable {
-        @EqualsAndHashCode
+        @Data
+        @FieldDefaults(level = AccessLevel.PRIVATE)
         static class Entry implements Serializable, Comparable<Entry> {
             protected void addOrder(Order order) {
-                price = order.getPrice();
-                amount = amount.add(order.getRemainingAmount());
+                setPrice(order.getPrice());
+                setAmount(getAmount().add(order.getRemainingAmount()));
             }
-            public BigDecimal price;
-            public BigDecimal amount = BigDecimal.ZERO;
+            BigDecimal price;
+            BigDecimal amount = BigDecimal.ZERO;
             public int compareTo(Entry entry) {
-                return price.compareTo(entry.price);
+                return getPrice().compareTo(entry.getPrice());
             }
         }
         List<Entry> sellOrders = new ArrayList<>();

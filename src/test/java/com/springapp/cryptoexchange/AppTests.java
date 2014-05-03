@@ -9,6 +9,7 @@ import com.springapp.cryptoexchange.utils.Calculator;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
+import lombok.val;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.junit.Before;
@@ -27,6 +28,8 @@ import org.springframework.web.context.WebApplicationContext;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -89,7 +92,7 @@ public class AppTests {
 
     @Test
     public void jsonApi() throws Exception {
-        MvcResult result = mockMvc.perform(get("/rest/api.json/info"))
+        MvcResult result = mockMvc.perform(get("/rest/api.json/trading_pairs"))
                 .andExpect(status().isOk())
                 .andReturn();
         log.debug(result.getResponse().getContentAsString());
@@ -99,8 +102,25 @@ public class AppTests {
     public void jsonRpc() throws Exception {
         Currency currency = settingsManager.getCurrencyList().get(0);
         AbstractWallet wallet = daemonManager.getAccount(currency);
+
+        Map<String, ?> info = ((CryptoCoinWallet) wallet).getInfo();
+        Assert.isTrue((Integer) info.get("blocks") > 0);
+        log.info("getinfo: " + info);
+
+        final Set<?> addressSet = wallet.getAddressSet();
+        BigDecimal balance = wallet.summaryConfirmedBalance(addressSet);
+
+        /* int iterations = 10;
+        long startTime = System.nanoTime();
+        for(int i = 0; i < iterations; i++) {
+            Assert.isTrue(balance.equals(wallet.summaryConfirmedBalance(addressSet)));
+        }
+        log.info(String.format("Balance retrieved %d times in %d ms (%d ms per one)", iterations,
+                TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime),
+                TimeUnit.NANOSECONDS.toMillis((System.nanoTime() - startTime) / iterations))); */
+
         log.info(String.format("%s wallet balance = %s %s", currency.getCurrencyName(),
-                wallet.summaryConfirmedBalance(wallet.getAddressSet()), currency.getCurrencyCode()));
+                balance, currency.getCurrencyCode()));
     }
 
     @Test
@@ -122,6 +142,8 @@ public class AppTests {
             secondAccount = accountManager.addAccount(new Account("seller", "seller@email.com", "password"));
         }
         TradingPair tradingPair = settingsManager.getTradingPairs().get(0);
+        tradingPair.setMinimalTradeAmount(BigDecimal.ZERO);
+
         VirtualWallet firstBuyWallet = accountManager.getVirtualWallet(firstAccount, tradingPair.getFirstCurrency()),
                 secondBuyWallet = accountManager.getVirtualWallet(firstAccount, tradingPair.getSecondCurrency()),
                 firstSellWallet = accountManager.getVirtualWallet(secondAccount, tradingPair.getFirstCurrency()),
@@ -147,14 +169,14 @@ public class AppTests {
 
         // Check balance validity
         Assert.isTrue(firstBuyWallet.getVirtualBalance()
-                .compareTo(Calculator.withoutFee(buyAmount, tradingPair.getTradingFee())) == 0);
+                .compareTo(Calculator.withoutFee(buyAmount, tradingPair.getTradingFee())) == 0, "Buyer dest balance is invalid");
         Assert.isTrue(secondSellWallet.getVirtualBalance()
-                .compareTo(Calculator.withoutFee(buyAmount.multiply(sellPrice), tradingPair.getTradingFee())) == 0);
+                .compareTo(Calculator.withoutFee(buyAmount.multiply(sellPrice), tradingPair.getTradingFee())) == 0, "Seller dest balance is invalid");
 
         Assert.isTrue(secondBuyWallet.getVirtualBalance()
-                .compareTo(walletBalanceAmount.subtract(sellPrice.multiply(buyAmount))) == 0);
+                .compareTo(walletBalanceAmount.subtract(sellPrice.multiply(buyAmount))) == 0, "Buyer source balance is invalid");
         Assert.isTrue(firstSellWallet.getVirtualBalance()
-                .compareTo(walletBalanceAmount.subtract(buyAmount)) == 0);
+                .compareTo(walletBalanceAmount.subtract(buyAmount)) == 0, "Seller source balance is invalid");
 
         log.info(buyOrder);
         log.info(sellOrder);
@@ -162,8 +184,9 @@ public class AppTests {
         log.debug("Source: " + secondBuyWallet.getVirtualBalance() + " " + firstSellWallet.getVirtualBalance() +
                 "\nDest: " + firstBuyWallet.getVirtualBalance() + " " + secondSellWallet.getVirtualBalance());
 
-        List<Candle> history = historyManager.getMarketChartData(tradingPair, 24);
-        log.debug(history);
+        List<Candle> history = tradingPair.getHistory();
+        log.info(history.get(0));
+        Assert.isTrue(history.get(0).getClose().compareTo(sellPrice) == 0, "Invalid chart");
     }
 
     @Test
@@ -189,6 +212,9 @@ public class AppTests {
         virtualWalletSource.addBalance(BigDecimal.valueOf(initialBalance));
         log.debug(virtualWalletSource);
         log.debug(virtualWalletDest);
+
+        // One cancelled:
+        marketManager.cancelOrder(marketManager.executeOrder(new Order(Order.Type.BUY, BigDecimal.ONE, BigDecimal.ONE, tradingPair, virtualWalletSource, virtualWalletDest, account)));
 
         long startTime = System.nanoTime();
         for(int i = 0; i < initialBalance; i++) marketManager.executeOrder(new Order(Order.Type.BUY, BigDecimal.ONE, BigDecimal.ONE, tradingPair, virtualWalletSource, virtualWalletDest, account));

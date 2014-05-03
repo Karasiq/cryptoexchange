@@ -6,10 +6,7 @@ import com.springapp.cryptoexchange.utils.Calculator;
 import lombok.NonNull;
 import lombok.experimental.NonFinal;
 import lombok.extern.apachecommons.CommonsLog;
-import org.hibernate.Criteria;
-import org.hibernate.FetchMode;
-import org.hibernate.Session;
-import org.hibernate.SessionFactory;
+import org.hibernate.*;
 import org.hibernate.criterion.Restrictions;
 import org.joda.time.DateTime;
 import org.joda.time.Period;
@@ -54,13 +51,11 @@ public class MarketManagerImpl implements MarketManager {
     CacheCleaner cacheCleaner;
 
     private void returnUnusedFunds(@NonNull Order order) {
-        Session session = sessionFactory.getCurrentSession();
         Assert.isTrue(!order.isActual(), "Order must be closed");
         BigDecimal returnAmount = Calculator.totalRequired(order.getType(), order.getAmount(), order.getPrice()).subtract(order.getTotal());
         if (returnAmount.compareTo(BigDecimal.ZERO) != 0) {
             VirtualWallet wallet = order.getSourceWallet();
             wallet.addBalance(returnAmount);
-            session.update(wallet);
             if(log.isDebugEnabled()) {
                 log.debug(String.format("Returned unspent money: %s %s => %s (%s)", returnAmount, wallet.getCurrency().getCurrencyCode(), wallet, order));
             }
@@ -119,13 +114,11 @@ public class MarketManagerImpl implements MarketManager {
         Assert.isTrue(firstDest.getCurrency().equals(secondCurrency));
         if(log.isDebugEnabled()) log.debug(String.format("%s +%s %s", firstDest, secondCurrencySend, secondCurrency.getCurrencyCode()));
         firstDest.addBalance(secondCurrencySend);
-        session.update(firstDest);
 
         // secondDest - buyer, receives first currency from pair
         Assert.isTrue(secondDest.getCurrency().equals(firstCurrency));
         if(log.isDebugEnabled()) log.debug(String.format("%s +%s %s", secondDest, firstCurrencySend, firstCurrency.getCurrencyCode()));
         secondDest.addBalance(firstCurrencySend);
-        session.update(secondDest);
 
         if(firstOrder.getStatus() == Order.Status.COMPLETED) {
             returnUnusedFunds(firstOrder);

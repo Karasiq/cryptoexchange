@@ -13,8 +13,7 @@ import javax.persistence.*;
 import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Data
 @Entity
@@ -25,38 +24,33 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class Account implements Serializable {
-
-    @RequiredArgsConstructor
     public static enum RoleClass {
-        ANONYMOUS("ROLE_ANONYMOUS"), USER("ROLE_USER"), MODERATOR("ROLE_MODERATOR"), ADMIN("ROLE_ADMIN");
-        @NonNull private final String name;
+        ANONYMOUS, USER, MODERATOR, ADMIN, API_USER;
 
-        @Override
-        public String toString() {
-            return this.name;
+        static {
+            USER.setSubRoles(API_USER);
+            MODERATOR.setSubRoles(USER);
+            ADMIN.setSubRoles(MODERATOR);
         }
+
+        private final Set<RoleClass> subRoles = new HashSet<>();
+
         public List<GrantedAuthority> getGrantedAuthorities() {
-            List<GrantedAuthority> grantedAuthorities = new ArrayList<>();
-            switch (this) {
-                case ANONYMOUS:
-                    grantedAuthorities.add(new SimpleGrantedAuthority(ANONYMOUS.toString()));
-                    break;
-                case USER:
-                    grantedAuthorities.add(new SimpleGrantedAuthority(USER.toString()));
-                    break;
-                case MODERATOR:
-                    grantedAuthorities.add(new SimpleGrantedAuthority(USER.toString()));
-                    grantedAuthorities.add(new SimpleGrantedAuthority(MODERATOR.toString()));
-                    break;
-                case ADMIN:
-                    grantedAuthorities.add(new SimpleGrantedAuthority(USER.toString()));
-                    grantedAuthorities.add(new SimpleGrantedAuthority(MODERATOR.toString()));
-                    grantedAuthorities.add(new SimpleGrantedAuthority(ADMIN.toString()));
-                    break;
-                default:
-                    throw new IllegalArgumentException();
-            }
+            final List<GrantedAuthority> grantedAuthorities = new ArrayList<>(subRoles.size() + 1);
+            grantedAuthorities.add(this.toGrantedAuthority());
+            for(RoleClass subRole : subRoles) grantedAuthorities.add(subRole.toGrantedAuthority());
             return grantedAuthorities;
+        }
+
+        private GrantedAuthority toGrantedAuthority() {
+            return new SimpleGrantedAuthority("ROLE_".concat(toString()));
+        }
+
+        private void setSubRoles(RoleClass... subRoles) {
+            for(RoleClass subRole : subRoles) {
+                this.subRoles.add(subRole);
+                this.subRoles.addAll(subRole.subRoles);
+            }
         }
     }
 

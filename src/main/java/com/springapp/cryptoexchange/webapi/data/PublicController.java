@@ -46,7 +46,7 @@ public class PublicController {
     NewsManager newsManager;
 
     @Cacheable("getCurrencies")
-    @RequestMapping(value = "/currency")
+    @RequestMapping(value = "/currencies")
     @ResponseBody
     public List<Currency> getCurrencies() {
         List<Currency> currencyList = settingsManager.getCurrencyList();
@@ -69,7 +69,7 @@ public class PublicController {
     }
 
     @Cacheable("getTradingPairs")
-    @RequestMapping(value = "/info")
+    @RequestMapping(value = "/trading_pairs")
     @ResponseBody
     public List<TradingPair> getTradingPairs() {
         List<TradingPair> tradingPairList = settingsManager.getTradingPairs();
@@ -84,7 +84,7 @@ public class PublicController {
 
 
     @Cacheable(value = "getTradingPairInfo", key = "#tradingPairId")
-    @RequestMapping(value = "/info/{tradingPairId}")
+    @RequestMapping(value = "/trading_pair/{tradingPairId}")
     @ResponseBody
     public TradingPair getTradingPairInfo(@PathVariable long tradingPairId) {
         return settingsManager.getTradingPair(tradingPairId);
