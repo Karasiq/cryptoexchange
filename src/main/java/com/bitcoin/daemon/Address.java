@@ -2,7 +2,10 @@ package com.bitcoin.daemon;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NonNull;
 import lombok.experimental.FieldDefaults;
 
 import java.io.Serializable;

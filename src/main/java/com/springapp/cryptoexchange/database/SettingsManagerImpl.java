@@ -61,8 +61,8 @@ public class SettingsManagerImpl implements SettingsManager {
 
     @Transactional
     public void addCurrency(@NonNull Currency currency) throws Exception {
-        Assert.hasLength(currency.getCurrencyCode(), "Currency code cannot be empty");
-        Assert.hasLength(currency.getCurrencyName(), "Currency name cannot be empty");
+        Assert.hasLength(currency.getCode(), "Currency code cannot be empty");
+        Assert.hasLength(currency.getName(), "Currency name cannot be empty");
         Session session = sessionFactory.getCurrentSession();
         session.save(currency);
         log.info("New currency added: " + currency);

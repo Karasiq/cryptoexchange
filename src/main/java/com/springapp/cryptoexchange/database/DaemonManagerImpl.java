@@ -1,8 +1,10 @@
 package com.springapp.cryptoexchange.database;
 
-import com.bitcoin.daemon.*;
+import com.bitcoin.daemon.AbstractWallet;
+import com.bitcoin.daemon.CryptoCoinWallet;
+import com.bitcoin.daemon.DaemonRpcException;
+import com.bitcoin.daemon.JsonRPC;
 import com.springapp.cryptoexchange.database.model.*;
-import com.springapp.cryptoexchange.database.model.Address;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.log.CryptoWithdrawHistory;
 import com.springapp.cryptoexchange.utils.CacheCleaner;
@@ -81,7 +83,7 @@ public class DaemonManagerImpl implements DaemonManager {
 
     @Transactional(readOnly = true)
     public Daemon getDaemonSettings(@NonNull Currency currency) {
-        Assert.isTrue(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid currency type");
+        Assert.isTrue(currency.getType().equals(Currency.Type.CRYPTO), "Invalid currency type");
         Session session = sessionFactory.getCurrentSession();
         return (Daemon) session.createCriteria(Daemon.class)
                 .add(Restrictions.eq("currency", currency))
@@ -92,7 +94,7 @@ public class DaemonManagerImpl implements DaemonManager {
     public synchronized void loadDaemons() {
         log.info("Loading daemon settings...");
         List<Currency> currencyList = settingsManager.getCurrencyList();
-        for(Currency currency : currencyList) if(currency.isEnabled() && currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
+        for(Currency currency : currencyList) if(currency.isEnabled() && currency.getType().equals(Currency.Type.CRYPTO)) {
             try {
                 Daemon settings = getDaemonSettings(currency);
                 Assert.notNull(settings, "Daemon settings not found");
@@ -110,25 +112,16 @@ public class DaemonManagerImpl implements DaemonManager {
         loadDaemons();
         log.info("Reloading transactions...");
         List<Currency> currencyList = settingsManager.getCurrencyList();
-        boolean hasErrors = false;
-        for(Currency currency : currencyList) if(currency.isEnabled() && currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
+        for(Currency currency : currencyList) if(currency.isEnabled() && currency.getType().equals(Currency.Type.CRYPTO)) {
             try {
                 DaemonInfo daemonInfo = daemonMap.get(currency.getId());
                 Assert.notNull(daemonInfo, String.format("Daemon settings not found for currency: %s", currency));
                 daemonInfo.getWallet().loadTransactions(300);
             } catch (DaemonRpcException exc) {
                 log.error("Daemon error for currency: " + currency, exc);
-                hasErrors = true;
             }
         }
         cacheCleaner.cryptoBalanceEvict();
-        /* if (!hasErrors) {
-            cacheCleaner.cryptoBalanceEvict(); // Only clear cache if no errors
-            log.info("Crypto-balance cache flushed");
-        } else {
-            log.fatal("Cannot reload transactions, fallback to cache");
-            loadDaemons(); // try to fix
-        } */
     }
 
     public AbstractWallet getAccount(Currency currency) {
@@ -140,7 +133,7 @@ public class DaemonManagerImpl implements DaemonManager {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public String createWalletAddress(@NonNull VirtualWallet virtualWallet) throws Exception {
-        Assert.isTrue(virtualWallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid currency type");
+        Assert.isTrue(virtualWallet.getCurrency().getType().equals(Currency.Type.CRYPTO), "Invalid currency type");
         AbstractWallet account = getAccount(virtualWallet.getCurrency());
         if(account instanceof CryptoCoinWallet) { // Generic crypto-currency wallet
             String newAddress = (String) account.generateNewAddress();
@@ -161,7 +154,8 @@ public class DaemonManagerImpl implements DaemonManager {
         return strings;
     }
 
-    @Transactional(isolation = Isolation.READ_COMMITTED)
+    @SuppressWarnings("unchecked")
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     @Cacheable(value = "getCryptoBalance", key = "#virtualWallet.id")
     public BigDecimal getCryptoBalance(@NonNull VirtualWallet virtualWallet) throws Exception {
         try {
@@ -216,9 +210,9 @@ public class DaemonManagerImpl implements DaemonManager {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     public com.bitcoin.daemon.Address.Transaction withdrawFunds(@NonNull VirtualWallet wallet, @NonNull String address, @NonNull BigDecimal amount) throws Exception {
         Currency currency = wallet.getCurrency();
-        Assert.isTrue(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO) && address.length() > 0 && amount.compareTo(BigDecimal.ZERO) > 0, "Invalid parameters");
+        Assert.isTrue(currency.getType().equals(Currency.Type.CRYPTO) && address.length() > 0 && amount.compareTo(BigDecimal.ZERO) > 0, "Invalid parameters");
         BigDecimal minAmount = currency.getMinimalWithdrawAmount();
-        Assert.isTrue(amount.compareTo(minAmount) >= 0, String.format("Minimal withdraw amount: %s %s", minAmount, currency.getCurrencyCode()));
+        Assert.isTrue(amount.compareTo(minAmount) >= 0, String.format("Minimal withdraw amount: %s %s", minAmount, currency.getCode()));
         Session session = sessionFactory.getCurrentSession();
         CryptoCoinWallet account = (CryptoCoinWallet) getAccount(currency);
         BigDecimal balance = accountManager.getVirtualWalletBalance(wallet), sendAmount = Calculator.withoutFee(amount, currency.getWithdrawFee());
@@ -241,7 +235,7 @@ public class DaemonManagerImpl implements DaemonManager {
                     withdrawFeeAmount, transactionFeeAmount, summaryFeeAmount));
 
             if (summaryFeeAmount.compareTo(BigDecimal.ZERO) < 0) // Negative
-                log.fatal(String.format("Deficit: %s %s", summaryFeeAmount, currency.getCurrencyCode()));
+                log.fatal(String.format("Deficit: %s %s", summaryFeeAmount, currency.getCode()));
 
             feeManager.submitCollectedFee(FreeBalance.FeeType.WITHDRAW, currency, summaryFeeAmount);
 

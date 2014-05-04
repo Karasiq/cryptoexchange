@@ -17,7 +17,6 @@ import org.hibernate.criterion.Restrictions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Isolation;
@@ -27,6 +26,7 @@ import org.springframework.util.Assert;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Repository
 @CommonsLog
@@ -82,7 +82,7 @@ public class FeeManagerImpl implements FeeManager {
             BigDecimal newTotal = freeBalance.getAmount();
             newTotal = newTotal == null ? feeAmount : newTotal.add(feeAmount);
             freeBalance.setAmount(newTotal);
-            log.info(String.format("%s fee collected: %s %s (total: %s)", type, feeAmount, currency.getCurrencyCode(), newTotal));
+            log.info(String.format("%s fee collected: %s %s (total: %s)", type, feeAmount, currency.getCode(), newTotal));
             session.update(freeBalance);
         } catch (Exception e) {
             log.fatal(e);
@@ -126,7 +126,7 @@ public class FeeManagerImpl implements FeeManager {
         if (receiverInfo instanceof VirtualWallet) { // Virtual transaction
             withdrawInternal(session, freeBalance, (VirtualWallet) receiverInfo, amount);
             return null;
-        } else switch (currency.getCurrencyType()) {
+        } else switch (currency.getType()) {
             case CRYPTO:
                 Assert.isTrue(currency.isEnabled(), "Currency disabled");
                 Assert.isInstanceOf(String.class, receiverInfo, "Invalid address");
@@ -138,14 +138,15 @@ public class FeeManagerImpl implements FeeManager {
 
     @Profile("master")
     @SuppressWarnings("unchecked")
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     @Scheduled(cron = "30 5 * * 2 *") // Monday 5:30
     public void calculateDivergence() throws Exception {
+        long startTime = System.nanoTime();
         Session session = sessionFactory.getCurrentSession();
         List<Currency> currencyList = settingsManager.getCurrencyList();
-        for(Currency currency : currencyList) if(currency.isEnabled() && !currency.getCurrencyType().equals(Currency.CurrencyType.PURE_VIRTUAL)) {
+        for(Currency currency : currencyList) if(currency.isEnabled() && !currency.getType().equals(Currency.Type.PURE_VIRTUAL)) {
             BigDecimal overallBalance, databaseBalance = BigDecimal.ZERO;
-            switch (currency.getCurrencyType()) {
+            switch (currency.getType()) {
                 case CRYPTO:
                     AbstractWallet account = daemonManager.getAccount(currency);
                     overallBalance = account.summaryConfirmedBalance();
@@ -165,9 +166,10 @@ public class FeeManagerImpl implements FeeManager {
                 final BigDecimal divergence = overallBalance.subtract(databaseBalance),
                         actualFreeBalance = freeBalance.getAmount().add(divergence);
                 log.fatal(String.format("Balance divergence for currency %s: EXTERNAL=%s, PERSISTED=%s, DIVERGENCE=%s, ACTUAL FREE=%s", currency, overallBalance, databaseBalance, divergence, actualFreeBalance));
-                // freeBalance.setAmount(actualFreeBalance);
-                // session.update(freeBalance);
+                freeBalance.setAmount(actualFreeBalance);
+                session.update(freeBalance);
             }
         }
+        log.info(String.format("Free balance divergence calculated in %d ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)));
     }
 }

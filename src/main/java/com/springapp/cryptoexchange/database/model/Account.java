@@ -8,12 +8,17 @@ import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.springframework.security.authentication.encoding.ShaPasswordEncoder;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.util.Assert;
 
 import javax.persistence.*;
+import javax.validation.constraints.Pattern;
 import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.security.NoSuchAlgorithmException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @Data
 @Entity
@@ -24,7 +29,7 @@ import java.util.*;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class Account implements Serializable {
-    public static enum RoleClass {
+    public static enum Role {
         ANONYMOUS, USER, MODERATOR, ADMIN, API_USER;
 
         static {
@@ -33,12 +38,12 @@ public class Account implements Serializable {
             ADMIN.setSubRoles(MODERATOR);
         }
 
-        private final Set<RoleClass> subRoles = new HashSet<>();
+        private final Set<Role> subRoles = new HashSet<>();
 
         public List<GrantedAuthority> getGrantedAuthorities() {
             final List<GrantedAuthority> grantedAuthorities = new ArrayList<>(subRoles.size() + 1);
             grantedAuthorities.add(this.toGrantedAuthority());
-            for(RoleClass subRole : subRoles) grantedAuthorities.add(subRole.toGrantedAuthority());
+            for(Role subRole : subRoles) grantedAuthorities.add(subRole.toGrantedAuthority());
             return grantedAuthorities;
         }
 
@@ -46,8 +51,8 @@ public class Account implements Serializable {
             return new SimpleGrantedAuthority("ROLE_".concat(toString()));
         }
 
-        private void setSubRoles(RoleClass... subRoles) {
-            for(RoleClass subRole : subRoles) {
+        private void setSubRoles(Role... subRoles) {
+            for(Role subRole : subRoles) {
                 this.subRoles.add(subRole);
                 this.subRoles.addAll(subRole.subRoles);
             }
@@ -58,12 +63,14 @@ public class Account implements Serializable {
     @GeneratedValue
     long id;
 
+    @Pattern(regexp = "[a-zA-Z][a-zA-Z0-9_-]{4,29}", message = "Invalid username")
     @Column(length = 30, name = "login", unique = true, updatable = false)
     String login;
 
     @Column(length = 200, name = "password")
     String passwordHash;
 
+    @Pattern(regexp = "[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}", message = "Invalid e-mail address")
     @Column(length = 200, name = "email_address", unique = true)
     String emailAddress;
 
@@ -71,15 +78,10 @@ public class Account implements Serializable {
     boolean enabled = true;
 
     @Column(name = "role", nullable = false)
-    RoleClass role = RoleClass.USER;
-
-    public static boolean validate(final String login, final String password, final String emailAddress) {
-        return emailAddress.matches("[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}") &&
-                login.matches("[a-zA-Z][a-zA-Z0-9_-]{4,29}") &&
-                password.matches("[a-zA-Z0-9_!@#$%^&*]{6,200}");
-    }
+    Role role = Role.USER;
 
     public Account(final String login, final String emailAddress, final String password) throws Exception {
+        Assert.isTrue(password.matches("[a-zA-Z0-9_!@#$%^&*]{6,200}"), "Invalid password");
         setLogin(login);
         setEmailAddress(emailAddress);
         setPasswordHash(generatePasswordHash(login, password));

@@ -77,19 +77,19 @@ public class AdminController {
             @CacheEvict(value = "getTradingPairInfo", allEntries = true),
             @CacheEvict(value = "getAccountBalances", allEntries = true)
     })
-    public Currency modifyCurrency(@PathVariable long currencyId, @RequestParam(required = false) boolean enabled, @RequestParam String currencyCode, @RequestParam String currencyName, @RequestParam Currency.CurrencyType currencyType, @RequestParam BigDecimal withdrawFee, @RequestParam BigDecimal minimalWithdrawAmount) throws Exception {
+    public Currency modifyCurrency(@PathVariable long currencyId, @RequestParam(required = false) boolean enabled, @RequestParam String currencyCode, @RequestParam String currencyName, @RequestParam Currency.Type currencyType, @RequestParam BigDecimal withdrawFee, @RequestParam BigDecimal minimalWithdrawAmount) throws Exception {
         Session session = sessionFactory.getCurrentSession();
         Currency currency = settingsManager.getCurrency(currencyId);
         Assert.notNull(currency, "Currency not found");
         currency.setEnabled(enabled);
-        currency.setCurrencyCode(currencyCode);
-        currency.setCurrencyName(currencyName);
-        currency.setCurrencyType(currencyType);
+        currency.setCode(currencyCode);
+        currency.setName(currencyName);
+        currency.setType(currencyType);
         currency.setWithdrawFee(withdrawFee);
         currency.setMinimalWithdrawAmount(minimalWithdrawAmount);
         session.update(currency);
         log.info("Currency modified: " + currency);
-        if (currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
+        if (currency.getType().equals(Currency.Type.CRYPTO)) {
             daemonManager.loadDaemons();
         }
         return currency;
@@ -102,11 +102,11 @@ public class AdminController {
             @CacheEvict(value = "getCurrencies", allEntries = true),
             @CacheEvict(value = "getAccountBalances", allEntries = true)
     })
-    public Currency addCurrency(@RequestParam String currencyCode, @RequestParam String currencyName, @RequestParam Currency.CurrencyType currencyType, @RequestParam BigDecimal withdrawFee, @RequestParam BigDecimal minimalWithdrawAmount) throws Exception {
+    public Currency addCurrency(@RequestParam String currencyCode, @RequestParam String currencyName, @RequestParam Currency.Type currencyType, @RequestParam BigDecimal withdrawFee, @RequestParam BigDecimal minimalWithdrawAmount) throws Exception {
         Currency currency = new Currency(currencyCode, currencyName, currencyType);
         currency.setWithdrawFee(withdrawFee);
         currency.setMinimalWithdrawAmount(minimalWithdrawAmount);
-        if(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
+        if(currency.getType().equals(Currency.Type.CRYPTO)) {
             currency.setEnabled(false); // Daemon not configured
         }
         settingsManager.addCurrency(currency);
@@ -165,7 +165,7 @@ public class AdminController {
         Session session = sessionFactory.getCurrentSession();
         Currency currency = settingsManager.getCurrency(currencyId);
         Assert.notNull(currency, "Currency not found");
-        Assert.isTrue(currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid currency type");
+        Assert.isTrue(currency.getType().equals(Currency.Type.CRYPTO), "Invalid currency type");
         Daemon daemon = daemonManager.getDaemonSettings(currency);
         if(daemon == null) {
             daemon = new Daemon();
@@ -205,7 +205,7 @@ public class AdminController {
     @ResponseBody
     public Address.Transaction withdrawCryptoFee(@PathVariable long currencyId, @RequestParam String address, @RequestParam BigDecimal amount) throws Exception {
         Currency currency = settingsManager.getCurrency(currencyId);
-        Assert.isTrue(currency != null && currency.isEnabled() && currency.getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid parameters");
+        Assert.isTrue(currency != null && currency.isEnabled() && currency.getType().equals(Currency.Type.CRYPTO), "Invalid parameters");
         return (Address.Transaction) feeManager.withdrawFee(currency, amount, address);
     }
 
@@ -225,5 +225,12 @@ public class AdminController {
         Assert.isTrue(account != null && account.isEnabled(), "Account not found or disabled");
         log.info(String.format("Internal fee withdrawal requested: %s => %s", amount, account));
         feeManager.withdrawFee(currency, amount, accountManager.getVirtualWallet(account, currency));
+    }
+
+    @Transactional
+    @ResponseBody
+    @RequestMapping(value = "/fee/reset", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
+    public void recalculateFreeBalance() throws Exception {
+        ((FeeManagerImpl) feeManager).calculateDivergence();
     }
 }

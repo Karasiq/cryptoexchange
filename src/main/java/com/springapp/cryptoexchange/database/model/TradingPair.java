@@ -6,14 +6,12 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.hibernate.annotations.*;
 import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.Cascade;
 import org.hibernate.annotations.CascadeType;
 
 import javax.persistence.*;
-import javax.persistence.Entity;
-import javax.persistence.OrderBy;
-import javax.persistence.Table;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Date;
@@ -73,8 +71,8 @@ public class TradingPair implements Serializable {
     BigDecimal tradingFee = BigDecimal.ZERO;
 
     public TradingPair(Currency firstCurrency, Currency secondCurrency) {
-        setName(String.format("%s/%s", firstCurrency.getCurrencyCode(), secondCurrency.getCurrencyCode()));
-        setDescription(String.format("%s vs %s", firstCurrency.getCurrencyName(), secondCurrency.getCurrencyName()));
+        setName(String.format("%s/%s", firstCurrency.getCode(), secondCurrency.getCode()));
+        setDescription(String.format("%s vs %s", firstCurrency.getName(), secondCurrency.getName()));
         setFirstCurrency(firstCurrency);
         setSecondCurrency(secondCurrency);
     }

@@ -28,6 +28,6 @@ public class FreeBalance {
     @OneToOne(fetch = FetchType.LAZY)
     @NonNull Currency currency;
 
-    @Column(name = "amount", precision = 38, scale = 8)
+    @Column(name = "amount", precision = 38, scale = 8, nullable = false)
     BigDecimal amount = BigDecimal.ZERO;
 }

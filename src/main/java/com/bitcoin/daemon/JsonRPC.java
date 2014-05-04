@@ -101,7 +101,7 @@ public class JsonRPC implements Closeable {
                     connectionManager.closeIdleConnections(10, TimeUnit.MINUTES);
                 }
             }
-        });
+        }, "JsonRpcMonitor-" + monitorThreadsGroup.activeCount());
         monitorThread.start();
     }
     private HttpResponse postRequest(String url, String json) throws IOException {

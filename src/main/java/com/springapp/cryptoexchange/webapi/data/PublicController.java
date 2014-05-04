@@ -53,7 +53,7 @@ public class PublicController {
         Collections.sort(currencyList, new Comparator<Currency>() {
             @Override
             public int compare(Currency o1, Currency o2) {
-                return o1.getCurrencyName().compareTo(o2.getCurrencyName());
+                return o1.getName().compareTo(o2.getName());
             }
         });
         return currencyList;

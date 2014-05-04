@@ -56,12 +56,13 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
         return v;
     }
 
+    @Transactional(readOnly = true)
     @SuppressWarnings("all")
     public BigDecimal getVirtualWalletBalance(@NonNull VirtualWallet wallet) throws Exception {
         Currency currency = wallet.getCurrency();
         Assert.notNull(currency, "Invalid parameters");
         BigDecimal externalBalance = wallet.getExternalBalance();
-        if(currency.isEnabled()) switch (currency.getCurrencyType()) {
+        if(currency.isEnabled()) switch (currency.getType()) {
             case CRYPTO:
                 externalBalance = daemonManager.getCryptoBalance(wallet);
                 break;

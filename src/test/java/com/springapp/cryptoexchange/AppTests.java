@@ -1,14 +1,14 @@
 package com.springapp.cryptoexchange;
 
-import com.bitcoin.daemon.*;
+import com.bitcoin.daemon.AbstractWallet;
 import com.bitcoin.daemon.Address;
+import com.bitcoin.daemon.CryptoCoinWallet;
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.utils.Calculator;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
-import lombok.val;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.junit.Before;
@@ -119,8 +119,8 @@ public class AppTests {
                 TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime),
                 TimeUnit.NANOSECONDS.toMillis((System.nanoTime() - startTime) / iterations)));
 
-        log.info(String.format("%s wallet balance = %s %s", currency.getCurrencyName(),
-                balance, currency.getCurrencyCode()));
+        log.info(String.format("%s wallet balance = %s %s", currency.getName(),
+                balance, currency.getCode()));
     }
 
     @Test
@@ -192,8 +192,8 @@ public class AppTests {
     @Test
     @Transactional
     public void deleteTradingPair() throws Exception {
-        TradingPair tradingPair = new TradingPair(new Currency("TEST1", "TestCurrency1", Currency.CurrencyType.PURE_VIRTUAL),
-                new Currency("TEST2", "TestCurrency2", Currency.CurrencyType.PURE_VIRTUAL));
+        TradingPair tradingPair = new TradingPair(new Currency("TEST1", "TestCurrency1", Currency.Type.PURE_VIRTUAL),
+                new Currency("TEST2", "TestCurrency2", Currency.Type.PURE_VIRTUAL));
 
         settingsManager.addCurrency(tradingPair.getFirstCurrency());
         settingsManager.addCurrency(tradingPair.getSecondCurrency());

@@ -81,9 +81,6 @@ public class SessionController {
     @Transactional
     public LoginStatus register(@RequestParam String username, @RequestParam String password, @RequestParam String email, HttpServletRequest request) throws Exception {
         try {
-            // Check input parameters:
-            Assert.isTrue(Account.validate(username, password, email), "Bad user credentials");
-
             // Check if account already exists:
             Assert.isTrue(accountManager.getAccount(username) == null, "Username already taken");
             Assert.isTrue(accountManager.getAccount(email) == null, "E-mail already taken");

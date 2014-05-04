@@ -3,7 +3,6 @@ package com.bitcoin.daemon;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AccessLevel;
-import lombok.Data;
 import lombok.NonNull;
 import lombok.Value;
 import lombok.experimental.FieldDefaults;
@@ -12,7 +11,6 @@ import org.springframework.util.Assert;
 
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.concurrent.*;
 
 @CommonsLog
 @Value

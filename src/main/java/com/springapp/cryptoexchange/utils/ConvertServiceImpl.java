@@ -107,7 +107,7 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
             try {
                 VirtualWallet wallet = accountManager.getVirtualWallet(account, currency);
                 if(wallet != null) {
-                    if(wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
+                    if(wallet.getCurrency().getType().equals(Currency.Type.CRYPTO)) {
                         List<Address> addressList = daemonManager.getAddressList(wallet);
                         if (!addressList.isEmpty()) address = addressList.get(0).getAddress();
                     }
@@ -121,7 +121,7 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
         Collections.sort(accountBalanceInfo.getAccountBalances(), new Comparator<AccountBalanceInfo.AccountBalance>() {
             @Override
             public int compare(AccountBalanceInfo.AccountBalance o1, AccountBalanceInfo.AccountBalance o2) {
-                return o1.getCurrency().getCurrencyName().compareTo(o2.getCurrency().getCurrencyName());
+                return o1.getCurrency().getName().compareTo(o2.getCurrency().getName());
             }
         });
         log.info(String.format("Balance info generated in %d ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start)));

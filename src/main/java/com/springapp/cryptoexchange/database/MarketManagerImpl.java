@@ -6,7 +6,10 @@ import com.springapp.cryptoexchange.utils.Calculator;
 import lombok.NonNull;
 import lombok.experimental.NonFinal;
 import lombok.extern.apachecommons.CommonsLog;
-import org.hibernate.*;
+import org.hibernate.Criteria;
+import org.hibernate.FetchMode;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Restrictions;
 import org.joda.time.DateTime;
 import org.joda.time.Period;
@@ -57,7 +60,7 @@ public class MarketManagerImpl implements MarketManager {
             VirtualWallet wallet = order.getSourceWallet();
             wallet.addBalance(returnAmount);
             if(log.isDebugEnabled()) {
-                log.debug(String.format("Returned unspent money: %s %s => %s (%s)", returnAmount, wallet.getCurrency().getCurrencyCode(), wallet, order));
+                log.debug(String.format("Returned unspent money: %s %s => %s (%s)", returnAmount, wallet.getCurrency().getCode(), wallet, order));
             }
             cacheCleaner.balancesEvict(order.getAccount());
         }
@@ -77,7 +80,7 @@ public class MarketManagerImpl implements MarketManager {
                 && secondOrder.getSourceWallet().getCurrency().equals(tradingPair.getSecondCurrency())
                 && secondOrder.getDestWallet().getCurrency().equals(tradingPair.getFirstCurrency()), "Invalid parameters");
 
-        boolean zeroFee = firstOrder.getAccount().getRole().equals(Account.RoleClass.ADMIN) || secondOrder.getAccount().getRole().equals(Account.RoleClass.ADMIN);
+        boolean zeroFee = firstOrder.getAccount().getRole().equals(Account.Role.ADMIN) || secondOrder.getAccount().getRole().equals(Account.Role.ADMIN);
         if (zeroFee && log.isDebugEnabled()) {
             log.debug(String.format("Zero-fee trade: %s => %s", firstOrder, secondOrder));
         }
@@ -90,7 +93,7 @@ public class MarketManagerImpl implements MarketManager {
 
         Currency firstCurrency = tradingPair.getFirstCurrency(), secondCurrency = tradingPair.getSecondCurrency();
         Assert.isTrue(firstCurrency != null && secondCurrency != null, "Currency not found");
-        log.info(String.format("Trade occured: %s %s @ %s %s (total %s %s)", amount, firstCurrency.getCurrencyCode(), price, secondCurrency.getCurrencyCode(), total, secondCurrency.getCurrencyCode()));
+        log.info(String.format("Trade occured: %s %s @ %s %s (total %s %s)", amount, firstCurrency.getCode(), price, secondCurrency.getCode(), total, secondCurrency.getCode()));
 
 
         // Updating orders:
@@ -112,12 +115,12 @@ public class MarketManagerImpl implements MarketManager {
 
         // firstDest - seller, receives second currency from pair
         Assert.isTrue(firstDest.getCurrency().equals(secondCurrency));
-        if(log.isDebugEnabled()) log.debug(String.format("%s +%s %s", firstDest, secondCurrencySend, secondCurrency.getCurrencyCode()));
+        if(log.isDebugEnabled()) log.debug(String.format("%s +%s %s", firstDest, secondCurrencySend, secondCurrency.getCode()));
         firstDest.addBalance(secondCurrencySend);
 
         // secondDest - buyer, receives first currency from pair
         Assert.isTrue(secondDest.getCurrency().equals(firstCurrency));
-        if(log.isDebugEnabled()) log.debug(String.format("%s +%s %s", secondDest, firstCurrencySend, firstCurrency.getCurrencyCode()));
+        if(log.isDebugEnabled()) log.debug(String.format("%s +%s %s", secondDest, firstCurrencySend, firstCurrency.getCode()));
         secondDest.addBalance(firstCurrencySend);
 
         if(firstOrder.getStatus() == Order.Status.COMPLETED) {

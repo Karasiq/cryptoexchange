@@ -6,6 +6,7 @@ import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import javax.persistence.*;
+import javax.validation.constraints.Size;
 import java.io.Serializable;
 import java.math.BigDecimal;
 
@@ -14,11 +15,11 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "currencies")
-@EqualsAndHashCode(of = {"id", "currencyCode", "currencyName", "currencyType"})
+@EqualsAndHashCode(of = {"id", "code", "name", "type"})
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Currency implements Serializable {
-    public static enum CurrencyType {
+    public static enum Type {
         PURE_VIRTUAL, CRYPTO
     }
     @Id
@@ -28,11 +29,13 @@ public class Currency implements Serializable {
     @Column(name = "enabled", nullable = false)
     boolean enabled = true;
 
+    @Size(min = 1)
     @Column(name = "code", nullable = false, unique = true)
-    @NonNull String currencyCode;
+    @NonNull String code;
 
+    @Size(min = 1)
     @Column(name = "name", nullable = false, unique = true)
-    @NonNull String currencyName;
+    @NonNull String name;
 
     @Column(name = "withdraw_fee", precision = 5, scale = 2)
     BigDecimal withdrawFee = BigDecimal.valueOf(0.2);
@@ -41,15 +44,16 @@ public class Currency implements Serializable {
     @NonNull BigDecimal minimalWithdrawAmount = BigDecimal.ZERO;
 
     @Column(name = "type")
-    @NonNull CurrencyType currencyType;
+    @NonNull
+    Type type;
 
     @PostLoad
     void init() {
         if(withdrawFee == null) {
             withdrawFee = BigDecimal.ONE;
         }
-        if(currencyType == null) {
-            currencyType = CurrencyType.PURE_VIRTUAL;
+        if(type == null) {
+            type = Type.PURE_VIRTUAL;
         }
         if(minimalWithdrawAmount == null) {
             minimalWithdrawAmount = BigDecimal.ZERO;
