@@ -11,6 +11,7 @@ import org.hibernate.Criteria;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -55,11 +56,9 @@ public interface ConvertService {
             BigDecimal balance;
             String address;
         }
-        @Getter List<AccountBalance> accountBalances = new ArrayList<>();
+        @Getter List<AccountBalance> accountBalances = Collections.synchronizedList(new ArrayList<AccountBalance>());
         public void add(Currency currency, BigDecimal balance, String address) {
-            synchronized (accountBalances) {
-                accountBalances.add(new AccountBalance(currency, balance, address));
-            }
+            accountBalances.add(new AccountBalance(currency, balance, address));
         }
     }
 

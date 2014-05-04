@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.security.Principal;
+import java.util.Collections;
 import java.util.List;
 
 @Controller
@@ -116,6 +117,7 @@ public class PrivateController {
         Assert.isTrue(currency != null && account != null & account.isEnabled(), "Invalid parameters");
         Assert.isTrue(currency.isEnabled(), "Currency disabled");
         final List<com.bitcoin.daemon.Address.Transaction> transactionList = daemonManager.getWalletTransactions(accountManager.getVirtualWallet(account, currency));
+        Collections.sort(transactionList);
         return transactionList;
     }
 

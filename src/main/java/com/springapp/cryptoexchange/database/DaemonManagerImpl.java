@@ -1,10 +1,8 @@
 package com.springapp.cryptoexchange.database;
 
-import com.bitcoin.daemon.AbstractWallet;
-import com.bitcoin.daemon.CryptoCoinWallet;
-import com.bitcoin.daemon.DaemonRpcException;
-import com.bitcoin.daemon.JsonRPC;
+import com.bitcoin.daemon.*;
 import com.springapp.cryptoexchange.database.model.*;
+import com.springapp.cryptoexchange.database.model.Address;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.log.CryptoWithdrawHistory;
 import com.springapp.cryptoexchange.utils.CacheCleaner;
@@ -143,14 +141,14 @@ public class DaemonManagerImpl implements DaemonManager {
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public String createWalletAddress(@NonNull VirtualWallet virtualWallet) throws Exception {
         Assert.isTrue(virtualWallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO), "Invalid currency type");
-        CryptoCoinWallet account = (CryptoCoinWallet) getAccount(virtualWallet.getCurrency());
-
-        com.bitcoin.daemon.Address newAddress = account.getDefaultAccount().generateNewAddress();
-        Address address = new Address(newAddress.getAddress(), virtualWallet);
-        Session session = sessionFactory.getCurrentSession();
-        session.save(address);
-
-        return newAddress.getAddress();
+        AbstractWallet account = getAccount(virtualWallet.getCurrency());
+        if(account instanceof CryptoCoinWallet) { // Generic crypto-currency wallet
+            String newAddress = (String) account.generateNewAddress();
+            Address address = new Address(newAddress, virtualWallet);
+            Session session = sessionFactory.getCurrentSession();
+            session.save(address);
+            return newAddress;
+        } else throw new IllegalArgumentException("Unknown wallet type");
     }
 
     @Transactional(readOnly = true)
@@ -184,8 +182,8 @@ public class DaemonManagerImpl implements DaemonManager {
 
     @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
-    public List<com.bitcoin.daemon.Address.Transaction> getWalletTransactions(@NonNull VirtualWallet virtualWallet) throws Exception {
-        final List<com.bitcoin.daemon.Address.Transaction> transactionList = new ArrayList<>();
+    public <T> List<T> getWalletTransactions(@NonNull VirtualWallet virtualWallet) throws Exception {
+        final List<T> transactionList = new ArrayList<>();
         if(!virtualWallet.getCurrency().isEnabled()) {
             return transactionList; // empty
         }
@@ -203,16 +201,15 @@ public class DaemonManagerImpl implements DaemonManager {
                 .list();
         for(CryptoWithdrawHistory withdrawHistory : withdrawHistoryList) {
             // Refreshing transaction:
-            final com.bitcoin.daemon.Address.Transaction transaction = daemon.getTransaction(withdrawHistory.getTransactionId());
+            final T transaction = (T) daemon.getTransaction(withdrawHistory.getTransactionId());
 
-            // Fixes:
-            transaction.setCategory("send");
-            transaction.setAmount(withdrawHistory.getAmount());
-
+            if (transaction instanceof com.bitcoin.daemon.Address.Transaction) { // Fixes
+                final com.bitcoin.daemon.Address.Transaction btcTx = (com.bitcoin.daemon.Address.Transaction) transaction;
+                btcTx.setCategory("send");
+                btcTx.setAmount(withdrawHistory.getAmount());
+            }
             transactionList.add(transaction);
         }
-
-        Collections.sort(transactionList);
         return transactionList;
     }
 

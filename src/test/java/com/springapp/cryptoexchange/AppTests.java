@@ -1,8 +1,7 @@
 package com.springapp.cryptoexchange;
 
-import com.bitcoin.daemon.AbstractWallet;
-import com.bitcoin.daemon.CryptoCoinWallet;
-import com.bitcoin.daemon.JsonRPC;
+import com.bitcoin.daemon.*;
+import com.bitcoin.daemon.Address;
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.utils.Calculator;
@@ -99,25 +98,26 @@ public class AppTests {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void jsonRpc() throws Exception {
         Currency currency = settingsManager.getCurrencyList().get(0);
-        AbstractWallet wallet = daemonManager.getAccount(currency);
+        AbstractWallet<String, Address.Transaction> wallet = daemonManager.getAccount(currency);
 
         Map<String, ?> info = ((CryptoCoinWallet) wallet).getInfo();
         Assert.isTrue((Integer) info.get("blocks") > 0);
         log.info("getinfo: " + info);
 
-        final Set<?> addressSet = wallet.getAddressSet();
+        final Set<String> addressSet = wallet.getAddressSet();
         BigDecimal balance = wallet.summaryConfirmedBalance(addressSet);
 
-        /* int iterations = 10;
+        int iterations = 1000;
         long startTime = System.nanoTime();
         for(int i = 0; i < iterations; i++) {
             Assert.isTrue(balance.equals(wallet.summaryConfirmedBalance(addressSet)));
         }
         log.info(String.format("Balance retrieved %d times in %d ms (%d ms per one)", iterations,
                 TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime),
-                TimeUnit.NANOSECONDS.toMillis((System.nanoTime() - startTime) / iterations))); */
+                TimeUnit.NANOSECONDS.toMillis((System.nanoTime() - startTime) / iterations)));
 
         log.info(String.format("%s wallet balance = %s %s", currency.getCurrencyName(),
                 balance, currency.getCurrencyCode()));

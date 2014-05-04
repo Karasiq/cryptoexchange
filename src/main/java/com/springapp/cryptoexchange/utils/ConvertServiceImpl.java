@@ -101,32 +101,23 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
         sessionFactory.getCurrentSession().refresh(account);
         List<Currency> currencyList = settingsManager.getCurrencyList();
         final AccountBalanceInfo accountBalanceInfo = new AccountBalanceInfo();
-        ExecutorService executor = Executors.newCachedThreadPool();
-        for(final Currency currency : currencyList) {
-            Runnable runnable = new Runnable() {
-                @Override
-                public void run() {
-                    BigDecimal balance = BigDecimal.ZERO;
-                    String address = null;
-                    try {
-                        VirtualWallet wallet = accountManager.getVirtualWallet(account, currency);
-                        if(wallet != null) {
-                            if(wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
-                                List<Address> addressList = daemonManager.getAddressList(wallet);
-                                if (!addressList.isEmpty()) address = addressList.get(0).getAddress();
-                            }
-                            balance = accountManager.getVirtualWalletBalance(wallet);
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
+        for(Currency currency : currencyList) {
+            BigDecimal balance = BigDecimal.ZERO;
+            String address = null;
+            try {
+                VirtualWallet wallet = accountManager.getVirtualWallet(account, currency);
+                if(wallet != null) {
+                    if(wallet.getCurrency().getCurrencyType().equals(Currency.CurrencyType.CRYPTO)) {
+                        List<Address> addressList = daemonManager.getAddressList(wallet);
+                        if (!addressList.isEmpty()) address = addressList.get(0).getAddress();
                     }
-                    accountBalanceInfo.add(currency, balance, address);
+                    balance = accountManager.getVirtualWalletBalance(wallet);
                 }
-            };
-            executor.execute(runnable);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            accountBalanceInfo.add(currency, balance, address);
         }
-        executor.shutdown();
-        executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
         Collections.sort(accountBalanceInfo.getAccountBalances(), new Comparator<AccountBalanceInfo.AccountBalance>() {
             @Override
             public int compare(AccountBalanceInfo.AccountBalance o1, AccountBalanceInfo.AccountBalance o2) {

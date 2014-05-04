@@ -21,5 +21,5 @@ public interface DaemonManager {
     void setDaemonSettings(Daemon settings);
     void loadDaemons() throws Exception;
     void loadTransactions() throws Exception;
-    public List<com.bitcoin.daemon.Address.Transaction> getWalletTransactions(VirtualWallet virtualWallet) throws Exception;
+    <T> List<T> getWalletTransactions(VirtualWallet virtualWallet) throws Exception;
 }

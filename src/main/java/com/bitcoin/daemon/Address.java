@@ -2,23 +2,21 @@ package com.bitcoin.daemon;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import lombok.AccessLevel;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NonNull;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
 
 @Data
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class Address {
+@FieldDefaults(level = AccessLevel.PRIVATE)
+public class Address { // Transaction/balance storage
     @Data
     @FieldDefaults(level = AccessLevel.PUBLIC)
+    @EqualsAndHashCode(exclude = "account", callSuper = false)
     private static class TransactionDetails implements Serializable {
         @JsonIgnore String account;
         String address;
@@ -47,10 +45,11 @@ public class Address {
         }
     }
 
-    Map<Integer, Transaction> transactionList = new ConcurrentHashMap<>();
-    @NonNull String address;
+    BigDecimal receivedByAddress = BigDecimal.ZERO; // Cached
+    final Set<Transaction> transactionSet = new HashSet<>();
+    final @NonNull String address;
 
     public void addTransaction(Transaction transaction) {
-        transactionList.put(transaction.hashCode(), transaction);
+        transactionSet.add(transaction);
     }
 }
