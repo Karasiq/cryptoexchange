@@ -187,9 +187,9 @@ public class MarketManagerImpl implements MarketManager {
                 newOrder.isActual() && newOrder.getId() == 0
                 // Checking trading pair:
                 && tradingPair != null && tradingPair.isEnabled()
-                // Checking price:
-                && newOrder.getPrice().compareTo(BigDecimal.ZERO) > 0, "Invalid parameters"
-        );
+                // Checking price and amount:
+                && newOrder.getPrice().compareTo(BigDecimal.ZERO) > 0
+                && newOrder.getAmount().compareTo(BigDecimal.ZERO) > 0, "Invalid parameters");
 
         if (newOrder.getAmount().compareTo(tradingPair.getMinimalTradeAmount()) < 0) {
             throw new MarketException(String.format("Minimal trading amount is %s", tradingPair.getMinimalTradeAmount()));

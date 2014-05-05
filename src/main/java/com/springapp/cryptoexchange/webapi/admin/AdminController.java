@@ -77,14 +77,14 @@ public class AdminController {
             @CacheEvict(value = "getTradingPairInfo", allEntries = true),
             @CacheEvict(value = "getAccountBalances", allEntries = true)
     })
-    public Currency modifyCurrency(@PathVariable long currencyId, @RequestParam(required = false) boolean enabled, @RequestParam String currencyCode, @RequestParam String currencyName, @RequestParam Currency.Type currencyType, @RequestParam BigDecimal withdrawFee, @RequestParam BigDecimal minimalWithdrawAmount) throws Exception {
+    public Currency modifyCurrency(@PathVariable long currencyId, @RequestParam(required = false) boolean enabled, @RequestParam String code, @RequestParam String name, @RequestParam Currency.Type type, @RequestParam BigDecimal withdrawFee, @RequestParam BigDecimal minimalWithdrawAmount) throws Exception {
         Session session = sessionFactory.getCurrentSession();
         Currency currency = settingsManager.getCurrency(currencyId);
         Assert.notNull(currency, "Currency not found");
         currency.setEnabled(enabled);
-        currency.setCode(currencyCode);
-        currency.setName(currencyName);
-        currency.setType(currencyType);
+        currency.setCode(code);
+        currency.setName(name);
+        currency.setType(type);
         currency.setWithdrawFee(withdrawFee);
         currency.setMinimalWithdrawAmount(minimalWithdrawAmount);
         session.update(currency);
@@ -102,8 +102,8 @@ public class AdminController {
             @CacheEvict(value = "getCurrencies", allEntries = true),
             @CacheEvict(value = "getAccountBalances", allEntries = true)
     })
-    public Currency addCurrency(@RequestParam String currencyCode, @RequestParam String currencyName, @RequestParam Currency.Type currencyType, @RequestParam BigDecimal withdrawFee, @RequestParam BigDecimal minimalWithdrawAmount) throws Exception {
-        Currency currency = new Currency(currencyCode, currencyName, currencyType);
+    public Currency addCurrency(@RequestParam String code, @RequestParam String name, @RequestParam Currency.Type type, @RequestParam BigDecimal withdrawFee, @RequestParam BigDecimal minimalWithdrawAmount) throws Exception {
+        Currency currency = new Currency(code, name, type);
         currency.setWithdrawFee(withdrawFee);
         currency.setMinimalWithdrawAmount(minimalWithdrawAmount);
         if(currency.getType().equals(Currency.Type.CRYPTO)) {

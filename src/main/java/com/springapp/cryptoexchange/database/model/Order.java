@@ -10,6 +10,8 @@ import org.hibernate.annotations.Cascade;
 import org.hibernate.annotations.CascadeType;
 
 import javax.persistence.*;
+import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.Min;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Date;
@@ -39,7 +41,8 @@ public class Order implements Serializable {
     @Column(name = "open_time", nullable = false, updatable = false)
     Date openDate = new Date();
 
-    @Column(name = "update_time")
+    @Version
+    @Column(name = "update_time", nullable = false)
     Date updateDate = new Date();
 
     @Column(name = "close_time")
@@ -51,15 +54,17 @@ public class Order implements Serializable {
     @Column(name = "type", nullable = false)
     @NonNull Type type;
 
+    @DecimalMin("0.00000001")
     @Column(name = "amount", precision = 38, scale = 8, nullable = false)
     @NonNull BigDecimal amount;
 
-    @Column(name = "completed_amount", precision = 38, scale = 8)
+    @Column(name = "completed_amount", precision = 38, scale = 8, nullable = false)
     BigDecimal completedAmount = BigDecimal.ZERO;
 
-    @Column(name = "total_sum", precision = 38, scale = 8)
+    @Column(name = "total_sum", precision = 38, scale = 8, nullable = false)
     BigDecimal total = BigDecimal.ZERO;
 
+    @DecimalMin("0.00000001")
     @Column(name = "price", precision = 38, scale = 8, nullable = false)
     @NonNull BigDecimal price;
 

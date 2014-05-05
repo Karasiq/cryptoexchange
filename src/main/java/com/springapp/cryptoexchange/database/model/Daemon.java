@@ -7,6 +7,9 @@ import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import javax.persistence.*;
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.Size;
 import java.io.Serializable;
 
 @Table(name = "daemons")
@@ -25,18 +28,23 @@ public class Daemon implements Serializable {
     @OneToOne(fetch = FetchType.EAGER)
     @NonNull Currency currency;
 
+    @Size(min = 1)
     @JsonIgnore
     @Column(name = "daemon_host")
     @NonNull String daemonHost;
 
+    @Min(1)
+    @Max(65535)
     @JsonIgnore
     @Column(name = "daemon_port")
     @NonNull Integer daemonPort;
 
+    @Size(min = 1)
     @JsonIgnore
     @Column(name = "daemon_login")
     @NonNull String daemonLogin;
 
+    @Size(min = 1)
     @JsonIgnore
     @Column(name = "daemon_password")
     @NonNull String daemonPassword;

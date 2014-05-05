@@ -184,7 +184,7 @@ public class AppTests {
         log.debug("Source: " + secondBuyWallet.getVirtualBalance() + " " + firstSellWallet.getVirtualBalance() +
                 "\nDest: " + firstBuyWallet.getVirtualBalance() + " " + secondSellWallet.getVirtualBalance());
 
-        List<Candle> history = tradingPair.getHistory();
+        List<Candle> history = historyManager.getMarketChartData(tradingPair, 1);
         log.info(history.get(0));
         Assert.isTrue(history.get(0).getClose().compareTo(sellPrice) == 0, "Invalid chart");
     }

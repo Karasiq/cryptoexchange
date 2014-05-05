@@ -6,6 +6,8 @@ import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import javax.persistence.*;
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Size;
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -37,9 +39,12 @@ public class Currency implements Serializable {
     @Column(name = "name", nullable = false, unique = true)
     @NonNull String name;
 
+    @DecimalMin("0")
+    @DecimalMax("100")
     @Column(name = "withdraw_fee", precision = 5, scale = 2)
     BigDecimal withdrawFee = BigDecimal.valueOf(0.2);
 
+    @DecimalMin("0")
     @Column(name = "min_withdraw_amount", precision = 38, scale = 8)
     @NonNull BigDecimal minimalWithdrawAmount = BigDecimal.ZERO;
 

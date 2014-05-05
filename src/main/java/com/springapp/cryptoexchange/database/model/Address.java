@@ -7,6 +7,7 @@ import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.Immutable;
 
 import javax.persistence.*;
+import javax.validation.constraints.Size;
 import java.io.Serializable;
 import java.util.Date;
 
@@ -24,6 +25,7 @@ public class Address implements Serializable {
     @GeneratedValue
     long id;
 
+    @Size(min = 1)
     @NonNull
     @Column(name = "address", nullable = false, unique = true)
     String address;

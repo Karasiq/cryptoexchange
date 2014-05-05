@@ -10,6 +10,7 @@ import org.joda.time.Period;
 import org.springframework.util.Assert;
 
 import javax.persistence.*;
+import javax.validation.constraints.DecimalMin;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Date;
@@ -27,7 +28,7 @@ public class Candle implements Serializable {
     @Id @GeneratedValue @JsonIgnore
     long id;
 
-    @Column(name = "open_time", updatable = false)
+    @Column(name = "open_time", nullable = false, updatable = false)
     Date openTime = new Date();
 
     @Column(name = "close_time")
@@ -37,16 +38,25 @@ public class Candle implements Serializable {
     @Column(name = "update_time")
     Date updateTime;
 
+    @DecimalMin("0.00000001")
     @Column(name = "open", precision = 38, scale = 8)
     BigDecimal open;
+
+    @DecimalMin("0.00000001")
     @Column(name = "high", precision = 38, scale = 8)
     BigDecimal high;
+
+    @DecimalMin("0.00000001")
     @Column(name = "low", precision = 38, scale = 8)
     BigDecimal low;
+
+    @DecimalMin("0.00000001")
     @Column(name = "close", precision = 38, scale = 8)
     BigDecimal close;
+
+    @DecimalMin("0")
     @Column(name = "volume", precision = 38, scale = 2)
-    BigDecimal volume;
+    BigDecimal volume = BigDecimal.ZERO;
 
     @ManyToOne(fetch = FetchType.LAZY) @JsonIgnore @NonNull
     TradingPair tradingPair;

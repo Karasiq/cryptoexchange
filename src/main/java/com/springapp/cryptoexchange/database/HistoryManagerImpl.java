@@ -19,6 +19,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -57,20 +59,19 @@ public class HistoryManagerImpl implements HistoryManager {
             session.saveOrUpdate(lastCandle);
             log.info("Closed: " + lastCandle);
             lastCandle = new Candle(tradingPair, lastCandle);
-            log.info("New candle opened: " + lastCandle);
         }
         lastCandle.update(lastPrice, amount);
         session.saveOrUpdate(lastCandle);
         log.info(lastCandle);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.READ_COMMITTED)
     @Caching(evict = {
             @CacheEvict(value = "getMarketChartData", key = "#tradingPair.id")
     })
     public void updateMarketInfo(@NonNull TradingPair tradingPair, final BigDecimal price, final BigDecimal amount) {
         Session session = sessionFactory.getCurrentSession();
-        tradingPair = (TradingPair) session.get(TradingPair.class, tradingPair.getId());
+        tradingPair = (TradingPair) session.load(TradingPair.class, tradingPair.getId());
         if(tradingPair.getLastReset() == null || DateTime.now().minus(Period.days(1)).isAfter(new DateTime(tradingPair.getLastReset()))) {
             tradingPair.setLastReset(new Date());
             tradingPair.setDayHigh(null);

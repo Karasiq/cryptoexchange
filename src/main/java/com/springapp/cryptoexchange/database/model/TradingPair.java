@@ -12,6 +12,9 @@ import org.hibernate.annotations.Cascade;
 import org.hibernate.annotations.CascadeType;
 
 import javax.persistence.*;
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.Size;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Date;
@@ -39,9 +42,11 @@ public class TradingPair implements Serializable {
     Currency secondCurrency;
 
     // Basic:
+    @Size(min = 1)
     @Column(name = "name")
     String name;
 
+    @Size(min = 1)
     @Column(name = "description")
     String description;
 
@@ -51,22 +56,29 @@ public class TradingPair implements Serializable {
     @JsonIgnore
     Date lastReset = new Date();
 
+    @DecimalMin("0")
     @Column(name = "volume", precision = 38, scale = 8)
     BigDecimal volume = BigDecimal.ZERO;
 
+    @DecimalMin("0.00000001")
     @Column(name = "last_price", precision = 38, scale = 8)
     BigDecimal lastPrice = BigDecimal.ZERO;
 
+    @DecimalMin("0.00000001")
     @Column(name = "high_price", precision = 38, scale = 8)
     BigDecimal dayHigh = BigDecimal.ZERO;
 
+    @DecimalMin("0.00000001")
     @Column(name = "low_price", precision = 38, scale = 8)
     BigDecimal dayLow = BigDecimal.ZERO;
 
     // Settings:
+    @DecimalMin("0")
     @Column(name = "min_trade_amount", nullable = false)
     BigDecimal minimalTradeAmount = BigDecimal.ZERO;
 
+    @DecimalMin("0")
+    @DecimalMax("100")
     @Column(name = "trading_fee", nullable = false)
     BigDecimal tradingFee = BigDecimal.ZERO;
 

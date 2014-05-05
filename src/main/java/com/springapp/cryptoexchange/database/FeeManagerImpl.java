@@ -71,7 +71,7 @@ public class FeeManagerImpl implements FeeManager {
         return getFreeBalance(sessionFactory.getCurrentSession(), currency);
     }
 
-    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.READ_COMMITTED)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     public void submitCollectedFee(FreeBalance.FeeType type, @NonNull Currency currency, @NonNull BigDecimal feeAmount) throws Exception {
         if (feeAmount.equals(BigDecimal.ZERO)) {
             return;

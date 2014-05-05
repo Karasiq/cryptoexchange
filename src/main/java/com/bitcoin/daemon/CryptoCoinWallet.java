@@ -71,9 +71,9 @@ public class CryptoCoinWallet implements AbstractWallet<String, Address.Transact
                 addressCache = new Address(address);
                 addressList.put(address, addressCache);
             }
-            if (addressCache.getReceivedByAddress().equals(BigDecimal.ZERO)) { // Unset (default value)
+            /* if (addressCache.getReceivedByAddress().equals(BigDecimal.ZERO)) { // Unset (default value)
                 addressCache.setReceivedByAddress(getReceivedByAddress(address));
-            }
+            } */
             return addressCache.getReceivedByAddress();
         }
     }

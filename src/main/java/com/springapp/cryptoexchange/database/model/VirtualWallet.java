@@ -31,6 +31,7 @@ public class VirtualWallet implements Serializable {
     @ManyToOne(fetch = FetchType.EAGER)
     Currency currency;
 
+    @JsonIgnore
     @Transient
     private final AtomicReference<BigDecimal> virtualBalanceRef = new AtomicReference<>(BigDecimal.ZERO);
 
@@ -52,7 +53,7 @@ public class VirtualWallet implements Serializable {
     @JsonIgnore
     Account account;
 
-    public void addBalance(final BigDecimal amount) {
+    public void addBalance(@NonNull BigDecimal amount) {
         BigDecimal oldVal = virtualBalanceRef.get();
         virtualBalanceRef.compareAndSet(oldVal, oldVal.add(amount));
     }
