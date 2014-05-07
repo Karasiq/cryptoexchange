@@ -152,10 +152,11 @@ public class AdminController {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     @RequestMapping(value = "/trading_pair/{tradingPairId}/delete", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
-    public void removeTradingPair(@PathVariable long tradingPairId) throws Exception {
+    public boolean removeTradingPair(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         Assert.notNull(tradingPair, "Trading pair not found");
         settingsManager.removeTradingPair(tradingPair);
+        return true;
     }
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
@@ -200,7 +201,7 @@ public class AdminController {
         return true;
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     @RequestMapping(value = "/fee/{currencyId}/withdraw/crypto", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     public Address.Transaction withdrawCryptoFee(@PathVariable long currencyId, @RequestParam String address, @RequestParam BigDecimal amount) throws Exception {
@@ -213,11 +214,11 @@ public class AdminController {
             @CacheEvict(value = "getAccountBalances", key = "#username"),
             @CacheEvict(value = "getAccountBalances", key = "#principal.name")
     })
-    @Transactional
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     @RequestMapping(value = "/fee/{currencyId}/withdraw/internal", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
     @SuppressWarnings("all")
-    public void withdrawInternalFee(@PathVariable long currencyId, @RequestParam(required = false, defaultValue = "") String username, @RequestParam BigDecimal amount, Principal principal) throws Exception {
+    public boolean withdrawInternalFee(@PathVariable long currencyId, @RequestParam(required = false, defaultValue = "") String username, @RequestParam BigDecimal amount, Principal principal) throws Exception {
         Currency currency = settingsManager.getCurrency(currencyId);
         Assert.notNull(currency, "Currency not found");
         if(username.length() < 1) username = principal.getName();
@@ -225,12 +226,14 @@ public class AdminController {
         Assert.isTrue(account != null && account.isEnabled(), "Account not found or disabled");
         log.info(String.format("Internal fee withdrawal requested: %s => %s", amount, account));
         feeManager.withdrawFee(currency, amount, accountManager.getVirtualWallet(account, currency));
+        return true;
     }
 
     @Transactional
     @ResponseBody
     @RequestMapping(value = "/fee/reset", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
-    public void recalculateFreeBalance() throws Exception {
+    public boolean recalculateFreeBalance() throws Exception {
         ((FeeManagerImpl) feeManager).calculateDivergence();
+        return true;
     }
 }

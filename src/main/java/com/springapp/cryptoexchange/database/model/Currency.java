@@ -17,7 +17,7 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "currencies")
-@EqualsAndHashCode(of = {"id", "code", "name", "type"})
+@EqualsAndHashCode(of = {"code", "name", "type"})
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Currency implements Serializable {

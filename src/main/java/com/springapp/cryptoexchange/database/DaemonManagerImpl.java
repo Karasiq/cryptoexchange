@@ -63,18 +63,21 @@ public class DaemonManagerImpl implements DaemonManager {
     @Autowired
     CacheCleaner cacheCleaner;
 
+    private static void closeWallet(@NonNull DaemonInfo daemonInfo) {
+        if (daemonInfo.getWallet() != null) {
+            AbstractWallet wallet = daemonInfo.getWallet();
+            if (wallet instanceof CryptoCoinWallet) {
+                ((CryptoCoinWallet)wallet).getJsonRPC().close(); // Close connections
+                log.info("Daemon connections closed: " + daemonInfo.getSettings().getCurrency());
+            }
+        }
+    }
+
     public synchronized void setDaemonSettings(Daemon settings) {
         long currencyId = settings.getCurrency().getId();
         DaemonInfo old = daemonMap.get(currencyId);
-
         if(old == null || !old.getSettings().equals(settings)) {
-            if (old != null) {
-                AbstractWallet oldWallet = old.getWallet();
-                if (oldWallet instanceof CryptoCoinWallet) {
-                    ((CryptoCoinWallet)oldWallet).getJsonRPC().close(); // Close connections
-                    log.info("Daemon connections closed: " + settings.getCurrency());
-                }
-            }
+            if(old != null) closeWallet(old);
             JsonRPC daemon = new JsonRPC(settings.getDaemonHost(), settings.getDaemonPort(), settings.getDaemonLogin(), settings.getDaemonPassword());
             daemonMap.put(currencyId, new DaemonInfo(new CryptoCoinWallet(daemon), settings));
             log.info("Daemon settings changed for currency: " + settings.getCurrency());
@@ -94,14 +97,22 @@ public class DaemonManagerImpl implements DaemonManager {
     public synchronized void loadDaemons() {
         log.info("Loading daemon settings...");
         List<Currency> currencyList = settingsManager.getCurrencyList();
-        for(Currency currency : currencyList) if(currency.isEnabled() && currency.getType().equals(Currency.Type.CRYPTO)) {
-            try {
-                Daemon settings = getDaemonSettings(currency);
-                Assert.notNull(settings, "Daemon settings not found");
-                setDaemonSettings(settings);
-            } catch (Exception e) {
-                log.debug(e.getStackTrace());
-                log.error(e);
+        for(Currency currency : currencyList) if (currency.getType().equals(Currency.Type.CRYPTO)) {
+            if(currency.isEnabled()) {
+                try {
+                    Daemon settings = getDaemonSettings(currency);
+                    Assert.notNull(settings, "Daemon settings not found");
+                    setDaemonSettings(settings);
+                } catch (Exception e) {
+                    log.debug(e.getStackTrace());
+                    log.error(e);
+                }
+            } else {
+                DaemonInfo daemonInfo = daemonMap.get(currency.getId());
+                if (daemonInfo != null) {
+                    closeWallet(daemonInfo);
+                    daemonMap.remove(currency.getId());
+                }
             }
         }
     }

@@ -16,7 +16,7 @@ import java.util.Date;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "addresses")
-@EqualsAndHashCode(exclude = "virtualWallet")
+@EqualsAndHashCode(of = "address")
 @Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Immutable

@@ -106,7 +106,7 @@ public class PrivateController {
         return historyManager.getAccountHistoryByPair(tradingPair, account, 20);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @Cacheable(value = "getTransactions", key = "#principal.name + '/' + #currencyId")
     @RequestMapping(value = "/transactions/{currencyId}")
     @ResponseBody

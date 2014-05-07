@@ -20,6 +20,7 @@ import java.io.Serializable;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 @EqualsAndHashCode(of={"daemonHost", "daemonPort", "daemonLogin", "daemonPassword"})
+@ToString(of = {"id", "currency"})
 public class Daemon implements Serializable {
     @GeneratedValue
     @Id

@@ -69,11 +69,9 @@ public class CryptoCoinWallet implements AbstractWallet<String, Address.Transact
             Address addressCache = addressList.get(address);
             if (addressCache == null) {
                 addressCache = new Address(address);
+                addressCache.setReceivedByAddress(getReceivedByAddress(address));
                 addressList.put(address, addressCache);
             }
-            /* if (addressCache.getReceivedByAddress().equals(BigDecimal.ZERO)) { // Unset (default value)
-                addressCache.setReceivedByAddress(getReceivedByAddress(address));
-            } */
             return addressCache.getReceivedByAddress();
         }
     }
@@ -117,7 +115,10 @@ public class CryptoCoinWallet implements AbstractWallet<String, Address.Transact
             return confirmed; // 0
         }
 
-        for(String strAddress : addresses) confirmed = confirmed.add(getAddressBalance(strAddress));
+        synchronized (addressList) {
+            for(String strAddress : addresses) confirmed = confirmed.add(getAddressBalance(strAddress));
+        }
+
         return confirmed;
     }
 
@@ -127,9 +128,9 @@ public class CryptoCoinWallet implements AbstractWallet<String, Address.Transact
     }
 
     private Map<String, BigDecimal> listReceivedByAddress() throws Exception {
-        final List<Address.Transaction> output = jsonRPC.executeRpcRequest("listreceivedbyaddress", Arrays.asList(Settings.REQUIRED_CONFIRMATIONS), new TypeReference<JsonRPC.Response<List<Address.Transaction>>>(){});
+        final List<Address.Transaction> output = jsonRPC.executeRpcRequest("listreceivedbyaddress", Arrays.asList(Settings.REQUIRED_CONFIRMATIONS, true), new TypeReference<JsonRPC.Response<List<Address.Transaction>>>(){});
 
-        final Map<String, BigDecimal> result = new HashMap<>();
+        final Map<String, BigDecimal> result = new HashMap<>(output.size());
         for(Address.Transaction transaction : output) result.put(transaction.address, transaction.amount);
         return result;
     }
@@ -140,27 +141,35 @@ public class CryptoCoinWallet implements AbstractWallet<String, Address.Transact
         final Map<String, BigDecimal> receivedByAddress = listReceivedByAddress();
 
         synchronized (addressList) {
-            addressList.clear(); // flush
             Address address = null;
+            for(Map.Entry<String, BigDecimal> entry : receivedByAddress.entrySet()) {
+                if(address == null || !address.getAddress().equals(entry.getKey())) {
+                    address = addressList.get(entry.getKey());
+                    if(address == null) {
+                        address = new Address(entry.getKey());
+                        addressList.put(entry.getKey(), address);
+                    }
+                    address.setReceivedByAddress(entry.getValue());
+                }
+            }
             for(Address.Transaction transaction : transactions) if(transaction.getAddress() != null
                     && transaction.getAddress().length() > 0 && "receive".equals(transaction.category))
             {
                 if(address == null || !address.getAddress().equals(transaction.address)) {
-                    if(addressList.containsKey(transaction.address)) {
-                        address = addressList.get(transaction.address);
-                    } else {
+                    address = addressList.get(transaction.address);
+                    if(address == null) {
                         address = new Address(transaction.address);
                         addressList.put(transaction.address, address);
                     }
                 }
-                address.setReceivedByAddress(receivedByAddress.getOrDefault(transaction.address, BigDecimal.ZERO));
                 address.addTransaction(transaction);
             }
         }
     }
 
     public Set<String> getAddressSet() throws Exception {
-        return getDefaultAccount().getAddressSet();
+        return Collections.unmodifiableSet(addressList.keySet());
+        // return getDefaultAccount().getAddressSet();
     }
 
     public Address.Transaction sendToAddress(String address, @NonNull BigDecimal amount) throws Exception {

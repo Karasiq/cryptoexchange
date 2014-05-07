@@ -25,7 +25,7 @@ import java.util.Set;
 @NoArgsConstructor
 @Table(name = "accounts")
 @ToString(exclude = {"passwordHash"})
-@EqualsAndHashCode(of = {"id", "login", "emailAddress", "passwordHash", "role"})
+@EqualsAndHashCode(of = {"login", "emailAddress", "passwordHash", "role"})
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class Account implements Serializable {
