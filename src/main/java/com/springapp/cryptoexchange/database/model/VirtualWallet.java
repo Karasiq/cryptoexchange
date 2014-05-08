@@ -16,7 +16,9 @@ import java.util.concurrent.atomic.AtomicReference;
 @Entity
 @NoArgsConstructor
 @RequiredArgsConstructor
-@Table(name = "balances")
+@Table(name = "balances", indexes = {
+        @Index(columnList = "account_id, currency_id", unique = true)
+})
 @ToString(exclude = "account", callSuper = false)
 @EqualsAndHashCode(exclude = "virtualBalanceRef")
 @FieldDefaults(level = AccessLevel.PRIVATE)

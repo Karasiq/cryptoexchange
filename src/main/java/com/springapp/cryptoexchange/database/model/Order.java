@@ -11,7 +11,6 @@ import org.hibernate.annotations.CascadeType;
 
 import javax.persistence.*;
 import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Min;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Date;
@@ -20,7 +19,9 @@ import java.util.Date;
 @Entity
 @NoArgsConstructor
 @RequiredArgsConstructor
-@Table(name = "orders")
+@Table(name = "orders", indexes = {
+        @Index(name = "marketIndex", columnList = "tradingPair_id, price, type, status")
+})
 @ToString(of={"id", "type", "status", "amount", "price", "completedAmount", "total"})
 @EqualsAndHashCode(of = {"id", "openDate", "type", "amount", "price", "tradingPair"})
 @FieldDefaults(level = AccessLevel.PRIVATE)

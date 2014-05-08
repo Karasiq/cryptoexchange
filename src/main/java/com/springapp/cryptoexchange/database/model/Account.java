@@ -23,7 +23,9 @@ import java.util.Set;
 @Data
 @Entity
 @NoArgsConstructor
-@Table(name = "accounts")
+@Table(name = "accounts", indexes = {
+        @Index(columnList = "login, email_address", unique = true)
+})
 @ToString(exclude = {"passwordHash"})
 @EqualsAndHashCode(of = {"login", "emailAddress", "passwordHash", "role"})
 @FieldDefaults(level = AccessLevel.PRIVATE)

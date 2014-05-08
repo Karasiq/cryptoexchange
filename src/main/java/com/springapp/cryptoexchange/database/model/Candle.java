@@ -20,7 +20,9 @@ import java.util.Date;
 @ToString(exclude = "tradingPair")
 @NoArgsConstructor
 @RequiredArgsConstructor
-@Table(name = "history")
+@Table(name = "history", indexes = {
+        @Index(columnList = "tradingPair_id, open_time", unique = true)
+})
 @EqualsAndHashCode(of = {"openTime", "tradingPair"})
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)

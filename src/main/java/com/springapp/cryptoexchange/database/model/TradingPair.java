@@ -22,7 +22,9 @@ import java.util.List;
 @NoArgsConstructor
 @EqualsAndHashCode(of = {"firstCurrency", "secondCurrency"})
 @ToString(exclude = {"orders", "history"})
-@Table(name = "trading_pairs")
+@Table(name = "trading_pairs", indexes = {
+        @Index(columnList = "firstCurrency_id, secondCurrency_id", unique = true)
+})
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class TradingPair implements Serializable {

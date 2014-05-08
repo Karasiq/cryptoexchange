@@ -229,10 +229,10 @@ public class MarketManagerImpl implements MarketManager {
                 .setFetchMode("account", FetchMode.JOIN)
                 .addOrder(orderType == Order.Type.BUY ? org.hibernate.criterion.Order.asc("price") : org.hibernate.criterion.Order.desc("price"))
                 .addOrder(org.hibernate.criterion.Order.asc("openDate"))
-                .add(Restrictions.in("status", Arrays.asList(Order.Status.OPEN, Order.Status.PARTIALLY_COMPLETED)))
                 .add(Restrictions.eq("tradingPair", tradingPair))
                 .add(orderType.equals(Order.Type.BUY) ? Restrictions.le("price", newOrder.getPrice()) : Restrictions.ge("price", newOrder.getPrice()))
                 .add(Restrictions.eq("type", orderType.equals(Order.Type.BUY) ? Order.Type.SELL : Order.Type.BUY))
+                .add(Restrictions.in("status", Arrays.asList(Order.Status.OPEN, Order.Status.PARTIALLY_COMPLETED)))
                 .list();
 
         // Performing trade:
