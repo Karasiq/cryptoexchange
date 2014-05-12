@@ -76,7 +76,7 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
     @Transactional(readOnly = true)
     public Depth createDepth(final @NonNull Criteria buyOrders, final @NonNull Criteria sellOrders, final int depthSize) throws Exception {
         final long start = System.nanoTime();
-        final Depth depth = new Depth();
+        final Depth depth = new Depth(depthSize);
         makeDepth(buyOrders, depth.buyOrders, depthSize);
         makeDepth(sellOrders, depth.sellOrders, depthSize);
         log.info(String.format("Depth generated in %d ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start)));
@@ -128,6 +128,15 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
         return accountBalanceInfo;
     }
 
+    private void convertToHighChartsOHLC(Candle candle, Object[] result) {
+        result[0] = candle.getOpenTime().getTime();
+        result[1] = candle.getOpen();
+        result[2] = candle.getHigh();
+        result[3] = candle.getLow();
+        result[4] = candle.getClose();
+        result[5] = candle.getVolume();
+    }
+
     @Override
     public Object[][] createHighChartsOHLCData(final @NonNull List<Candle> candleList) throws Exception {
         final long start = System.nanoTime();
@@ -139,13 +148,7 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
             executorService.execute(new Runnable() {
                 @Override
                 public void run() {
-                    Candle candle = candleList.get(length - index - 1);
-                    result[index][0] = candle.getOpenTime().getTime();
-                    result[index][1] = candle.getOpen();
-                    result[index][2] = candle.getHigh();
-                    result[index][3] = candle.getLow();
-                    result[index][4] = candle.getClose();
-                    result[index][5] = candle.getVolume();
+                    convertToHighChartsOHLC(candleList.get(length - index - 1), result[index]);
                 }
             });
         }

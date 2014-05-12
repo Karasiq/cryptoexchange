@@ -8,9 +8,9 @@
     <name>CryptoExchange</name>
 
     <properties>
-        <spring.version>4.0.2.BUILD-SNAPSHOT</spring.version>
-        <spring.security.version>3.2.1.CI-SNAPSHOT</spring.security.version>
-        <hibernate.version>4.3.0.Final</hibernate.version>
+        <spring.version>4.0.4.RELEASE</spring.version>
+        <spring.security.version>3.2.3.RELEASE</spring.security.version>
+        <hibernate.version>4.3.5.Final</hibernate.version>
     </properties>
 
     <repositories>
@@ -138,17 +138,17 @@
             <version>4.3.1</version>
         </dependency>
 
-        <dependency>
+        <!--dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
             <version>5.1.28</version>
-        </dependency>
-
-        <!--dependency>
-            <groupId>jstl</groupId>
-            <artifactId>jstl</artifactId>
-            <version>1.2</version>
         </dependency-->
+
+        <dependency>
+            <groupId>postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>9.1-901.jdbc4</version>
+        </dependency>
 
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>

@@ -3,6 +3,7 @@ package com.springapp.cryptoexchange;
 import com.bitcoin.daemon.AbstractWallet;
 import com.bitcoin.daemon.Address;
 import com.bitcoin.daemon.CryptoCoinWallet;
+import com.bitcoin.daemon.DaemonRpcException;
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.utils.Calculator;
@@ -97,7 +98,7 @@ public class AppTests {
         log.debug(result.getResponse().getContentAsString());
     }
 
-    @Test
+    //@Test
     @SuppressWarnings("unchecked")
     public void jsonRpc() throws Exception {
         Currency currency = settingsManager.getCurrencyList().get(0);
@@ -130,6 +131,17 @@ public class AppTests {
         log.debug(accountManager.getAccount("username"));
     }
 
+    private TradingPair createTestTradingPair() throws Exception {
+        TradingPair tradingPair = new TradingPair(new Currency("TEST1", "TestCurrency1", Currency.Type.PURE_VIRTUAL),
+                new Currency("TEST2", "TestCurrency2", Currency.Type.PURE_VIRTUAL));
+
+        settingsManager.addCurrency(tradingPair.getFirstCurrency());
+        settingsManager.addCurrency(tradingPair.getSecondCurrency());
+        settingsManager.addTradingPair(tradingPair);
+        log.debug(tradingPair);
+        return tradingPair;
+    }
+
     @Test
     @Transactional
     public void market() throws Exception {
@@ -141,8 +153,7 @@ public class AppTests {
         if(secondAccount == null) {
             secondAccount = accountManager.addAccount(new Account("seller", "seller@email.com", "password"));
         }
-        TradingPair tradingPair = settingsManager.getTradingPairs().get(0);
-        tradingPair.setMinimalTradeAmount(BigDecimal.ZERO);
+        TradingPair tradingPair = createTestTradingPair();
 
         VirtualWallet firstBuyWallet = accountManager.getVirtualWallet(firstAccount, tradingPair.getFirstCurrency()),
                 secondBuyWallet = accountManager.getVirtualWallet(firstAccount, tradingPair.getSecondCurrency()),
@@ -192,14 +203,7 @@ public class AppTests {
     @Test
     @Transactional
     public void deleteTradingPair() throws Exception {
-        TradingPair tradingPair = new TradingPair(new Currency("TEST1", "TestCurrency1", Currency.Type.PURE_VIRTUAL),
-                new Currency("TEST2", "TestCurrency2", Currency.Type.PURE_VIRTUAL));
-
-        settingsManager.addCurrency(tradingPair.getFirstCurrency());
-        settingsManager.addCurrency(tradingPair.getSecondCurrency());
-        settingsManager.addTradingPair(tradingPair);
-        log.debug(tradingPair);
-
+        TradingPair tradingPair = createTestTradingPair();
         Account account = new Account("testaccount", "testaccount@mail.com", "testaccount");
         accountManager.addAccount(account);
         log.debug(account);

@@ -3,6 +3,7 @@ package com.springapp.cryptoexchange.webapi;
 import com.springapp.cryptoexchange.database.AccountManager;
 import com.springapp.cryptoexchange.database.model.Account;
 import com.springapp.cryptoexchange.database.model.log.LoginHistory;
+import com.springapp.cryptoexchange.utils.InetAddressUtil;
 import lombok.AccessLevel;
 import lombok.Value;
 import lombok.experimental.FieldDefaults;
@@ -67,7 +68,7 @@ public class SessionController {
         try {
             Authentication auth = authenticationManager.authenticate(token);
             SecurityContextHolder.getContext().setAuthentication(auth);
-            accountManager.logEntry(accountManager.getAccount(username), request.getRemoteAddr(), request.getHeader("User-Agent"));
+            accountManager.logEntry(accountManager.getAccount(username), InetAddressUtil.getAddressFromRequest(request), request.getHeader("User-Agent"));
             return new LoginStatus(auth.isAuthenticated(), auth.getName(), null);
         } catch (Exception e) {
             log.debug(e.getStackTrace());

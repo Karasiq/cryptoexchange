@@ -44,8 +44,18 @@ public interface ConvertService {
                 return getPrice().compareTo(entry.getPrice());
             }
         }
-        List<Entry> sellOrders = new ArrayList<>();
-        List<Entry> buyOrders = new ArrayList<>();
+        List<Entry> sellOrders;
+        List<Entry> buyOrders;
+
+        public Depth(int capacity) {
+            buyOrders = new ArrayList<>(capacity);
+            sellOrders = new ArrayList<>(capacity);
+        }
+
+        public Depth() {
+            buyOrders = new ArrayList<>();
+            sellOrders = new ArrayList<>();
+        }
     }
 
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)

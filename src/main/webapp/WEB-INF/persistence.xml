@@ -21,7 +21,8 @@
     <!-- Настройки бина dataSource будем хранить в отдельном файле -->
     <bean id="propertyConfigurer"
           class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer"
-          p:location="classpath:jdbc.properties"/>
+          p:location="classpath:jdbc.properties"
+          p:systemPropertiesModeName="SYSTEM_PROPERTIES_MODE_OVERRIDE" />
 
     <!-- Непосредственно бин dataSource -->
     <bean id="dataSource"

@@ -90,7 +90,6 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
                 .uniqueResult();
     }
 
-    @Async
     @Transactional
     public void logEntry(@NonNull Account account, String ip, String userAgentString) {
         Session session = sessionFactory.getCurrentSession();

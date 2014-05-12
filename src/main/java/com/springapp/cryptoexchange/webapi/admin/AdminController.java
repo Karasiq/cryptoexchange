@@ -229,7 +229,6 @@ public class AdminController {
         return true;
     }
 
-    @Transactional
     @ResponseBody
     @RequestMapping(value = "/fee/reset", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     public boolean recalculateFreeBalance() throws Exception {
