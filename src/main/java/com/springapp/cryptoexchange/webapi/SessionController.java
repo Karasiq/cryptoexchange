@@ -62,10 +62,13 @@ public class SessionController {
 
     @RequestMapping(method = RequestMethod.POST)
     @ResponseBody
-    public LoginStatus login(@RequestParam("j_username") String username, @RequestParam("j_password") String password, HttpServletRequest request) {
-        UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(username, password);
-        token.setDetails(new WebAuthenticationDetails(request));
+    public LoginStatus login(@RequestParam("j_username") String username, @RequestParam("j_password") String password, @RequestParam(value = "two_factor_code", required = false, defaultValue = "0") int googleAuthCode, HttpServletRequest request) {
         try {
+            Account account = accountManager.getAccount(username);
+            Assert.notNull(account, "Account not found");
+            account.checkGoogleAuth(googleAuthCode);
+            UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(username, password);
+            token.setDetails(new WebAuthenticationDetails(request));
             Authentication auth = authenticationManager.authenticate(token);
             SecurityContextHolder.getContext().setAuthentication(auth);
             accountManager.logEntry(accountManager.getAccount(username), InetAddressUtil.getAddressFromRequest(request), request.getHeader("User-Agent"));
@@ -95,7 +98,7 @@ public class SessionController {
             // Create account:
             Account account = new Account(username, email, password);
             accountManager.addAccount(account);
-            return login(username, password, request);
+            return login(username, password, 0, request);
         } catch (Exception e) {
             log.debug(e.getStackTrace());
             log.error(e);

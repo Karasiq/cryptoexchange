@@ -3,7 +3,10 @@ package com.springapp.cryptoexchange.webapi.data;
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.utils.ConvertService;
+import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
 import lombok.extern.apachecommons.CommonsLog;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -13,14 +16,14 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.security.Principal;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Controller
 @RequestMapping(value = "/rest/account.json", headers = "X-Ajax-Call=true")
@@ -45,6 +48,9 @@ public class PrivateController {
 
     @Autowired
     MarketManager marketManager;
+
+    @Autowired
+    SessionFactory sessionFactory;
 
     @Cacheable(value = "getAccountBalances", key = "#principal.name")
     @RequestMapping("/balance")
@@ -142,5 +148,39 @@ public class PrivateController {
             address = addressList.get(0).getAddress();
         }
         return address;
+    }
+
+    @RequestMapping(value = "/security/2fa", method = RequestMethod.GET)
+    @ResponseBody
+    public boolean getGoogleAuthStatus(Principal principal) {
+        return accountManager.getAccount(principal.getName()).getGoogleAuthSecret() != null;
+    }
+
+    @Transactional
+    @RequestMapping(value = "/security/2fa/enable", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> enableGoogleAuth(Principal principal, HttpServletRequest request) {
+        Session session = sessionFactory.getCurrentSession();
+        Account account = accountManager.getAccount(principal.getName());
+        Assert.notNull(account);
+        final GoogleAuthenticatorKey authenticatorKey = account.generateGoogleAuthSecret();
+        session.update(account);
+        final Map<String, Object> result = new HashMap<>(2);
+        result.put("secret", authenticatorKey.getKey());
+        result.put("barcode", GoogleAuthenticatorKey.getQRBarcodeURL(account.getLogin(), request.getServerName(), authenticatorKey.getKey()));
+        return result;
+    }
+
+    @Transactional
+    @RequestMapping(value = "/security/2fa/disable", method = RequestMethod.POST)
+    @ResponseBody
+    public boolean disableGoogleAuth(@RequestParam(value = "two_factor_code", required = false, defaultValue = "0") int code, Principal principal) {
+        Session session = sessionFactory.getCurrentSession();
+        Account account = accountManager.getAccount(principal.getName());
+        Assert.notNull(account);
+        account.checkGoogleAuth(code);
+        account.setGoogleAuthSecret(null);
+        session.update(account);
+        return true;
     }
 }

@@ -1,6 +1,8 @@
 package com.springapp.cryptoexchange.database.model;
 
 
+import com.warrenstrange.googleauth.GoogleAuthenticator;
+import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.Cache;
@@ -81,6 +83,25 @@ public class Account implements Serializable {
 
     @Column(name = "role", nullable = false)
     Role role = Role.USER;
+
+    @Column(name = "google_auth_secret", unique = true)
+    String googleAuthSecret;
+
+    public void checkGoogleAuth(int code) {
+        if(googleAuthSecret != null) {
+            GoogleAuthenticator googleAuthenticator = new GoogleAuthenticator();
+            Assert.isTrue(googleAuthenticator.authorize(getGoogleAuthSecret(), code), "Invalid 2FA code");
+        }
+    }
+
+    public GoogleAuthenticatorKey generateGoogleAuthSecret() {
+        Assert.isNull(googleAuthSecret, "2FA secret already generated");
+        GoogleAuthenticator googleAuthenticator = new GoogleAuthenticator();
+        GoogleAuthenticatorKey googleAuthenticatorKey = googleAuthenticator.createCredentials();
+        Assert.hasLength(googleAuthenticatorKey.getKey());
+        setGoogleAuthSecret(googleAuthenticatorKey.getKey());
+        return googleAuthenticatorKey;
+    }
 
     public Account(final String login, final String emailAddress, final String password) throws Exception {
         Assert.isTrue(password.matches("[a-zA-Z0-9_!@#$%^&*]{6,200}"), "Invalid password");
