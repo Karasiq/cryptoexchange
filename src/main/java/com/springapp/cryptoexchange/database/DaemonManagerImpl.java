@@ -1,10 +1,8 @@
 package com.springapp.cryptoexchange.database;
 
-import com.bitcoin.daemon.AbstractWallet;
-import com.bitcoin.daemon.CryptoCoinWallet;
-import com.bitcoin.daemon.DaemonRpcException;
-import com.bitcoin.daemon.JsonRPC;
+import com.bitcoin.daemon.*;
 import com.springapp.cryptoexchange.database.model.*;
+import com.springapp.cryptoexchange.database.model.Address;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.log.CryptoWithdrawHistory;
 import com.springapp.cryptoexchange.utils.CacheCleaner;
@@ -16,6 +14,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.joda.time.DateTime;
 import org.joda.time.Period;
@@ -36,7 +35,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 
 @Service
 @CommonsLog
@@ -201,38 +200,55 @@ public class DaemonManagerImpl implements DaemonManager {
         Session session = sessionFactory.getCurrentSession();
         final List<CryptoWithdrawHistory> withdrawHistoryList = session.createCriteria(CryptoWithdrawHistory.class)
                 .add(Restrictions.eq("sourceWallet", virtualWallet))
-                .add(Restrictions.ge("time", DateTime.now().minus(Period.weeks(1)).toDate()))
-                .setMaxResults(10)
+                .add(Restrictions.ge("time", DateTime.now().minus(Period.days(1)).toDate()))
+                .setMaxResults(3)
                 .list();
-        for(CryptoWithdrawHistory withdrawHistory : withdrawHistoryList) {
-            // Refreshing transaction:
-            final T transaction = (T) daemon.getTransaction(withdrawHistory.getTransactionId());
 
-            if (transaction instanceof com.bitcoin.daemon.Address.Transaction) { // Fixes
-                final com.bitcoin.daemon.Address.Transaction btcTx = (com.bitcoin.daemon.Address.Transaction) transaction;
-                btcTx.setCategory("send");
-                btcTx.setAmount(withdrawHistory.getAmount());
-            }
-            transactionList.add(transaction);
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        List<Future<T>> futureList = new ArrayList<>(withdrawHistoryList.size());
+        for(final CryptoWithdrawHistory withdrawHistory : withdrawHistoryList) {
+            // Refreshing transaction:
+            futureList.add(executorService.submit(new Callable<T>() {
+                @Override
+                public T call() throws Exception {
+                    try {
+                        T transaction = (T) daemon.getTransaction(withdrawHistory.getTransactionId());
+                        if (transaction instanceof com.bitcoin.daemon.Address.Transaction) { // Fixes
+                            final com.bitcoin.daemon.Address.Transaction btcTx = (com.bitcoin.daemon.Address.Transaction) transaction;
+                            btcTx.setCategory("send");
+                            btcTx.setAmount(withdrawHistory.getAmount());
+                        }
+                        return transaction;
+                    } catch (DaemonRpcException e) {
+                        return (T) withdrawHistory.btcTransaction(); // Костыль
+                    }
+                }
+            }));
         }
+        for(Future<T> future : futureList) transactionList.add(future.get());
+        executorService.shutdown();
         return transactionList;
     }
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     public com.bitcoin.daemon.Address.Transaction withdrawFunds(@NonNull VirtualWallet wallet, @NonNull String address, @NonNull BigDecimal amount) throws Exception {
+        Session session = sessionFactory.getCurrentSession();
         Currency currency = wallet.getCurrency();
         Assert.isTrue(currency.getType().equals(Currency.Type.CRYPTO) && address.length() > 0 && amount.compareTo(BigDecimal.ZERO) > 0, "Invalid parameters");
         BigDecimal minAmount = currency.getMinimalWithdrawAmount();
         Assert.isTrue(amount.compareTo(minAmount) >= 0, String.format("Minimal withdraw amount: %s %s", minAmount, currency.getCode()));
-        Session session = sessionFactory.getCurrentSession();
-        CryptoCoinWallet account = (CryptoCoinWallet) getAccount(currency);
         BigDecimal balance = accountManager.getVirtualWalletBalance(wallet), sendAmount = Calculator.withoutFee(amount, currency.getWithdrawFee());
-        if(balance.compareTo(amount) < 0) {
-            throw new IllegalArgumentException("Insufficient funds");
-        }
+
+        Assert.isTrue(balance.compareTo(amount) >= 0, "Insufficient funds");
+        Assert.isTrue(((Number) session.createCriteria(CryptoWithdrawHistory.class)
+                .add(Restrictions.eq("sourceWallet", wallet))
+                .add(Restrictions.ge("time", DateTime.now().minusHours(1).toDate()))
+                .setProjection(Projections.rowCount())
+                .uniqueResult()).intValue() == 0, "Withdrawal frequency limited to once per hour for each currency.");
+
         wallet.addBalance(amount.negate());
         session.update(wallet);
-
+        CryptoCoinWallet account = (CryptoCoinWallet) getAccount(currency);
         log.info(String.format("Funds withdraw requested: from %s to %s <%s>", wallet, address, amount));
         com.bitcoin.daemon.Address.Transaction transaction = account.sendToAddress(address, sendAmount);
         try {

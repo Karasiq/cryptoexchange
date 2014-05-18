@@ -73,7 +73,7 @@ public class FeeManagerImpl implements FeeManager {
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     public void submitCollectedFee(FreeBalance.FeeType type, @NonNull Currency currency, @NonNull BigDecimal feeAmount) throws Exception {
-        if (feeAmount.equals(BigDecimal.ZERO)) {
+        if (feeAmount.compareTo(BigDecimal.ZERO) == 0) {
             return;
         }
         Session session = sessionFactory.getCurrentSession();
@@ -118,7 +118,7 @@ public class FeeManagerImpl implements FeeManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.SERIALIZABLE)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     public Object withdrawFee(@NonNull Currency currency, @NonNull BigDecimal amount, @NonNull Object receiverInfo) throws Exception {
         Session session = sessionFactory.getCurrentSession();
         FreeBalance freeBalance = getFreeBalance(session, currency);

@@ -11,6 +11,9 @@ import org.springframework.util.Assert;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @CommonsLog
 @Value
@@ -58,6 +61,8 @@ public class CryptoCoinWallet implements AbstractWallet<String, Address.Transact
 
     JsonRPC jsonRPC;
     final Map<String, Address> addressList = new HashMap<>();
+    final Map<String, Address.Transaction> transactionMap = new HashMap<>();
+    final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
     private BigDecimal getReceivedByAddress(String address) throws Exception { // Not cached
         return jsonRPC.executeRpcRequest("getreceivedbyaddress", Arrays.asList(address, Settings.REQUIRED_CONFIRMATIONS), new TypeReference<JsonRPC.Response<BigDecimal>>(){});
@@ -65,43 +70,77 @@ public class CryptoCoinWallet implements AbstractWallet<String, Address.Transact
 
     public BigDecimal getAddressBalance(String address) throws Exception { // Cached
         Assert.hasLength(address, "Address can not be empty");
-        synchronized (addressList) {
+        Lock readLock = readWriteLock.readLock();
+        readLock.lock();
+        try {
             Address addressCache = addressList.get(address);
             if (addressCache == null) {
                 addressCache = new Address(address);
                 addressCache.setReceivedByAddress(getReceivedByAddress(address));
-                addressList.put(address, addressCache);
+                Lock writeLock = readWriteLock.writeLock();
+                writeLock.lock();
+                try {
+                    addressList.put(address, addressCache);
+                } finally {
+                    writeLock.unlock();
+                }
             }
             return addressCache.getReceivedByAddress();
+        } finally {
+            readLock.unlock();
         }
     }
 
     public List<Address.Transaction> getTransactions() throws Exception {
-        List<Address.Transaction> transactionList = new ArrayList<>(5);
-        synchronized (addressList) {
-            for(Address address : addressList.values()) {
-                transactionList.addAll(address.getTransactionSet());
-            }
+        Lock readLock = readWriteLock.readLock();
+        readLock.lock();
+        try {
+            final Set<Address.Transaction> transactionSet = new HashSet<>(transactionMap.values());
+            for(Address address : addressList.values()) transactionSet.addAll(address.getTransactionSet());
+            return new ArrayList<>(transactionSet);
+        } finally {
+            readLock.unlock();
         }
-        return transactionList;
     }
 
     @SuppressWarnings("unchecked")
     public List<Address.Transaction> getTransactions(final Set<String> addresses) throws Exception {
-        final List<Address.Transaction> transactionList = new ArrayList<>(5);
+        final List<Address.Transaction> transactionList = new ArrayList<>();
         if (addresses.size() < 1) {
             return transactionList;
         }
-        synchronized (addressList) {
+        Lock readLock = readWriteLock.readLock();
+        readLock.lock();
+        try {
             for(String strAddress : addresses) if(addressList.containsKey(strAddress)) {
                 transactionList.addAll(addressList.get(strAddress).getTransactionSet());
             }
+            return transactionList;
+        } finally {
+            readLock.unlock();
         }
-        return transactionList;
     }
 
     public Address.Transaction getTransaction(String transactionId) throws Exception {
-        return jsonRPC.executeRpcRequest("gettransaction", Arrays.asList(transactionId), new TypeReference<JsonRPC.Response<Address.Transaction>>(){});
+        Lock readLock = readWriteLock.readLock();
+        readLock.lock();
+        try {
+            Address.Transaction transaction = transactionMap.get(transactionId);
+            if (transaction == null) {
+                transaction = jsonRPC.executeRpcRequest("gettransaction", Arrays.asList(transactionId), new TypeReference<JsonRPC.Response<Address.Transaction>>(){});
+                Assert.isTrue(transaction.getTxid().equals(transactionId));
+                Lock writeLock = readWriteLock.writeLock();
+                writeLock.lock();
+                try {
+                    transactionMap.put(transaction.getTxid(), transaction);
+                } finally {
+                    writeLock.unlock();
+                }
+            }
+            return transaction;
+        } finally {
+            readLock.unlock();
+        }
     }
 
     public Map<String, ?> getInfo() throws Exception {
@@ -115,10 +154,13 @@ public class CryptoCoinWallet implements AbstractWallet<String, Address.Transact
             return confirmed; // 0
         }
 
-        synchronized (addressList) {
+        Lock readLock = readWriteLock.readLock();
+        readLock.lock();
+        try {
             for(String strAddress : addresses) confirmed = confirmed.add(getAddressBalance(strAddress));
+        } finally {
+            readLock.unlock();
         }
-
         return confirmed;
     }
 
@@ -140,7 +182,13 @@ public class CryptoCoinWallet implements AbstractWallet<String, Address.Transact
         final List<Address.Transaction> transactions = getDefaultAccount().listTransactions(maxCount);
         final Map<String, BigDecimal> receivedByAddress = listReceivedByAddress();
 
-        synchronized (addressList) {
+        Lock writeLock = readWriteLock.writeLock();
+        writeLock.lock();
+        try {
+            if (transactionMap.size() > maxCount * 3) { // Cache clean
+                transactionMap.clear();
+                addressList.clear();
+            }
             Address address = null;
             for(Map.Entry<String, BigDecimal> entry : receivedByAddress.entrySet()) {
                 if(address == null || !address.getAddress().equals(entry.getKey())) {
@@ -152,18 +200,22 @@ public class CryptoCoinWallet implements AbstractWallet<String, Address.Transact
                     address.setReceivedByAddress(entry.getValue());
                 }
             }
-            for(Address.Transaction transaction : transactions) if(transaction.getAddress() != null
-                    && transaction.getAddress().length() > 0 && "receive".equals(transaction.category))
-            {
-                if(address == null || !address.getAddress().equals(transaction.address)) {
-                    address = addressList.get(transaction.address);
-                    if(address == null) {
-                        address = new Address(transaction.address);
-                        addressList.put(transaction.address, address);
+            for(Address.Transaction transaction : transactions) {
+                Assert.hasLength(transaction.getTxid(), "Invalid transaction: " + transaction);
+                transactionMap.put(transaction.getTxid(), transaction);
+                if(transaction.getAddress() != null && transaction.getAddress().length() > 0 && "receive".equals(transaction.category)) {
+                    if(address == null || !address.getAddress().equals(transaction.address)) {
+                        address = addressList.get(transaction.address);
+                        if(address == null) {
+                            address = new Address(transaction.address);
+                            addressList.put(transaction.address, address);
+                        }
                     }
+                    address.addTransaction(transaction);
                 }
-                address.addTransaction(transaction);
             }
+        } finally {
+            writeLock.unlock();
         }
     }
 

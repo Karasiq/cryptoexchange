@@ -1,9 +1,6 @@
 package com.springapp.cryptoexchange.utils;
 
-import com.springapp.cryptoexchange.database.model.Account;
-import com.springapp.cryptoexchange.database.model.Candle;
-import com.springapp.cryptoexchange.database.model.Currency;
-import com.springapp.cryptoexchange.database.model.Order;
+import com.springapp.cryptoexchange.database.model.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.Criteria;
@@ -29,33 +26,23 @@ public interface ConvertService {
         }
     }
 
-    @Data @FieldDefaults(level = AccessLevel.PUBLIC, makeFinal = true)
+    @Data @FieldDefaults(level = AccessLevel.PUBLIC)
     public static class Depth implements Serializable {
         @Data
         @FieldDefaults(level = AccessLevel.PRIVATE)
-        static class Entry implements Serializable, Comparable<Entry> {
-            protected void addOrder(Order order) {
-                setPrice(order.getPrice());
-                setAmount(getAmount().add(order.getRemainingAmount()));
-            }
+        public static class Entry implements Serializable, Comparable<Entry> {
             BigDecimal price;
             BigDecimal amount = BigDecimal.ZERO;
             public int compareTo(Entry entry) {
                 return getPrice().compareTo(entry.getPrice());
             }
+            protected void addOrder(Order order) {
+                setPrice(order.getPrice());
+                setAmount(getAmount().add(order.getRemainingAmount()));
+            }
         }
         List<Entry> sellOrders;
         List<Entry> buyOrders;
-
-        public Depth(int capacity) {
-            buyOrders = new ArrayList<>(capacity);
-            sellOrders = new ArrayList<>(capacity);
-        }
-
-        public Depth() {
-            buyOrders = new ArrayList<>();
-            sellOrders = new ArrayList<>();
-        }
     }
 
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -66,14 +53,14 @@ public interface ConvertService {
             BigDecimal balance;
             String address;
         }
-        @Getter List<AccountBalance> accountBalances = Collections.synchronizedList(new ArrayList<AccountBalance>());
+        @Getter List<AccountBalance> accountBalances = new ArrayList<>();
         public void add(Currency currency, BigDecimal balance, String address) {
             accountBalances.add(new AccountBalance(currency, balance, address));
         }
     }
 
-    public Depth createDepth(Criteria buyOrders, Criteria sellOrders, int depthSize) throws Exception;
-    public List<MarketHistory> createHistory(Criteria orders) throws Exception;
+    public Depth createDepth(TradingPair tradingPair, int depthSize) throws Exception;
+    public List<MarketHistory> createHistory(Criteria criteria) throws Exception;
     public AccountBalanceInfo createAccountBalanceInfo(Account account) throws Exception;
     public Object[][] createHighChartsOHLCData(List<Candle> candleList) throws Exception;
 }

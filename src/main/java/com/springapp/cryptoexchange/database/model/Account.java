@@ -33,6 +33,8 @@ import java.util.Set;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class Account implements Serializable {
+    private final static GoogleAuthenticator googleAuthenticator = new GoogleAuthenticator();
+
     public static enum Role {
         ANONYMOUS, USER, MODERATOR, ADMIN, API_USER;
 
@@ -89,14 +91,12 @@ public class Account implements Serializable {
 
     public void checkGoogleAuth(int code) {
         if(googleAuthSecret != null) {
-            GoogleAuthenticator googleAuthenticator = new GoogleAuthenticator();
-            Assert.isTrue(googleAuthenticator.authorize(getGoogleAuthSecret(), code), "Invalid 2FA code");
+            Assert.isTrue(googleAuthenticator.authorize(getGoogleAuthSecret(), code), "Invalid two factor auth code");
         }
     }
 
     public GoogleAuthenticatorKey generateGoogleAuthSecret() {
-        Assert.isNull(googleAuthSecret, "2FA secret already generated");
-        GoogleAuthenticator googleAuthenticator = new GoogleAuthenticator();
+        Assert.isNull(getGoogleAuthSecret(), "Two factor auth secret already generated");
         GoogleAuthenticatorKey googleAuthenticatorKey = googleAuthenticator.createCredentials();
         Assert.hasLength(googleAuthenticatorKey.getKey());
         setGoogleAuthSecret(googleAuthenticatorKey.getKey());

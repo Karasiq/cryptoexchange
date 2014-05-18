@@ -13,7 +13,9 @@ import java.io.Serializable;
 import java.util.Date;
 
 @Entity
-@Table(name = "login_history")
+@Table(name = "login_history", indexes = {
+        @Index(columnList = "account_id, login_ip, login_time")
+})
 @Data
 @RequiredArgsConstructor
 @NoArgsConstructor

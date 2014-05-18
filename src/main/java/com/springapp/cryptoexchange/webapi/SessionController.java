@@ -66,10 +66,10 @@ public class SessionController {
         try {
             Account account = accountManager.getAccount(username);
             Assert.notNull(account, "Account not found");
-            account.checkGoogleAuth(googleAuthCode);
             UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(username, password);
             token.setDetails(new WebAuthenticationDetails(request));
             Authentication auth = authenticationManager.authenticate(token);
+            account.checkGoogleAuth(googleAuthCode);
             SecurityContextHolder.getContext().setAuthentication(auth);
             accountManager.logEntry(accountManager.getAccount(username), InetAddressUtil.getAddressFromRequest(request), request.getHeader("User-Agent"));
             return new LoginStatus(auth.isAuthenticated(), auth.getName(), null);

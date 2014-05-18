@@ -4,6 +4,8 @@ import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
 import org.hibernate.Criteria;
 
+import java.util.List;
+
 public interface MarketManager {
     public static class MarketException extends Exception {
         public MarketException() {
@@ -29,5 +31,5 @@ public interface MarketManager {
     public Order executeOrder(Order newOrder) throws Exception;
     public void cancelOrder(Order order) throws Exception;
     public Order getOrder(long orderId);
-    public Criteria getOpenOrders(TradingPair tradingPair, Order.Type orderType); // use ConvertService instead
+    public Criteria getOpenOrders(TradingPair tradingPair, Order.Type orderType);
 }

@@ -12,8 +12,8 @@ import java.util.List;
 
 public interface HistoryManager {
     void updateMarketInfo(TradingPair tradingPair, final BigDecimal price, final BigDecimal amount);
-    List<Candle> getMarketChartData(TradingPair tradingPair, int max);
-    Criteria getMarketHistory(TradingPair tradingPair); // use ConvertService instead
-    List<Order> getAccountHistory(Account account, int max);
-    List<Order> getAccountHistoryByPair(TradingPair tradingPair, Account account, int max);
+    Criteria getMarketChartData(TradingPair tradingPair);
+    Criteria getMarketHistory(TradingPair tradingPair);
+    Criteria getAccountHistory(Account account);
+    Criteria getAccountHistoryByPair(TradingPair tradingPair, Account account);
 }

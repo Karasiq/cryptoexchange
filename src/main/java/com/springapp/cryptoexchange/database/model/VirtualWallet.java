@@ -20,7 +20,6 @@ import java.util.concurrent.atomic.AtomicReference;
         @Index(columnList = "account_id, currency_id", unique = true)
 })
 @ToString(exclude = "account", callSuper = false)
-@EqualsAndHashCode(exclude = "virtualBalanceRef")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class VirtualWallet implements Serializable {
@@ -33,21 +32,10 @@ public class VirtualWallet implements Serializable {
     @ManyToOne(fetch = FetchType.EAGER)
     Currency currency;
 
-    @JsonIgnore
-    @Transient
-    private final AtomicReference<BigDecimal> virtualBalanceRef = new AtomicReference<>(BigDecimal.ZERO);
-
-    @Access(AccessType.PROPERTY)
     @Column(name = "virtual_balance", precision = 38, scale = 8, nullable = false)
-    public BigDecimal getVirtualBalance() {
-        return virtualBalanceRef.get();
-    }
+    BigDecimal virtualBalance = BigDecimal.ZERO;
 
-    public void setVirtualBalance(BigDecimal virtualBalance) {
-        virtualBalanceRef.set(virtualBalance == null ? BigDecimal.ZERO : virtualBalance);
-    }
-
-    @Column(name = "external_balance", precision = 38, scale = 8)
+    @Column(name = "external_balance", precision = 38, scale = 8, nullable = false)
     BigDecimal externalBalance = BigDecimal.ZERO;
 
     @NonNull
@@ -56,14 +44,6 @@ public class VirtualWallet implements Serializable {
     Account account;
 
     public void addBalance(@NonNull BigDecimal amount) {
-        BigDecimal oldVal = virtualBalanceRef.get();
-        virtualBalanceRef.compareAndSet(oldVal, oldVal.add(amount));
-    }
-
-    @PostLoad
-    void init() {
-        if(externalBalance == null) {
-            setExternalBalance(BigDecimal.ZERO);
-        }
+        setVirtualBalance(getVirtualBalance().add(amount));
     }
 }

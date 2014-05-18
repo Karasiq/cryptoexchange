@@ -97,16 +97,18 @@ public class PublicController {
     public List<ConvertService.MarketHistory> getMarketHistory(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         Assert.isTrue(tradingPair != null && tradingPair.isEnabled(), "Invalid pair");
-        return convertService.createHistory(historyManager.getMarketHistory(tradingPair).setMaxResults(100));
+        return convertService.createHistory(historyManager.getMarketHistory(tradingPair).setMaxResults(50));
     }
 
+    @SuppressWarnings("unchecked")
+    @Transactional(readOnly = true)
     @Cacheable(value = "getMarketChartData", key = "#tradingPairId")
     @RequestMapping("/chart/{tradingPairId}")
     @ResponseBody
     public Object[][] getMarketChartData(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         Assert.isTrue(tradingPair != null && tradingPair.isEnabled(), "Invalid pair");
-        return convertService.createHighChartsOHLCData(historyManager.getMarketChartData(tradingPair, 100));
+        return convertService.createHighChartsOHLCData(historyManager.getMarketChartData(tradingPair).setMaxResults(100).list());
     }
 
     @Transactional(readOnly = true)
@@ -116,7 +118,7 @@ public class PublicController {
     public ConvertService.Depth getMarketDepth(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         Assert.isTrue(tradingPair != null && tradingPair.isEnabled(), "Invalid pair");
-        return convertService.createDepth(marketManager.getOpenOrders(tradingPair, Order.Type.BUY), marketManager.getOpenOrders(tradingPair, Order.Type.SELL), 20);
+        return convertService.createDepth(tradingPair, 20);
     }
 
 

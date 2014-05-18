@@ -7,6 +7,7 @@ import com.bitcoin.daemon.DaemonRpcException;
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.utils.Calculator;
+import com.springapp.cryptoexchange.utils.ConvertService;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
@@ -142,6 +143,7 @@ public class AppTests {
         return tradingPair;
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     @Transactional
     public void market() throws Exception {
@@ -175,6 +177,14 @@ public class AppTests {
 
         Assert.isTrue(buyOrder.getStatus().equals(Order.Status.COMPLETED) && sellOrder.getStatus().equals(Order.Status.PARTIALLY_COMPLETED));
 
+        log.info(mockMvc.perform(get("/rest/api.json/depth/{tradingPairId}", tradingPair.getId()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString());
+
+        log.info(mockMvc.perform(get("/rest/api.json/history/{tradingPairId}", tradingPair.getId()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString());
+
         marketManager.cancelOrder(sellOrder);
         Assert.isTrue(sellOrder.getStatus().equals(Order.Status.PARTIALLY_CANCELLED));
 
@@ -195,7 +205,7 @@ public class AppTests {
         log.debug("Source: " + secondBuyWallet.getVirtualBalance() + " " + firstSellWallet.getVirtualBalance() +
                 "\nDest: " + firstBuyWallet.getVirtualBalance() + " " + secondSellWallet.getVirtualBalance());
 
-        List<Candle> history = historyManager.getMarketChartData(tradingPair, 1);
+        List<Candle> history = historyManager.getMarketChartData(tradingPair).list();
         log.info(history.get(0));
         Assert.isTrue(history.get(0).getClose().compareTo(sellPrice) == 0, "Invalid chart");
     }

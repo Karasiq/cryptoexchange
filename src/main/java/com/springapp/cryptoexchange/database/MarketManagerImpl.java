@@ -86,10 +86,10 @@ public class MarketManagerImpl implements MarketManager {
         }
 
         BigDecimal price = firstOrder.getPrice(),
-                tradingFee = tradingPair.getTradingFee(),
+                tradingFee = zeroFee ? BigDecimal.ZERO : tradingPair.getTradingFee(),
                 total = Calculator.buyTotal(amount, price),
-                firstCurrencySend = zeroFee ? amount : Calculator.withoutFee(amount, tradingFee),
-                secondCurrencySend = zeroFee ? total : Calculator.withoutFee(total, tradingFee);
+                firstCurrencySend = Calculator.withoutFee(amount, tradingFee),
+                secondCurrencySend = Calculator.withoutFee(total, tradingFee);
 
         Currency firstCurrency = tradingPair.getFirstCurrency(), secondCurrency = tradingPair.getSecondCurrency();
         Assert.isTrue(firstCurrency != null && secondCurrency != null, "Currency not found");
@@ -132,7 +132,7 @@ public class MarketManagerImpl implements MarketManager {
 
 
         // Collected fee:
-        if (!zeroFee) {
+        if (tradingFee.compareTo(BigDecimal.ZERO) > 0) {
             feeManager.submitCollectedFee(FreeBalance.FeeType.TRADING, tradingPair.getFirstCurrency(), Calculator.fee(amount, tradingFee));
             feeManager.submitCollectedFee(FreeBalance.FeeType.TRADING, tradingPair.getSecondCurrency(), Calculator.fee(total, tradingFee));
         }

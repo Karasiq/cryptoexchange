@@ -105,37 +105,31 @@ public class HistoryManagerImpl implements HistoryManager {
 
     @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
-    public List<Order> getAccountHistory(@NonNull Account account, int max) {
+    public Criteria getAccountHistory(@NonNull Account account) {
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Order.class)
                 .add(Restrictions.eq("account", account))
                 .add(Restrictions.in("status", Arrays.asList(Order.Status.COMPLETED, Order.Status.PARTIALLY_CANCELLED)))
-                .addOrder(org.hibernate.criterion.Order.desc("updateDate"))
-                .setMaxResults(max)
-                .list();
+                .addOrder(org.hibernate.criterion.Order.desc("updateDate"));
     }
 
     @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
-    public List<Order> getAccountHistoryByPair(@NonNull TradingPair tradingPair, @NonNull Account account, int max) {
+    public Criteria getAccountHistoryByPair(@NonNull TradingPair tradingPair, @NonNull Account account) {
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Order.class)
                 .add(Restrictions.eq("account", account))
                 .add(Restrictions.eq("tradingPair", tradingPair))
                 .add(Restrictions.in("status", Arrays.asList(Order.Status.COMPLETED, Order.Status.PARTIALLY_CANCELLED)))
-                .addOrder(org.hibernate.criterion.Order.desc("updateDate"))
-                .setMaxResults(max)
-                .list();
+                .addOrder(org.hibernate.criterion.Order.desc("updateDate"));
     }
 
     @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
-    public List<Candle> getMarketChartData(@NonNull TradingPair tradingPair, int max) {
+    public Criteria getMarketChartData(@NonNull TradingPair tradingPair) {
         Session session = sessionFactory.getCurrentSession();
         return session.createCriteria(Candle.class)
-                .setMaxResults(max)
                 .add(Restrictions.eq("tradingPair", tradingPair))
-                .addOrder(org.hibernate.criterion.Order.desc("openTime"))
-                .list();
+                .addOrder(org.hibernate.criterion.Order.desc("openTime"));
     }
 }

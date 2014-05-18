@@ -92,15 +92,19 @@ public class PrivateController {
         return accountManager.getAccountOrdersByPair(tradingPair, account, 20);
     }
 
+    @SuppressWarnings("unchecked")
+    @Transactional(readOnly = true)
     @Cacheable(value = "getAccountHistory", key = "#principal.name")
     @RequestMapping("/history")
     @ResponseBody
     public List<Order> getAccountHistory(Principal principal) {
         Account account = accountManager.getAccount(principal.getName());
         Assert.notNull(account);
-        return historyManager.getAccountHistory(account, 20);
+        return historyManager.getAccountHistory(account).setMaxResults(20).list();
     }
 
+    @SuppressWarnings("unchecked")
+    @Transactional(readOnly = true)
     @Cacheable(value = "getAccountHistoryByPair", key = "#principal.name + '/' + #tradingPairId")
     @RequestMapping("/history/{tradingPairId}")
     @ResponseBody
@@ -109,7 +113,7 @@ public class PrivateController {
         Account account = accountManager.getAccount(principal.getName());
         Assert.notNull(tradingPair);
         Assert.notNull(account);
-        return historyManager.getAccountHistoryByPair(tradingPair, account, 20);
+        return historyManager.getAccountHistoryByPair(tradingPair, account).setMaxResults(20).list();
     }
 
     @Transactional(readOnly = true)
