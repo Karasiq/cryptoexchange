@@ -20,9 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 @CommonsLog
 @Service
@@ -88,24 +86,33 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
         final long start = System.nanoTime();
         sessionFactory.getCurrentSession().refresh(account);
         List<Currency> currencyList = settingsManager.getCurrencyList();
-        final List<AccountBalance> accountBalanceInfo = new ArrayList<>();
-        for(Currency currency : currencyList) {
-            BigDecimal balance = BigDecimal.ZERO;
-            String address = null;
-            try {
-                VirtualWallet wallet = accountManager.getVirtualWallet(account, currency);
-                if(wallet != null) {
-                    if(wallet.getCurrency().isCrypto()) {
-                        List<Address> addressList = daemonManager.getAddressList(wallet);
-                        if (!addressList.isEmpty()) address = addressList.get(0).getAddress();
+        final List<AccountBalance> accountBalanceInfo = new ArrayList<>(currencyList.size());
+        final List<Future<AccountBalance>> futureList = new ArrayList<>(currencyList.size());
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        for(final Currency currency : currencyList) {
+            futureList.add(executorService.submit(new Callable<AccountBalance>() {
+                @Override
+                public AccountBalance call() throws Exception {
+                    BigDecimal balance = BigDecimal.ZERO;
+                    String address = null;
+                    try {
+                        VirtualWallet wallet = accountManager.getVirtualWallet(account, currency);
+                        if(wallet != null) {
+                            if(wallet.getCurrency().isCrypto()) {
+                                List<Address> addressList = daemonManager.getAddressList(wallet);
+                                if (!addressList.isEmpty()) address = addressList.get(0).getAddress();
+                            }
+                            balance = accountManager.getVirtualWalletBalance(wallet);
+                        }
+                    } catch (Exception e) {
+                        log.error(e);
                     }
-                    balance = accountManager.getVirtualWalletBalance(wallet);
+                    return new AccountBalance(currency, balance, address);
                 }
-            } catch (Exception e) {
-                log.error(e);
-            }
-            accountBalanceInfo.add(new AccountBalance(currency, balance, address));
+            }));
         }
+        for(Future<AccountBalance> future : futureList) accountBalanceInfo.add(future.get());
+        executorService.shutdown();
         Collections.sort(accountBalanceInfo, new Comparator<AccountBalance>() {
             @Override
             public int compare(AccountBalance o1, AccountBalance o2) {
@@ -130,18 +137,7 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
         final long start = System.nanoTime();
         final int length = candleList.size();
         final Object[][] result = new Object[length][6];
-        ExecutorService executorService = Executors.newCachedThreadPool();
-        for(int i = 0; i < length; i++) {
-            final int index = i;
-            executorService.execute(new Runnable() {
-                @Override
-                public void run() {
-                    convertToHighChartsOHLC(candleList.get(length - index - 1), result[index]);
-                }
-            });
-        }
-        executorService.shutdown();
-        executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+        for(int i = 0; i < length; i++) convertToHighChartsOHLC(candleList.get(length - i - 1), result[i]);
         log.info(String.format("Chart data generated in %d ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start)));
         return result;
     }
