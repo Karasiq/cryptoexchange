@@ -17,10 +17,11 @@ import java.util.Set;
 
 @Data
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@EqualsAndHashCode(of = "address")
 public class Address { // Transaction/balance storage
     @Data
     @FieldDefaults(level = AccessLevel.PUBLIC)
-    @EqualsAndHashCode(exclude = "account", callSuper = false)
+    @EqualsAndHashCode(exclude = "account")
     private static class TransactionDetails implements Serializable {
         @JsonIgnore String account;
         String address;
@@ -30,7 +31,7 @@ public class Address { // Transaction/balance storage
     }
 
     @Data
-    @EqualsAndHashCode(exclude = {"details"}, callSuper = true)
+    @EqualsAndHashCode(of = "txid", callSuper = false)
     @JsonIgnoreProperties(ignoreUnknown = true)
     @FieldDefaults(level = AccessLevel.PUBLIC)
     public static class Transaction extends TransactionDetails implements Serializable, AbstractTransaction {

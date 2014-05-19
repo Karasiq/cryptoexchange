@@ -45,22 +45,16 @@ public interface ConvertService {
         List<Entry> buyOrders;
     }
 
-    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    public static class AccountBalanceInfo implements Serializable  {
-        @Value
-        public static class AccountBalance implements Serializable  {
-            Currency currency;
-            BigDecimal balance;
-            String address;
-        }
-        @Getter List<AccountBalance> accountBalances = new ArrayList<>();
-        public void add(Currency currency, BigDecimal balance, String address) {
-            accountBalances.add(new AccountBalance(currency, balance, address));
-        }
+    @Value
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class AccountBalance implements Serializable  {
+        Currency currency;
+        BigDecimal balance;
+        String address;
     }
 
     public Depth createDepth(TradingPair tradingPair, int depthSize) throws Exception;
     public List<MarketHistory> createHistory(Criteria criteria) throws Exception;
-    public AccountBalanceInfo createAccountBalanceInfo(Account account) throws Exception;
+    public List<AccountBalance> createAccountBalanceInfo(Account account) throws Exception;
     public Object[][] createHighChartsOHLCData(List<Candle> candleList) throws Exception;
 }

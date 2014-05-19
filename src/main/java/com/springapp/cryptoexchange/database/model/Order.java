@@ -22,7 +22,7 @@ import java.util.Date;
 @Table(name = "orders", indexes = {
         @Index(name = "marketIndex", columnList = "tradingPair_id, price, type, status")
 })
-@ToString(of={"id", "type", "status", "amount", "price", "completedAmount", "total"})
+@ToString(exclude = {"tradingPair", "sourceWallet", "destWallet", "account"})
 @EqualsAndHashCode(of = {"id", "openDate", "type", "amount", "price", "tradingPair"})
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)

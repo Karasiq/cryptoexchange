@@ -2,7 +2,6 @@ package com.springapp.cryptoexchange.database.model.log;
 
 import com.bitcoin.daemon.AbstractTransaction;
 import com.bitcoin.daemon.Address;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.VirtualWallet;
 import lombok.*;
@@ -91,7 +90,7 @@ public class CryptoWithdrawHistory {
     @SuppressWarnings("unchecked")
     public <T extends AbstractTransaction> T transaction(Currency.Type type) {
         switch (type) {
-            case CRYPTO:
+            case BITCOIN:
                 return (T) btcTransaction();
             default:
                 return (T) abstractTransaction();

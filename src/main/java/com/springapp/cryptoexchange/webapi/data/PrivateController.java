@@ -56,7 +56,7 @@ public class PrivateController {
     @Cacheable(value = "getAccountBalances", key = "#principal.name")
     @RequestMapping("/balance")
     @ResponseBody
-    public ConvertService.AccountBalanceInfo getAccountBalances(Principal principal) throws Exception {
+    public List<ConvertService.AccountBalance> getAccountBalances(Principal principal) throws Exception {
         Account account = accountManager.getAccount(principal.getName());
         Assert.notNull(account);
         return convertService.createAccountBalanceInfo(account);

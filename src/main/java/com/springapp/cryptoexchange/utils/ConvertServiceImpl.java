@@ -2,6 +2,7 @@ package com.springapp.cryptoexchange.utils;
 
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
+import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.Order;
 import lombok.NonNull;
 import lombok.extern.apachecommons.CommonsLog;
@@ -18,10 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -86,11 +84,11 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
     }
 
     @Transactional
-    public AccountBalanceInfo createAccountBalanceInfo(final @NonNull Account account) throws Exception {
+    public List<AccountBalance> createAccountBalanceInfo(final @NonNull Account account) throws Exception {
         final long start = System.nanoTime();
         sessionFactory.getCurrentSession().refresh(account);
         List<Currency> currencyList = settingsManager.getCurrencyList();
-        final AccountBalanceInfo accountBalanceInfo = new AccountBalanceInfo();
+        final List<AccountBalance> accountBalanceInfo = new ArrayList<>();
         for(Currency currency : currencyList) {
             BigDecimal balance = BigDecimal.ZERO;
             String address = null;
@@ -104,13 +102,13 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
                     balance = accountManager.getVirtualWalletBalance(wallet);
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error(e);
             }
-            accountBalanceInfo.add(currency, balance, address);
+            accountBalanceInfo.add(new AccountBalance(currency, balance, address));
         }
-        Collections.sort(accountBalanceInfo.getAccountBalances(), new Comparator<AccountBalanceInfo.AccountBalance>() {
+        Collections.sort(accountBalanceInfo, new Comparator<AccountBalance>() {
             @Override
-            public int compare(AccountBalanceInfo.AccountBalance o1, AccountBalanceInfo.AccountBalance o2) {
+            public int compare(AccountBalance o1, AccountBalance o2) {
                 return o1.getCurrency().getName().compareTo(o2.getCurrency().getName());
             }
         });

@@ -28,8 +28,8 @@ import java.util.Set;
 @Table(name = "accounts", indexes = {
         @Index(columnList = "login, email_address", unique = true)
 })
-@ToString(exclude = {"passwordHash"})
-@EqualsAndHashCode(of = {"login", "emailAddress", "passwordHash", "role"})
+@ToString(exclude = {"passwordHash", "googleAuthSecret"})
+@EqualsAndHashCode(of = {"login"})
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 public class Account implements Serializable {

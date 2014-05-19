@@ -79,7 +79,7 @@ public class DaemonManagerImpl implements DaemonManager {
     }
 
     private void produceDaemon(Daemon settings) {
-        if (settings.getCurrency().getType().equals(Currency.Type.CRYPTO)) { // Generic
+        if (settings.getCurrency().getType().equals(Currency.Type.BITCOIN)) { // Generic
             JsonRPC daemon = new JsonRPC(settings.getDaemonHost(), settings.getDaemonPort(), settings.getDaemonLogin(), settings.getDaemonPassword());
             daemonMap.put(settings.getCurrency().getId(), new DaemonInfo(new CryptoCoinWallet(daemon), settings));
         } else throw new IllegalArgumentException("Unknown currency type");
