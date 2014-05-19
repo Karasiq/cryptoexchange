@@ -1,5 +1,6 @@
 package com.springapp.cryptoexchange.webapi.data;
 
+import com.bitcoin.daemon.AbstractTransaction;
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.utils.ConvertService;
@@ -121,13 +122,13 @@ public class PrivateController {
     @RequestMapping(value = "/transactions/{currencyId}")
     @ResponseBody
     @SuppressWarnings("all")
-    public List<com.bitcoin.daemon.Address.Transaction> getTransactions(@PathVariable long currencyId, Principal principal) throws Exception {
+    public List<AbstractTransaction> getTransactions(@PathVariable long currencyId, Principal principal) throws Exception {
         Currency currency = settingsManager.getCurrency(currencyId);
         Account account = accountManager.getAccount(principal.getName());
         Assert.isTrue(currency != null && account != null & account.isEnabled(), "Invalid parameters");
         Assert.isTrue(currency.isEnabled(), "Currency disabled");
-        final List<com.bitcoin.daemon.Address.Transaction> transactionList = daemonManager.getWalletTransactions(accountManager.getVirtualWallet(account, currency));
-        Collections.sort(transactionList);
+        final List<AbstractTransaction> transactionList = daemonManager.getWalletTransactions(accountManager.getVirtualWallet(account, currency));
+        Collections.sort(transactionList, AbstractTransaction.TIME_COMPARATOR);
         return transactionList;
     }
 

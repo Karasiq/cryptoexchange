@@ -97,7 +97,7 @@ public class ConvertServiceImpl implements ConvertService { // Convert layer
             try {
                 VirtualWallet wallet = accountManager.getVirtualWallet(account, currency);
                 if(wallet != null) {
-                    if(wallet.getCurrency().getType().equals(Currency.Type.CRYPTO)) {
+                    if(wallet.getCurrency().isCrypto()) {
                         List<Address> addressList = daemonManager.getAddressList(wallet);
                         if (!addressList.isEmpty()) address = addressList.get(0).getAddress();
                     }

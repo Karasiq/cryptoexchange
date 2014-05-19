@@ -33,6 +33,8 @@ import org.springframework.util.Assert;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import java.io.Closeable;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.*;
@@ -62,30 +64,40 @@ public class DaemonManagerImpl implements DaemonManager {
     @Autowired
     CacheCleaner cacheCleaner;
 
-    private static void closeWallet(@NonNull DaemonInfo daemonInfo) {
-        if (daemonInfo.getWallet() != null) {
+    private static void closeWallet(DaemonInfo daemonInfo) {
+        if (daemonInfo != null && daemonInfo.getWallet() != null) {
             AbstractWallet wallet = daemonInfo.getWallet();
-            if (wallet instanceof CryptoCoinWallet) {
-                ((CryptoCoinWallet)wallet).getJsonRPC().close(); // Close connections
+            if (wallet instanceof Closeable) {
+                try {
+                    ((Closeable)wallet).close(); // Close connections
+                } catch (IOException e) {
+                    log.error(e);
+                }
                 log.info("Daemon connections closed: " + daemonInfo.getSettings().getCurrency());
             }
         }
+    }
+
+    private void produceDaemon(Daemon settings) {
+        if (settings.getCurrency().getType().equals(Currency.Type.CRYPTO)) { // Generic
+            JsonRPC daemon = new JsonRPC(settings.getDaemonHost(), settings.getDaemonPort(), settings.getDaemonLogin(), settings.getDaemonPassword());
+            daemonMap.put(settings.getCurrency().getId(), new DaemonInfo(new CryptoCoinWallet(daemon), settings));
+        } else throw new IllegalArgumentException("Unknown currency type");
+        log.info("Daemon produced for currency: " + settings.getCurrency());
     }
 
     public synchronized void setDaemonSettings(Daemon settings) {
         long currencyId = settings.getCurrency().getId();
         DaemonInfo old = daemonMap.get(currencyId);
         if(old == null || !old.getSettings().equals(settings)) {
-            if(old != null) closeWallet(old);
-            JsonRPC daemon = new JsonRPC(settings.getDaemonHost(), settings.getDaemonPort(), settings.getDaemonLogin(), settings.getDaemonPassword());
-            daemonMap.put(currencyId, new DaemonInfo(new CryptoCoinWallet(daemon), settings));
-            log.info("Daemon settings changed for currency: " + settings.getCurrency());
+            closeWallet(old);
+            produceDaemon(settings);
         }
     }
 
     @Transactional(readOnly = true)
     public Daemon getDaemonSettings(@NonNull Currency currency) {
-        Assert.isTrue(currency.getType().equals(Currency.Type.CRYPTO), "Invalid currency type");
+        Assert.isTrue(currency.isCrypto(), "Invalid currency type");
         Session session = sessionFactory.getCurrentSession();
         return (Daemon) session.createCriteria(Daemon.class)
                 .add(Restrictions.eq("currency", currency))
@@ -96,7 +108,7 @@ public class DaemonManagerImpl implements DaemonManager {
     public synchronized void loadDaemons() {
         log.info("Loading daemon settings...");
         List<Currency> currencyList = settingsManager.getCurrencyList();
-        for(Currency currency : currencyList) if (currency.getType().equals(Currency.Type.CRYPTO)) {
+        for(Currency currency : currencyList) if (currency.isCrypto()) {
             if(currency.isEnabled()) {
                 try {
                     Daemon settings = getDaemonSettings(currency);
@@ -122,7 +134,7 @@ public class DaemonManagerImpl implements DaemonManager {
         loadDaemons();
         log.info("Reloading transactions...");
         List<Currency> currencyList = settingsManager.getCurrencyList();
-        for(Currency currency : currencyList) if(currency.isEnabled() && currency.getType().equals(Currency.Type.CRYPTO)) {
+        for(Currency currency : currencyList) if(currency.isEnabled() && currency.isCrypto()) {
             try {
                 DaemonInfo daemonInfo = daemonMap.get(currency.getId());
                 Assert.notNull(daemonInfo, String.format("Daemon settings not found for currency: %s", currency));
@@ -143,7 +155,7 @@ public class DaemonManagerImpl implements DaemonManager {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public String createWalletAddress(@NonNull VirtualWallet virtualWallet) throws Exception {
-        Assert.isTrue(virtualWallet.getCurrency().getType().equals(Currency.Type.CRYPTO), "Invalid currency type");
+        Assert.isTrue(virtualWallet.getCurrency().isCrypto(), "Invalid currency type");
         AbstractWallet account = getAccount(virtualWallet.getCurrency());
         if(account instanceof CryptoCoinWallet) { // Generic crypto-currency wallet
             String newAddress = (String) account.generateNewAddress();
@@ -186,12 +198,13 @@ public class DaemonManagerImpl implements DaemonManager {
 
     @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
-    public <T> List<T> getWalletTransactions(@NonNull VirtualWallet virtualWallet) throws Exception {
+    public <T extends AbstractTransaction> List<T> getWalletTransactions(@NonNull VirtualWallet virtualWallet) throws Exception {
+        final Currency currency = virtualWallet.getCurrency();
         final List<T> transactionList = new ArrayList<>();
-        if(!virtualWallet.getCurrency().isEnabled()) {
+        if(!currency.isEnabled()) {
             return transactionList; // empty
         }
-        final AbstractWallet daemon = getAccount(virtualWallet.getCurrency());
+        final AbstractWallet daemon = getAccount(currency);
 
         // Deposit:
         transactionList.addAll(daemon.getTransactions(getAddressSet(virtualWallet)));
@@ -212,15 +225,15 @@ public class DaemonManagerImpl implements DaemonManager {
                 @Override
                 public T call() throws Exception {
                     try {
-                        T transaction = (T) daemon.getTransaction(withdrawHistory.getTransactionId());
+                        AbstractTransaction transaction = daemon.getTransaction(withdrawHistory.getTransactionId());
                         if (transaction instanceof com.bitcoin.daemon.Address.Transaction) { // Fixes
                             final com.bitcoin.daemon.Address.Transaction btcTx = (com.bitcoin.daemon.Address.Transaction) transaction;
                             btcTx.setCategory("send");
                             btcTx.setAmount(withdrawHistory.getAmount());
                         }
-                        return transaction;
+                        return (T) transaction;
                     } catch (DaemonRpcException e) {
-                        return (T) withdrawHistory.btcTransaction(); // Костыль
+                        return withdrawHistory.transaction(currency.getType());
                     }
                 }
             }));
@@ -231,10 +244,10 @@ public class DaemonManagerImpl implements DaemonManager {
     }
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
-    public com.bitcoin.daemon.Address.Transaction withdrawFunds(@NonNull VirtualWallet wallet, @NonNull String address, @NonNull BigDecimal amount) throws Exception {
+    public AbstractTransaction withdrawFunds(@NonNull VirtualWallet wallet, @NonNull String address, @NonNull BigDecimal amount) throws Exception {
         Session session = sessionFactory.getCurrentSession();
         Currency currency = wallet.getCurrency();
-        Assert.isTrue(currency.getType().equals(Currency.Type.CRYPTO) && address.length() > 0 && amount.compareTo(BigDecimal.ZERO) > 0, "Invalid parameters");
+        Assert.isTrue(currency.isCrypto() && address.length() > 0 && amount.compareTo(BigDecimal.ZERO) > 0, "Invalid parameters");
         BigDecimal minAmount = currency.getMinimalWithdrawAmount();
         Assert.isTrue(amount.compareTo(minAmount) >= 0, String.format("Minimal withdraw amount: %s %s", minAmount, currency.getCode()));
         BigDecimal balance = accountManager.getVirtualWalletBalance(wallet), sendAmount = Calculator.withoutFee(amount, currency.getWithdrawFee());
@@ -250,13 +263,17 @@ public class DaemonManagerImpl implements DaemonManager {
         session.update(wallet);
         CryptoCoinWallet account = (CryptoCoinWallet) getAccount(currency);
         log.info(String.format("Funds withdraw requested: from %s to %s <%s>", wallet, address, amount));
-        com.bitcoin.daemon.Address.Transaction transaction = account.sendToAddress(address, sendAmount);
+        AbstractTransaction transaction = account.sendToAddress(address, sendAmount);
         try {
             log.info(String.format("Funds withdraw success: %s", transaction));
 
             BigDecimal withdrawFeeAmount = Calculator.fee(amount, currency.getWithdrawFee()),
-                    transactionFeeAmount = transaction.getFee().negate(),
+                    transactionFeeAmount = transaction.getFee(),
                     summaryFeeAmount = withdrawFeeAmount.subtract(transactionFeeAmount);
+
+            if(transactionFeeAmount.compareTo(BigDecimal.ZERO) < 0) {
+                transactionFeeAmount = transactionFeeAmount.negate(); // Fix
+            }
 
             log.info(String.format("Calculated withdraw fee: %s, transaction fee: %s, summary: %s",
                     withdrawFeeAmount, transactionFeeAmount, summaryFeeAmount));
@@ -266,7 +283,7 @@ public class DaemonManagerImpl implements DaemonManager {
 
             feeManager.submitCollectedFee(FreeBalance.FeeType.WITHDRAW, currency, summaryFeeAmount);
 
-            CryptoWithdrawHistory withdrawHistory = new CryptoWithdrawHistory(wallet, address, sendAmount, transaction.getTxid());
+            CryptoWithdrawHistory withdrawHistory = new CryptoWithdrawHistory(wallet, address, sendAmount, (String) transaction.getTxid());
             session.save(withdrawHistory);
         } catch (Exception e) {
             log.debug(e.getStackTrace());
@@ -308,12 +325,7 @@ public class DaemonManagerImpl implements DaemonManager {
     @PreDestroy
     public void destroy() {
         log.info("Shutting down JSON-RPC connections");
-        for(DaemonInfo daemonInfo : daemonMap.values()) {
-            AbstractWallet wallet = daemonInfo.getWallet();
-            if (wallet instanceof CryptoCoinWallet) {
-                ((CryptoCoinWallet)wallet).getJsonRPC().close(); // Close connections
-            }
-        }
+        for(DaemonInfo daemonInfo : daemonMap.values()) closeWallet(daemonInfo);
         daemonMap.clear();
     }
 }

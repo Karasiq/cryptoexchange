@@ -1,5 +1,6 @@
 package com.springapp.cryptoexchange.webapi.master;
 
+import com.bitcoin.daemon.AbstractTransaction;
 import com.bitcoin.daemon.Address;
 import com.springapp.cryptoexchange.database.AccountManager;
 import com.springapp.cryptoexchange.database.DaemonManager;
@@ -47,10 +48,9 @@ public class WithdrawControllerImpl implements WithdrawController {
     DaemonManager daemonManager;
 
     @SuppressWarnings("all")
-    private void assertCanWithdraw(@NonNull Currency currency, @NonNull Account account, Currency.Type type) throws Exception {
+    private void assertCanWithdraw(@NonNull Currency currency, @NonNull Account account) throws Exception {
         Session session = sessionFactory.getCurrentSession();
-        Assert.isTrue(currency.isEnabled() && account.isEnabled()
-                && currency.getType().equals(type), "Invalid parameters");
+        Assert.isTrue(currency.isEnabled() && account.isEnabled(), "Invalid parameters");
         Assert.notNull(accountManager.getVirtualWallet(account, currency));
 
         List<VirtualWallet> virtualWalletList = session.createCriteria(VirtualWallet.class)
@@ -70,14 +70,14 @@ public class WithdrawControllerImpl implements WithdrawController {
     @RequestMapping(value = "/crypto/{currencyId}", method = RequestMethod.POST)
     @ResponseBody
     @SuppressWarnings("all")
-    public Address.Transaction withdrawCrypto(@PathVariable long currencyId, @RequestParam String address, @RequestParam BigDecimal amount, Principal principal) throws Exception {
+    public AbstractTransaction withdrawCrypto(@PathVariable long currencyId, @RequestParam String address, @RequestParam BigDecimal amount, Principal principal) throws Exception {
         Assert.hasLength(address, "Invalid address");
         Assert.isTrue(amount != null && amount.compareTo(BigDecimal.ZERO) > 0, "Invalid amount");
         Currency currency = settingsManager.getCurrency(currencyId);
         Account account = accountManager.getAccount(principal.getName());
-        assertCanWithdraw(currency, account, Currency.Type.CRYPTO); // Check prerequisites
+        assertCanWithdraw(currency, account); // Check prerequisites
         VirtualWallet virtualWallet = accountManager.getVirtualWallet(account, currency);
-        Address.Transaction transaction = daemonManager.withdrawFunds(virtualWallet, address, amount);
+        AbstractTransaction transaction = daemonManager.withdrawFunds(virtualWallet, address, amount);
         log.info(String.format("Withdraw success: %s %s => %s", amount, currency.getCode(), address));
         return transaction;
     }

@@ -1,5 +1,6 @@
 package com.springapp.cryptoexchange.database;
 
+import com.bitcoin.daemon.AbstractTransaction;
 import com.bitcoin.daemon.AbstractWallet;
 import com.bitcoin.daemon.Address;
 import com.bitcoin.daemon.CryptoCoinWallet;
@@ -95,11 +96,11 @@ public class FeeManagerImpl implements FeeManager {
         return getFreeBalance(sessionFactory.getCurrentSession(), currency).getAmount();
     }
 
-    private Address.Transaction withdrawCrypto(Session session, FreeBalance freeBalance, BigDecimal amount, String address) throws Exception {
+    private AbstractTransaction withdrawCrypto(Session session, FreeBalance freeBalance, BigDecimal amount, String address) throws Exception {
         final BigDecimal current = freeBalance.getAmount();
         Assert.isTrue(current.compareTo(amount) >= 0, "Insufficient funds");
         CryptoCoinWallet cryptoCoinWallet = (CryptoCoinWallet) daemonManager.getAccount(freeBalance.getCurrency());
-        Address.Transaction transaction = cryptoCoinWallet.sendToAddress(address, amount);
+        AbstractTransaction transaction = cryptoCoinWallet.sendToAddress(address, amount);
         freeBalance.setAmount(current.subtract(amount).add(transaction.getFee()));
         session.update(freeBalance);
         log.info(String.format("Fee withdraw success: %s => %s (%s)", amount, address, transaction));
@@ -126,14 +127,11 @@ public class FeeManagerImpl implements FeeManager {
         if (receiverInfo instanceof VirtualWallet) { // Virtual transaction
             withdrawInternal(session, freeBalance, (VirtualWallet) receiverInfo, amount);
             return null;
-        } else switch (currency.getType()) {
-            case CRYPTO:
-                Assert.isTrue(currency.isEnabled(), "Currency disabled");
-                Assert.isInstanceOf(String.class, receiverInfo, "Invalid address");
-                return withdrawCrypto(session, freeBalance, amount, (String) receiverInfo);
-            default:
-                throw new IllegalArgumentException("Invalid currency type");
-        }
+        } else if (currency.isCrypto()) {
+            Assert.isTrue(currency.isEnabled(), "Currency disabled");
+            Assert.isInstanceOf(String.class, receiverInfo, "Invalid address");
+            return withdrawCrypto(session, freeBalance, amount, (String) receiverInfo);
+        } else throw new IllegalArgumentException("Unknown currency type");
     }
 
     @Profile("master")
@@ -146,14 +144,10 @@ public class FeeManagerImpl implements FeeManager {
         List<Currency> currencyList = settingsManager.getCurrencyList();
         for(Currency currency : currencyList) if(currency.isEnabled() && !currency.getType().equals(Currency.Type.PURE_VIRTUAL)) {
             BigDecimal overallBalance, databaseBalance = BigDecimal.ZERO;
-            switch (currency.getType()) {
-                case CRYPTO:
-                    AbstractWallet account = daemonManager.getAccount(currency);
-                    overallBalance = account.summaryConfirmedBalance();
-                    break;
-                default:
-                    throw new IllegalArgumentException();
-            }
+            if (currency.isCrypto()) {
+                AbstractWallet account = daemonManager.getAccount(currency);
+                overallBalance = account.summaryConfirmedBalance();
+            } else throw new IllegalArgumentException("Unknown currency type");
             final List<VirtualWallet> virtualWalletList = session.createCriteria(VirtualWallet.class)
                     .add(Restrictions.eq("currency", currency))
                     .list();

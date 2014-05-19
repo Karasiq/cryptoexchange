@@ -62,14 +62,8 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
         Currency currency = wallet.getCurrency();
         Assert.notNull(currency, "Invalid parameters");
         BigDecimal externalBalance = wallet.getExternalBalance();
-        if(currency.isEnabled()) switch (currency.getType()) {
-            case CRYPTO:
-                externalBalance = daemonManager.getCryptoBalance(wallet);
-                break;
-            case PURE_VIRTUAL:
-                break;
-            default:
-                throw new IllegalArgumentException();
+        if(currency.isEnabled()) if (currency.isCrypto()) {
+            externalBalance = daemonManager.getCryptoBalance(wallet);
         }
         return wallet.getVirtualBalance().add(externalBalance);
     }

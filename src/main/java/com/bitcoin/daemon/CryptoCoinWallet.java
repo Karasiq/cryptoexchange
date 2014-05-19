@@ -9,6 +9,8 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
 import org.springframework.util.Assert;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.locks.Lock;
@@ -18,7 +20,12 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 @CommonsLog
 @Value
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CryptoCoinWallet implements AbstractWallet<String, Address.Transaction> {
+public class CryptoCoinWallet implements AbstractWallet<String, Address.Transaction>, Closeable {
+    @Override
+    public void close() throws IOException {
+        jsonRPC.close();
+    }
+
     @Value
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public class Account {

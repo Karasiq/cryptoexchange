@@ -1,5 +1,6 @@
 package com.springapp.cryptoexchange.database.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.Cache;
@@ -24,6 +25,12 @@ public class Currency implements Serializable {
     public static enum Type {
         PURE_VIRTUAL, CRYPTO
     }
+
+    @Transient
+    public boolean isCrypto() {
+        return getType().equals(Type.CRYPTO);
+    }
+
     @Id
     @GeneratedValue
     long id;

@@ -1,5 +1,6 @@
 package com.springapp.cryptoexchange.webapi.admin;
 
+import com.bitcoin.daemon.AbstractTransaction;
 import com.bitcoin.daemon.Address;
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
@@ -89,7 +90,7 @@ public class AdminController {
         currency.setMinimalWithdrawAmount(minimalWithdrawAmount);
         session.update(currency);
         log.info("Currency modified: " + currency);
-        if (currency.getType().equals(Currency.Type.CRYPTO)) {
+        if (currency.isCrypto()) {
             daemonManager.loadDaemons();
         }
         return currency;
@@ -106,7 +107,7 @@ public class AdminController {
         Currency currency = new Currency(code, name, type);
         currency.setWithdrawFee(withdrawFee);
         currency.setMinimalWithdrawAmount(minimalWithdrawAmount);
-        if(currency.getType().equals(Currency.Type.CRYPTO)) {
+        if(currency.isCrypto()) {
             currency.setEnabled(false); // Daemon not configured
         }
         settingsManager.addCurrency(currency);
@@ -166,7 +167,7 @@ public class AdminController {
         Session session = sessionFactory.getCurrentSession();
         Currency currency = settingsManager.getCurrency(currencyId);
         Assert.notNull(currency, "Currency not found");
-        Assert.isTrue(currency.getType().equals(Currency.Type.CRYPTO), "Invalid currency type");
+        Assert.isTrue(currency.isCrypto(), "Invalid currency type");
         Daemon daemon = daemonManager.getDaemonSettings(currency);
         if(daemon == null) {
             daemon = new Daemon();
@@ -204,10 +205,10 @@ public class AdminController {
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     @RequestMapping(value = "/fee/{currencyId}/withdraw/crypto", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     @ResponseBody
-    public Address.Transaction withdrawCryptoFee(@PathVariable long currencyId, @RequestParam String address, @RequestParam BigDecimal amount) throws Exception {
+    public AbstractTransaction withdrawCryptoFee(@PathVariable long currencyId, @RequestParam String address, @RequestParam BigDecimal amount) throws Exception {
         Currency currency = settingsManager.getCurrency(currencyId);
-        Assert.isTrue(currency != null && currency.isEnabled() && currency.getType().equals(Currency.Type.CRYPTO), "Invalid parameters");
-        return (Address.Transaction) feeManager.withdrawFee(currency, amount, address);
+        Assert.isTrue(currency != null && currency.isEnabled() && currency.isCrypto(), "Invalid parameters");
+        return (AbstractTransaction) feeManager.withdrawFee(currency, amount, address);
     }
 
     @Caching(evict = {

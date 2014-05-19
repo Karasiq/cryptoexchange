@@ -10,6 +10,7 @@ import lombok.experimental.FieldDefaults;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -32,19 +33,14 @@ public class Address { // Transaction/balance storage
     @EqualsAndHashCode(exclude = {"details"}, callSuper = true)
     @JsonIgnoreProperties(ignoreUnknown = true)
     @FieldDefaults(level = AccessLevel.PUBLIC)
-    public static class Transaction extends TransactionDetails implements Serializable, Comparable<Transaction> {
-        long time;
+    public static class Transaction extends TransactionDetails implements Serializable, AbstractTransaction {
+        Date time;
         String txid;
         transient int confirmations;
         List<TransactionDetails> details;
 
         public boolean isConfirmed() {
             return confirmations >= Settings.REQUIRED_CONFIRMATIONS;
-        }
-
-        @Override
-        public int compareTo(Transaction transaction) {
-            return Long.compare(time, transaction.time);
         }
     }
 

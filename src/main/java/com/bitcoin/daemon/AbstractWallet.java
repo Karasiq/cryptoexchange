@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 
-public interface AbstractWallet<A, T> {
+public interface AbstractWallet<A, T extends AbstractTransaction> {
     public Set<A> getAddressSet() throws Exception;
     public BigDecimal summaryConfirmedBalance(final Set<A> addresses) throws Exception;
     public BigDecimal summaryConfirmedBalance() throws Exception;

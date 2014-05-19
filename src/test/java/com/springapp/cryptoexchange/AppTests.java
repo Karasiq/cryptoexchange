@@ -103,7 +103,7 @@ public class AppTests {
     @SuppressWarnings("unchecked")
     public void jsonRpc() throws Exception {
         Currency currency = settingsManager.getCurrencyList().get(0);
-        AbstractWallet<String, Address.Transaction> wallet = daemonManager.getAccount(currency);
+        AbstractWallet wallet = daemonManager.getAccount(currency);
 
         Map<String, ?> info = ((CryptoCoinWallet) wallet).getInfo();
         Assert.isTrue((Integer) info.get("blocks") > 0);
