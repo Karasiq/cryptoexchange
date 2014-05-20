@@ -106,7 +106,7 @@ public class DaemonManagerImpl implements DaemonManager {
 
     @Transactional(readOnly = true)
     public synchronized void loadDaemons() {
-        log.info("Loading daemon settings...");
+        log.debug("Loading daemon settings");
         List<Currency> currencyList = settingsManager.getCurrencyList();
         for(Currency currency : currencyList) if (currency.isCrypto()) {
             if(currency.isEnabled()) {
@@ -128,11 +128,11 @@ public class DaemonManagerImpl implements DaemonManager {
         }
     }
 
-    @Scheduled(fixedDelay = 10 * 60 * 1000) // Every 10m
+    @Scheduled(fixedDelay = 8 * 60 * 1000) // Every 8m
     @Transactional(readOnly = true)
     public synchronized void loadTransactions() throws Exception {
         loadDaemons();
-        log.info("Reloading transactions...");
+        log.debug("Reloading transactions");
         List<Currency> currencyList = settingsManager.getCurrencyList();
         for(Currency currency : currencyList) if(currency.isEnabled() && currency.isCrypto()) {
             try {
@@ -146,8 +146,9 @@ public class DaemonManagerImpl implements DaemonManager {
         cacheCleaner.cryptoBalanceEvict();
     }
 
-    public AbstractWallet getAccount(Currency currency) {
+    public AbstractWallet getAccount(@NonNull Currency currency) {
         Assert.isTrue(currency.isEnabled(), "Currency disabled");
+        Assert.isTrue(daemonMap.containsKey(currency.getId()), "Daemon not configured for currency: " + currency);
         AbstractWallet wallet = daemonMap.get(currency.getId()).getWallet();
         Assert.notNull(wallet, "Daemon not found");
         return wallet;
@@ -177,14 +178,19 @@ public class DaemonManagerImpl implements DaemonManager {
     }
 
     @SuppressWarnings("unchecked")
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
     @Cacheable(value = "getCryptoBalance", key = "#virtualWallet.id")
     public BigDecimal getCryptoBalance(@NonNull VirtualWallet virtualWallet) throws Exception {
         try {
+            Session session = sessionFactory.getCurrentSession();
             final AbstractWallet wallet = getAccount(virtualWallet.getCurrency());
             final BigDecimal externalBalance = wallet.summaryConfirmedBalance(getAddressSet(virtualWallet));
+            if (virtualWallet.getExternalBalance().compareTo(externalBalance) != 0 && log.isInfoEnabled()) {
+                BigDecimal difference = externalBalance.subtract(virtualWallet.getExternalBalance());
+                log.info(String.format("External balance changed: %s (%s %s)", virtualWallet, difference, virtualWallet.getCurrency().getCode()));
+            }
             virtualWallet.setExternalBalance(externalBalance); // rewrite
-            sessionFactory.getCurrentSession().update(virtualWallet);
+            session.update(virtualWallet);
         } catch(DaemonRpcException e) {
             log.error("Cannot retrieve actual crypto balance, fallback to DB-backup: " + virtualWallet.getCurrency(), e);
             // Just return DB backup, no throw

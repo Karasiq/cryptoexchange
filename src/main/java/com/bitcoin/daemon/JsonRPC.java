@@ -21,6 +21,7 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
@@ -72,13 +73,14 @@ public class JsonRPC implements Closeable {
                 new UsernamePasswordCredentials(rpcUsername, rpcPassword)
         );
 
-        final int timeout = 5 * 1000;
+        final int timeout = 10 * 1000;
         RequestConfig.Builder requestBuilder = RequestConfig.custom()
-                .setSocketTimeout(timeout)
+                .setSocketTimeout(timeout * 3)
                 .setConnectTimeout(timeout)
-                .setConnectionRequestTimeout(timeout);
+                .setConnectionRequestTimeout(timeout)
+                .setStaleConnectionCheckEnabled(true);
 
-        HttpRequestRetryHandler retryHandler = new DefaultHttpRequestRetryHandler(5, true);
+        HttpRequestRetryHandler retryHandler = new DefaultHttpRequestRetryHandler(2, false);
 
         client = HttpClientBuilder.create()
                 .setConnectionManager(connectionManager)
@@ -96,9 +98,11 @@ public class JsonRPC implements Closeable {
                     } catch (InterruptedException e) {
                         break;
                     }
-                    log.info(String.format("[%s] Closing expired and idle connections...", Thread.currentThread().getName()));
+                    if (log.isDebugEnabled()) {
+                        log.debug(String.format("[%s] Closing expired and idle connections", Thread.currentThread().getName()));
+                    }
                     connectionManager.closeExpiredConnections();
-                    connectionManager.closeIdleConnections(10, TimeUnit.MINUTES);
+                    connectionManager.closeIdleConnections(20, TimeUnit.MINUTES);
                 }
             }
         }, "JsonRpcMonitor-" + monitorThreadsGroup.activeCount());
@@ -120,6 +124,9 @@ public class JsonRPC implements Closeable {
             return result.toString();
         } finally {
             EntityUtils.consume(response.getEntity());
+            if(response instanceof Closeable) {
+                ((Closeable) response).close();
+            }
         }
     }
 
@@ -142,14 +149,16 @@ public class JsonRPC implements Closeable {
             }
             return rpcResponse.result;
         } catch (IOException e) {
-            e.printStackTrace();
             throw new DaemonRpcException("Couldn't reach the JSON-RPC daemon", e);
         }
     }
 
     @Override
-    public void close() {
+    public void close() throws IOException {
         monitorThread.interrupt();
         connectionManager.close();
+        if(client instanceof Closeable) {
+            ((Closeable) client).close();
+        }
     }
 }

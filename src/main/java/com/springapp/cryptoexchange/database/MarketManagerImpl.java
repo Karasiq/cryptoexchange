@@ -267,7 +267,7 @@ public class MarketManagerImpl implements MarketManager {
                 .add(Restrictions.eq("type", orderType));
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     @Scheduled(cron = "30 4 * * 1 *") // Sunday 4:30
     public void cleanOrders() {
         log.info("Orders auto-clean started");

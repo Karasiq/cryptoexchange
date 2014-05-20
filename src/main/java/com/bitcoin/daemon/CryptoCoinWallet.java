@@ -40,12 +40,17 @@ public class CryptoCoinWallet implements AbstractWallet<String, Address.Transact
         }
 
         public String generateNewAddress() throws Exception {
-            return jsonRPC.executeRpcRequest("getnewaddress", Arrays.asList(this.getName()), new TypeReference<JsonRPC.Response<String>>(){});
+            final String address = jsonRPC.executeRpcRequest("getnewaddress", Arrays.asList(this.getName()),
+                    new TypeReference<JsonRPC.Response<String>>(){});
+            Assert.isTrue(address.matches(Settings.BITCOIN_ADDRESS_REGEXP), "Invalid address was generated");
+            return address;
         }
 
-        public Address.Transaction sendFromAccount(String address, @NonNull BigDecimal amount) throws Exception {
-            Assert.hasLength(address, "Address cannot be empty");
-            Assert.isTrue(amount.compareTo(BigDecimal.ZERO) > 0, "Amount must be greater than zero");
+        public Address.Transaction sendFromAccount(@NonNull String address, @NonNull BigDecimal amount) throws Exception {
+            Assert.isTrue(address.matches(Settings.BITCOIN_ADDRESS_REGEXP), "Invalid address");
+            amount = amount.setScale(8);
+            Assert.isTrue(amount.compareTo(Settings.MIN_AMOUNT) >= 0, "Invalid amount");
+
             String txid = jsonRPC.executeRpcRequest("sendfrom", Arrays.asList(this.getName(), address, amount, Settings.REQUIRED_CONFIRMATIONS), new TypeReference<JsonRPC.Response<String>>(){});
             try {
                 return getTransaction(txid);
@@ -75,8 +80,8 @@ public class CryptoCoinWallet implements AbstractWallet<String, Address.Transact
         return jsonRPC.executeRpcRequest("getreceivedbyaddress", Arrays.asList(address, Settings.REQUIRED_CONFIRMATIONS), new TypeReference<JsonRPC.Response<BigDecimal>>(){});
     }
 
-    public BigDecimal getAddressBalance(String address) throws Exception { // Cached
-        Assert.hasLength(address, "Address can not be empty");
+    public BigDecimal getAddressBalance(@NonNull String address) throws Exception { // Cached
+        Assert.isTrue(address.matches(Settings.BITCOIN_ADDRESS_REGEXP), "Invalid address");
         Lock readLock = readWriteLock.readLock();
         readLock.lock();
         try {
@@ -112,23 +117,23 @@ public class CryptoCoinWallet implements AbstractWallet<String, Address.Transact
 
     @SuppressWarnings("unchecked")
     public List<Address.Transaction> getTransactions(final Set<String> addresses) throws Exception {
-        final List<Address.Transaction> transactionList = new ArrayList<>();
-        if (addresses.size() < 1) {
-            return transactionList;
-        }
-        Lock readLock = readWriteLock.readLock();
-        readLock.lock();
-        try {
-            for(String strAddress : addresses) if(addressList.containsKey(strAddress)) {
-                transactionList.addAll(addressList.get(strAddress).getTransactionSet());
+        final Set<Address.Transaction> transactionSet = new HashSet<>();
+        if (addresses.size() > 0) {
+            Lock readLock = readWriteLock.readLock();
+            readLock.lock();
+            try {
+                for (String strAddress : addresses) if (addressList.containsKey(strAddress)) {
+                    transactionSet.addAll(addressList.get(strAddress).getTransactionSet());
+                }
+            } finally {
+                readLock.unlock();
             }
-            return transactionList;
-        } finally {
-            readLock.unlock();
         }
+        return new ArrayList<>(transactionSet);
     }
 
     public Address.Transaction getTransaction(String transactionId) throws Exception {
+        Assert.isTrue(transactionId.matches(Settings.BITCOIN_TXID_REGEXP), "Invalid transaction id");
         Lock readLock = readWriteLock.readLock();
         readLock.lock();
         try {
@@ -208,7 +213,7 @@ public class CryptoCoinWallet implements AbstractWallet<String, Address.Transact
                 }
             }
             for(Address.Transaction transaction : transactions) {
-                Assert.hasLength(transaction.getTxid(), "Invalid transaction: " + transaction);
+                Assert.isTrue(transaction.getTxid().matches(Settings.BITCOIN_TXID_REGEXP), "Invalid transaction: " + transaction);
                 transactionMap.put(transaction.getTxid(), transaction);
                 if(transaction.getAddress() != null && transaction.getAddress().length() > 0 && "receive".equals(transaction.category)) {
                     if(address == null || !address.getAddress().equals(transaction.address)) {
@@ -231,9 +236,11 @@ public class CryptoCoinWallet implements AbstractWallet<String, Address.Transact
         // return getDefaultAccount().getAddressSet();
     }
 
-    public Address.Transaction sendToAddress(String address, @NonNull BigDecimal amount) throws Exception {
-        Assert.hasLength(address, "Address cannot be empty");
-        Assert.isTrue(amount.compareTo(BigDecimal.ZERO) > 0, "Amount must be greater than zero");
+    public Address.Transaction sendToAddress(@NonNull String address, @NonNull BigDecimal amount) throws Exception {
+        Assert.isTrue(address.matches(Settings.BITCOIN_ADDRESS_REGEXP), "Invalid address");
+        amount = amount.setScale(8);
+        Assert.isTrue(amount.compareTo(Settings.MIN_AMOUNT) >= 0, "Invalid amount");
+
         String txid = jsonRPC.executeRpcRequest("sendtoaddress", Arrays.asList(address, amount), new TypeReference<JsonRPC.Response<String>>(){});
         try {
             return getTransaction(txid);
@@ -242,6 +249,8 @@ public class CryptoCoinWallet implements AbstractWallet<String, Address.Transact
             log.fatal(e);
             // Try to manually recover
             final Address.Transaction transaction = new Address.Transaction();
+            transaction.setTime(new Date());
+            transaction.setAddress(address);
             transaction.setTxid(txid);
             transaction.setAmount(amount.negate());
             transaction.setCategory("send");

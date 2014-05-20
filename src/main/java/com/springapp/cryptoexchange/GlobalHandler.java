@@ -16,11 +16,11 @@ public class GlobalHandler {
     @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
     @ExceptionHandler(Exception.class)
     void onException(Exception exception, HttpServletResponse httpServletResponse) throws IOException {
-        exception.printStackTrace();
         if (exception instanceof AccessDeniedException) {
             httpServletResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
         } else {
             httpServletResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            exception.printStackTrace();
         }
         httpServletResponse.getWriter().write(String.format("%s: %s", exception.getClass().getSimpleName(), exception.getLocalizedMessage()));
     }
