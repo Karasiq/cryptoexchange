@@ -273,7 +273,7 @@ public class MarketManagerImpl implements MarketManager {
         log.info("Orders auto-clean started");
         Session session = sessionFactory.getCurrentSession();
         int affectedRows = session.createQuery("delete from Order where closeDate <= :time and status in (:statuses)")
-                .setDate("time", DateTime.now().minus(Period.months(1)).toDate())
+                .setDate("time", DateTime.now().minusWeeks(2).toDate())
                 .setParameterList("statuses", Arrays.asList(Order.Status.CANCELLED, Order.Status.PARTIALLY_CANCELLED, Order.Status.COMPLETED))
                 .executeUpdate();
         log.info(String.format("Orders deleted: %d", affectedRows));

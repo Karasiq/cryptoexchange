@@ -1,13 +1,10 @@
 package com.springapp.cryptoexchange;
 
 import com.bitcoin.daemon.AbstractWallet;
-import com.bitcoin.daemon.Address;
-import com.bitcoin.daemon.CryptoCoinWallet;
-import com.bitcoin.daemon.DaemonRpcException;
+import com.bitcoin.daemon.BitcoinWallet;
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.utils.Calculator;
-import com.springapp.cryptoexchange.utils.ConvertService;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.apachecommons.CommonsLog;
@@ -105,7 +102,7 @@ public class AppTests {
         Currency currency = settingsManager.getCurrencyList().get(0);
         AbstractWallet wallet = daemonManager.getAccount(currency);
 
-        Map<String, ?> info = ((CryptoCoinWallet) wallet).getInfo();
+        Map<String, ?> info = ((BitcoinWallet) wallet).getInfo();
         Assert.isTrue((Integer) info.get("blocks") > 0);
         log.info("getinfo: " + info);
 

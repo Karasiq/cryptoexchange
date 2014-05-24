@@ -72,7 +72,7 @@ public class HistoryManagerImpl implements HistoryManager {
     public void updateMarketInfo(@NonNull TradingPair tradingPair, final BigDecimal price, final BigDecimal amount) {
         Session session = sessionFactory.getCurrentSession();
         tradingPair = (TradingPair) session.load(TradingPair.class, tradingPair.getId());
-        if(tradingPair.getLastReset() == null || DateTime.now().minus(Period.days(1)).isAfter(new DateTime(tradingPair.getLastReset()))) {
+        if(tradingPair.getLastReset() == null || DateTime.now().minusDays(1).isAfter(new DateTime(tradingPair.getLastReset()))) {
             tradingPair.setLastReset(new Date());
             tradingPair.setDayHigh(null);
             tradingPair.setDayLow(null);

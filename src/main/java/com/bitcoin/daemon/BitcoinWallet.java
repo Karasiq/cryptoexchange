@@ -20,7 +20,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 @CommonsLog
 @Value
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CryptoCoinWallet implements AbstractWallet<String, Address.Transaction>, Closeable {
+public class BitcoinWallet implements AbstractWallet<String, Address.Transaction>, Closeable {
     @Override
     public void close() throws IOException {
         jsonRPC.close();

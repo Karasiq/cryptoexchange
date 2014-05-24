@@ -14,7 +14,6 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.access.annotation.Secured;
-import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
@@ -26,7 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Controller
+@RestController
 @RequestMapping(value = "/rest/account.json", headers = "X-Ajax-Call=true")
 @CommonsLog
 @Secured("ROLE_USER")
@@ -55,7 +54,6 @@ public class PrivateController {
 
     @Cacheable(value = "getAccountBalances", key = "#principal.name")
     @RequestMapping("/balance")
-    @ResponseBody
     public List<ConvertService.AccountBalance> getAccountBalances(Principal principal) throws Exception {
         Account account = accountManager.getAccount(principal.getName());
         Assert.notNull(account);
@@ -63,7 +61,6 @@ public class PrivateController {
     }
 
     @RequestMapping(value = "/order/{orderId}", method = RequestMethod.GET)
-    @ResponseBody
     @SuppressWarnings("all")
     public Order getOrderStatus(@PathVariable long orderId, Principal principal) {
         Order order = marketManager.getOrder(orderId);
@@ -75,7 +72,6 @@ public class PrivateController {
 
     @Cacheable(value = "getAccountOrders", key = "#principal.name")
     @RequestMapping("/orders")
-    @ResponseBody
     public List<Order> getAccountOrdersInfo(Principal principal) {
         Account account = accountManager.getAccount(principal.getName());
         Assert.notNull(account);
@@ -84,7 +80,6 @@ public class PrivateController {
 
     @Cacheable(value = "getAccountOrdersByPair", key = "#principal.name + '/' + #tradingPairId")
     @RequestMapping("/orders/{tradingPairId}")
-    @ResponseBody
     public List<Order> getAccountOrdersByPair(Principal principal, @PathVariable long tradingPairId) {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         Account account = accountManager.getAccount(principal.getName());
@@ -97,7 +92,6 @@ public class PrivateController {
     @Transactional(readOnly = true)
     @Cacheable(value = "getAccountHistory", key = "#principal.name")
     @RequestMapping("/history")
-    @ResponseBody
     public List<Order> getAccountHistory(Principal principal) {
         Account account = accountManager.getAccount(principal.getName());
         Assert.notNull(account);
@@ -108,7 +102,6 @@ public class PrivateController {
     @Transactional(readOnly = true)
     @Cacheable(value = "getAccountHistoryByPair", key = "#principal.name + '/' + #tradingPairId")
     @RequestMapping("/history/{tradingPairId}")
-    @ResponseBody
     public List<Order> getAccountHistoryByPair(Principal principal, @PathVariable long tradingPairId) {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         Account account = accountManager.getAccount(principal.getName());
@@ -120,7 +113,6 @@ public class PrivateController {
     @Transactional(readOnly = true)
     @Cacheable(value = "getTransactions", key = "#principal.name + '/' + #currencyId")
     @RequestMapping(value = "/transactions/{currencyId}")
-    @ResponseBody
     @SuppressWarnings("all")
     public List<AbstractTransaction> getTransactions(@PathVariable long currencyId, Principal principal) throws Exception {
         Currency currency = settingsManager.getCurrency(currencyId);
@@ -136,7 +128,6 @@ public class PrivateController {
             @CacheEvict(value = "getAccountBalances", key = "#principal.name")
     })
     @RequestMapping(value = "/address/{currencyId}", method = RequestMethod.POST)
-    @ResponseBody
     @SuppressWarnings("all")
     public String generateDepositAddress(@PathVariable long currencyId, Principal principal) throws Exception {
         Currency currency = settingsManager.getCurrency(currencyId);
@@ -156,14 +147,12 @@ public class PrivateController {
     }
 
     @RequestMapping(value = "/security/2fa", method = RequestMethod.GET)
-    @ResponseBody
     public boolean getGoogleAuthStatus(Principal principal) {
         return accountManager.getAccount(principal.getName()).getGoogleAuthSecret() != null;
     }
 
     @Transactional
     @RequestMapping(value = "/security/2fa/enable", method = RequestMethod.POST)
-    @ResponseBody
     public Map<String, Object> enableGoogleAuth(Principal principal, HttpServletRequest request) {
         Session session = sessionFactory.getCurrentSession();
         Account account = accountManager.getAccount(principal.getName());
@@ -178,7 +167,6 @@ public class PrivateController {
 
     @Transactional
     @RequestMapping(value = "/security/2fa/disable", method = RequestMethod.POST)
-    @ResponseBody
     public boolean disableGoogleAuth(@RequestParam(value = "two_factor_code", required = false, defaultValue = "0") int code, Principal principal) {
         Session session = sessionFactory.getCurrentSession();
         Account account = accountManager.getAccount(principal.getName());

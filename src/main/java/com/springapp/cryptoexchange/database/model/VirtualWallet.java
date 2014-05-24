@@ -10,7 +10,6 @@ import org.hibernate.annotations.CacheConcurrencyStrategy;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Data
 @Entity

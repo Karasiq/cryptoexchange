@@ -2,8 +2,7 @@ package com.springapp.cryptoexchange.database;
 
 import com.bitcoin.daemon.AbstractTransaction;
 import com.bitcoin.daemon.AbstractWallet;
-import com.bitcoin.daemon.Address;
-import com.bitcoin.daemon.CryptoCoinWallet;
+import com.bitcoin.daemon.BitcoinWallet;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.FreeBalance;
 import com.springapp.cryptoexchange.database.model.VirtualWallet;
@@ -99,8 +98,8 @@ public class FeeManagerImpl implements FeeManager {
     private AbstractTransaction withdrawCrypto(Session session, FreeBalance freeBalance, BigDecimal amount, String address) throws Exception {
         final BigDecimal current = freeBalance.getAmount();
         Assert.isTrue(current.compareTo(amount) >= 0, "Insufficient funds");
-        CryptoCoinWallet cryptoCoinWallet = (CryptoCoinWallet) daemonManager.getAccount(freeBalance.getCurrency());
-        AbstractTransaction transaction = cryptoCoinWallet.sendToAddress(address, amount);
+        BitcoinWallet bitcoinWallet = (BitcoinWallet) daemonManager.getAccount(freeBalance.getCurrency());
+        AbstractTransaction transaction = bitcoinWallet.sendToAddress(address, amount);
         freeBalance.setAmount(current.subtract(amount).add(transaction.getFee()));
         session.update(freeBalance);
         log.info(String.format("Fee withdraw success: %s => %s (%s)", amount, address, transaction));

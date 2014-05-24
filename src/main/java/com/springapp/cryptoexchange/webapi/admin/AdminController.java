@@ -1,7 +1,6 @@
 package com.springapp.cryptoexchange.webapi.admin;
 
 import com.bitcoin.daemon.AbstractTransaction;
-import com.bitcoin.daemon.Address;
 import com.springapp.cryptoexchange.database.*;
 import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.utils.CacheCleaner;
@@ -13,7 +12,6 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.access.annotation.Secured;
-import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,7 +22,7 @@ import java.math.BigDecimal;
 import java.security.Principal;
 import java.util.List;
 
-@Controller
+@RestController
 @Secured("ROLE_ADMIN")
 @RequestMapping(value = "/rest/admin.json")
 @CommonsLog
@@ -52,7 +50,6 @@ public class AdminController {
     CacheCleaner cacheCleaner;
 
     @Transactional(readOnly = true)
-    @ResponseBody
     @RequestMapping(value = "/fee", method = RequestMethod.GET)
     @SuppressWarnings("unchecked")
     public List<FreeBalance> getFreeBalance() {
@@ -60,7 +57,6 @@ public class AdminController {
     }
 
     @Transactional(readOnly = true)
-    @ResponseBody
     @RequestMapping(value = "/fee/{currencyId}", method = RequestMethod.GET)
     public FreeBalance getFreeBalance(@PathVariable long currencyId) {
         Currency currency = settingsManager.getCurrency(currencyId);
@@ -70,7 +66,6 @@ public class AdminController {
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
     @RequestMapping(value = "/currency/{currencyId}/modify", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
-    @ResponseBody
     @Caching(evict = {
             @CacheEvict(value = "getCurrencies", allEntries = true),
             @CacheEvict(value = "getCurrencyInfo", key = "#currencyId"),
@@ -98,7 +93,6 @@ public class AdminController {
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     @RequestMapping(value = "/currency/add", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
-    @ResponseBody
     @Caching(evict = {
             @CacheEvict(value = "getCurrencies", allEntries = true),
             @CacheEvict(value = "getAccountBalances", allEntries = true)
@@ -116,7 +110,6 @@ public class AdminController {
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
     @RequestMapping(value = "/trading_pair/{tradingPairId}/modify", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
-    @ResponseBody
     @Caching(evict = {
             @CacheEvict(value = "getTradingPairs", allEntries = true),
             @CacheEvict(value = "getTradingPairInfo", key = "#tradingPairId")
@@ -137,7 +130,6 @@ public class AdminController {
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     @RequestMapping(value = "/trading_pair/add", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
-    @ResponseBody
     @Caching(evict = {
             @CacheEvict(value = "getTradingPairs", allEntries = true)
     })
@@ -152,7 +144,6 @@ public class AdminController {
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     @RequestMapping(value = "/trading_pair/{tradingPairId}/delete", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
-    @ResponseBody
     public boolean removeTradingPair(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         Assert.notNull(tradingPair, "Trading pair not found");
@@ -162,7 +153,6 @@ public class AdminController {
 
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.REPEATABLE_READ)
     @RequestMapping(value = "/daemon/{currencyId}/set", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
-    @ResponseBody
     public boolean setDaemonSettings(@PathVariable long currencyId, @RequestParam String daemonHost, @RequestParam Integer daemonPort, @RequestParam String daemonLogin, @RequestParam String daemonPassword) throws Exception {
         Session session = sessionFactory.getCurrentSession();
         Currency currency = settingsManager.getCurrency(currencyId);
@@ -186,7 +176,6 @@ public class AdminController {
 
     @Transactional
     @RequestMapping(value = "/news/commit", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
-    @ResponseBody
     public News commitNews(@RequestParam long id, @RequestParam String title, @RequestParam String text) {
         News news = new News(title, text);
         news.setId(id);
@@ -196,7 +185,6 @@ public class AdminController {
 
     @Transactional
     @RequestMapping(value = "/news/{newsId}/remove", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
-    @ResponseBody
     public boolean removeNews(@PathVariable long newsId) {
         newsManager.removeNews(newsId);
         return true;
@@ -204,7 +192,6 @@ public class AdminController {
 
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     @RequestMapping(value = "/fee/{currencyId}/withdraw/crypto", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
-    @ResponseBody
     public AbstractTransaction withdrawCryptoFee(@PathVariable long currencyId, @RequestParam String address, @RequestParam BigDecimal amount) throws Exception {
         Currency currency = settingsManager.getCurrency(currencyId);
         Assert.isTrue(currency != null && currency.isEnabled() && currency.isCrypto(), "Invalid parameters");
@@ -217,7 +204,6 @@ public class AdminController {
     })
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     @RequestMapping(value = "/fee/{currencyId}/withdraw/internal", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
-    @ResponseBody
     @SuppressWarnings("all")
     public boolean withdrawInternalFee(@PathVariable long currencyId, @RequestParam(required = false, defaultValue = "") String username, @RequestParam BigDecimal amount, Principal principal) throws Exception {
         Currency currency = settingsManager.getCurrency(currencyId);
@@ -230,7 +216,6 @@ public class AdminController {
         return true;
     }
 
-    @ResponseBody
     @RequestMapping(value = "/fee/reset", method = RequestMethod.POST, headers = "X-Ajax-Call=true")
     public boolean recalculateFreeBalance() throws Exception {
         ((FeeManagerImpl) feeManager).calculateDivergence();

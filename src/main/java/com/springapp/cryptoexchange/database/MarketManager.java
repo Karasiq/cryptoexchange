@@ -4,8 +4,6 @@ import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
 import org.hibernate.Criteria;
 
-import java.util.List;
-
 public interface MarketManager {
     public static class MarketException extends Exception {
         public MarketException() {

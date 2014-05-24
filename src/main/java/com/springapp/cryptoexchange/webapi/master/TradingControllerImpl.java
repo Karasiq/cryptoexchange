@@ -11,7 +11,6 @@ import lombok.extern.apachecommons.CommonsLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.access.annotation.Secured;
-import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.security.Principal;
 
-@Controller
+@RestController
 @CommonsLog
 @Secured("ROLE_USER")
 @RequestMapping("/rest/trade.json")
@@ -39,7 +38,6 @@ public class TradingControllerImpl implements TradingController {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     @Override
     @RequestMapping(value = "/order/create/{tradingPairId}", method = RequestMethod.POST)
-    @ResponseBody
     @SuppressWarnings("all")
     public long createOrder(@PathVariable long tradingPairId, @RequestParam Order.Type type, @RequestParam BigDecimal price, @RequestParam BigDecimal amount, Principal principal) throws Exception {
         try {
@@ -58,7 +56,6 @@ public class TradingControllerImpl implements TradingController {
     @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.SERIALIZABLE)
     @Override
     @RequestMapping(value = "/order/{orderId}/cancel", method = RequestMethod.POST)
-    @ResponseBody
     @SuppressWarnings("unchecked")
     public void cancelOrder(@PathVariable long orderId, Principal principal) throws Exception {
         try {

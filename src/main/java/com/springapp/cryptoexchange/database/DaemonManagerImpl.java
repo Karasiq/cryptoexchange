@@ -1,9 +1,9 @@
 package com.springapp.cryptoexchange.database;
 
 import com.bitcoin.daemon.*;
-import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.database.model.Address;
 import com.springapp.cryptoexchange.database.model.Currency;
+import com.springapp.cryptoexchange.database.model.*;
 import com.springapp.cryptoexchange.database.model.log.CryptoWithdrawHistory;
 import com.springapp.cryptoexchange.utils.CacheCleaner;
 import com.springapp.cryptoexchange.utils.Calculator;
@@ -81,7 +81,7 @@ public class DaemonManagerImpl implements DaemonManager {
     private void produceDaemon(Daemon settings) {
         if (settings.getCurrency().getType().equals(Currency.Type.BITCOIN)) { // Generic
             JsonRPC daemon = new JsonRPC(settings.getDaemonHost(), settings.getDaemonPort(), settings.getDaemonLogin(), settings.getDaemonPassword());
-            daemonMap.put(settings.getCurrency().getId(), new DaemonInfo(new CryptoCoinWallet(daemon), settings));
+            daemonMap.put(settings.getCurrency().getId(), new DaemonInfo(new BitcoinWallet(daemon), settings));
         } else throw new IllegalArgumentException("Unknown currency type");
         log.info("Daemon produced for currency: " + settings.getCurrency());
     }
@@ -158,7 +158,7 @@ public class DaemonManagerImpl implements DaemonManager {
     public String createWalletAddress(@NonNull VirtualWallet virtualWallet) throws Exception {
         Assert.isTrue(virtualWallet.getCurrency().isCrypto(), "Invalid currency type");
         AbstractWallet account = getAccount(virtualWallet.getCurrency());
-        if(account instanceof CryptoCoinWallet) { // Generic crypto-currency wallet
+        if(account instanceof BitcoinWallet) { // Generic crypto-currency wallet
             String newAddress = (String) account.generateNewAddress();
             Address address = new Address(newAddress, virtualWallet);
             Session session = sessionFactory.getCurrentSession();
@@ -219,7 +219,7 @@ public class DaemonManagerImpl implements DaemonManager {
         Session session = sessionFactory.getCurrentSession();
         final List<CryptoWithdrawHistory> withdrawHistoryList = session.createCriteria(CryptoWithdrawHistory.class)
                 .add(Restrictions.eq("sourceWallet", virtualWallet))
-                .add(Restrictions.ge("time", DateTime.now().minus(Period.days(1)).toDate()))
+                .add(Restrictions.ge("time", DateTime.now().minusDays(1).toDate()))
                 .setMaxResults(3)
                 .list();
 
@@ -267,7 +267,7 @@ public class DaemonManagerImpl implements DaemonManager {
 
         wallet.addBalance(amount.negate());
         session.update(wallet);
-        CryptoCoinWallet account = (CryptoCoinWallet) getAccount(currency);
+        BitcoinWallet account = (BitcoinWallet) getAccount(currency);
         log.info(String.format("Funds withdraw requested: from %s to %s <%s>", wallet, address, amount));
         AbstractTransaction transaction = account.sendToAddress(address, sendAmount);
         try {

@@ -6,25 +6,23 @@ import com.springapp.cryptoexchange.database.NewsManager;
 import com.springapp.cryptoexchange.database.SettingsManager;
 import com.springapp.cryptoexchange.database.model.Currency;
 import com.springapp.cryptoexchange.database.model.News;
-import com.springapp.cryptoexchange.database.model.Order;
 import com.springapp.cryptoexchange.database.model.TradingPair;
 import com.springapp.cryptoexchange.utils.ConvertService;
 import lombok.extern.apachecommons.CommonsLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-@Controller
+@RestController
 @RequestMapping("/rest/api.json")
 @CommonsLog
 @Profile("data")
@@ -47,7 +45,6 @@ public class PublicController {
 
     @Cacheable("getCurrencies")
     @RequestMapping(value = "/currencies")
-    @ResponseBody
     public List<Currency> getCurrencies() {
         List<Currency> currencyList = settingsManager.getCurrencyList();
         Collections.sort(currencyList, new Comparator<Currency>() {
@@ -61,7 +58,6 @@ public class PublicController {
 
     @Cacheable(value = "getCurrencyInfo", key = "#currencyId")
     @RequestMapping(value = "/currency/{currencyId}")
-    @ResponseBody
     public Currency getCurrencyInfo(@PathVariable long currencyId) {
         Currency currency = settingsManager.getCurrency(currencyId);
         Assert.notNull(currency, "Currency not found");
@@ -70,7 +66,6 @@ public class PublicController {
 
     @Cacheable("getTradingPairs")
     @RequestMapping(value = "/trading_pairs")
-    @ResponseBody
     public List<TradingPair> getTradingPairs() {
         List<TradingPair> tradingPairList = settingsManager.getTradingPairs();
         Collections.sort(tradingPairList, new Comparator<TradingPair>() {
@@ -85,7 +80,6 @@ public class PublicController {
 
     @Cacheable(value = "getTradingPairInfo", key = "#tradingPairId")
     @RequestMapping(value = "/trading_pair/{tradingPairId}")
-    @ResponseBody
     public TradingPair getTradingPairInfo(@PathVariable long tradingPairId) {
         return settingsManager.getTradingPair(tradingPairId);
     }
@@ -93,7 +87,6 @@ public class PublicController {
     @Transactional(readOnly = true)
     @Cacheable(value = "getMarketHistory", key = "#tradingPairId")
     @RequestMapping("/history/{tradingPairId}")
-    @ResponseBody
     public List<ConvertService.MarketHistory> getMarketHistory(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         Assert.isTrue(tradingPair != null && tradingPair.isEnabled(), "Invalid pair");
@@ -104,7 +97,6 @@ public class PublicController {
     @Transactional(readOnly = true)
     @Cacheable(value = "getMarketChartData", key = "#tradingPairId")
     @RequestMapping("/chart/{tradingPairId}")
-    @ResponseBody
     public Object[][] getMarketChartData(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         Assert.isTrue(tradingPair != null && tradingPair.isEnabled(), "Invalid pair");
@@ -114,7 +106,6 @@ public class PublicController {
     @Transactional(readOnly = true)
     @Cacheable(value = "getMarketDepth", key = "#tradingPairId")
     @RequestMapping("/depth/{tradingPairId}")
-    @ResponseBody
     public ConvertService.Depth getMarketDepth(@PathVariable long tradingPairId) throws Exception {
         TradingPair tradingPair = settingsManager.getTradingPair(tradingPairId);
         Assert.isTrue(tradingPair != null && tradingPair.isEnabled(), "Invalid pair");
@@ -124,7 +115,6 @@ public class PublicController {
 
     @Cacheable("getNews")
     @RequestMapping(value = "/news")
-    @ResponseBody
     public List<News> getNews() {
         return newsManager.getNews(20);
     }

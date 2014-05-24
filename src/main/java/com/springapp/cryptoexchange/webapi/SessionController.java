@@ -15,12 +15,11 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetails;
-import org.springframework.stereotype.Controller;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.transaction.Transactional;
@@ -28,7 +27,7 @@ import java.nio.file.AccessDeniedException;
 import java.util.List;
 
 
-@Controller
+@RestController
 @RequestMapping(value = "/rest/login.json", headers = "X-Ajax-Call=true")
 @CommonsLog
 public class SessionController {
@@ -50,7 +49,6 @@ public class SessionController {
     AuthenticationManager authenticationManager;
 
     @RequestMapping(method = RequestMethod.GET)
-    @ResponseBody
     public LoginStatus getStatus() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && !auth.getName().equals("anonymousUser") && auth.isAuthenticated()) {
@@ -61,7 +59,6 @@ public class SessionController {
     }
 
     @RequestMapping(method = RequestMethod.POST)
-    @ResponseBody
     public LoginStatus login(@RequestParam("j_username") String username, @RequestParam("j_password") String password, @RequestParam(value = "two_factor_code", required = false, defaultValue = "0") int googleAuthCode, HttpServletRequest request) {
         try {
             Account account = accountManager.getAccount(username);
@@ -81,7 +78,6 @@ public class SessionController {
     }
 
     @RequestMapping(value = "/register", method = RequestMethod.POST)
-    @ResponseBody
     @Transactional
     public LoginStatus register(@RequestParam String username, @RequestParam String password, @RequestParam String email, HttpServletRequest request) throws Exception {
         try {
@@ -90,14 +86,13 @@ public class SessionController {
             Assert.isTrue(accountManager.getAccount(email) == null, "E-mail already taken");
 
             // Check IP uniqueness:
-            List<LoginHistory> loginHistories = accountManager.getLastEntriesByIp(request.getRemoteAddr(), 3, 1);
+            List<LoginHistory> loginHistories = accountManager.getLastEntriesByIp(request.getRemoteAddr(), 1, 1);
             if(loginHistories != null && !loginHistories.isEmpty()) {
-                throw new AccessDeniedException("You cannot register multiply accounts from one IP");
+                throw new AccessDeniedException("You cannot register many accounts from one IP");
             }
 
             // Create account:
-            Account account = new Account(username, email, password);
-            accountManager.addAccount(account);
+            accountManager.addAccount(new Account(username, email, password));
             return login(username, password, 0, request);
         } catch (Exception e) {
             log.debug(e.getStackTrace());

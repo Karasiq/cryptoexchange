@@ -14,7 +14,6 @@ import org.joda.time.DateTime;
 import org.joda.time.Period;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -100,7 +99,7 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
                 .setMaxResults(max)
                 .addOrder(org.hibernate.criterion.Order.desc("time"))
                 .add(Restrictions.eq("account", account))
-                .add(Restrictions.ge("time", DateTime.now().minus(Period.days(maxDaysAgo)).toDate()))
+                .add(Restrictions.ge("time", DateTime.now().minusDays(maxDaysAgo).toDate()))
                 .list();
     }
 
@@ -112,7 +111,7 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
                 .setMaxResults(max)
                 .addOrder(org.hibernate.criterion.Order.desc("time"))
                 .add(Restrictions.eq("ip", ip))
-                .add(Restrictions.ge("time", DateTime.now().minus(Period.days(maxDaysAgo)).toDate()))
+                .add(Restrictions.ge("time", DateTime.now().minusDays(maxDaysAgo).toDate()))
                 .list();
     }
 
@@ -159,7 +158,7 @@ public class AccountManagerImpl implements AccountManager, UserDetailsService {
         log.info("Login history auto-clean started");
         Session session = sessionFactory.getCurrentSession();
         int affectedRows = session.createQuery("delete from LoginHistory where time <= :time")
-                .setDate("time", DateTime.now().minus(Period.weeks(1)).toDate())
+                .setDate("time", DateTime.now().minusWeeks(2).toDate())
                 .executeUpdate();
         log.info(String.format("Entries deleted: %d", affectedRows));
     }
