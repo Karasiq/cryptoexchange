@@ -74,7 +74,7 @@ public class JsonRPC implements Closeable {
 
         final int timeout = 10 * 1000;
         RequestConfig.Builder requestBuilder = RequestConfig.custom()
-                .setSocketTimeout(timeout * 3)
+                .setSocketTimeout(timeout)
                 .setConnectTimeout(timeout)
                 .setConnectionRequestTimeout(timeout)
                 .setStaleConnectionCheckEnabled(true);
