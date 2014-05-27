@@ -24,6 +24,7 @@ import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.security.Principal;
 import java.util.List;
 
@@ -69,7 +70,7 @@ public class WithdrawControllerImpl implements WithdrawController {
     @SuppressWarnings("all")
     public AbstractTransaction withdrawCrypto(@PathVariable long currencyId, @RequestParam String address, @RequestParam BigDecimal amount, Principal principal) throws Exception {
         Assert.hasLength(address, "Invalid address");
-        Assert.isTrue(amount != null && amount.compareTo(BigDecimal.ZERO) > 0, "Invalid amount");
+        Assert.isTrue(amount != null && amount.compareTo(BigDecimal.ZERO) > 0 && amount.scale() <= 8, "Invalid amount");
         Currency currency = settingsManager.getCurrency(currencyId);
         Account account = accountManager.getAccount(principal.getName());
         assertCanWithdraw(currency, account); // Check prerequisites

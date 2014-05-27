@@ -89,6 +89,18 @@ public class AppTests {
     }
 
     @Test
+    public void txReload() throws Exception {
+        final int times = 10;
+        final long start = System.nanoTime();
+        for(int i = 0; i < times; i++) {
+            daemonManager.loadTransactions();
+        }
+        final long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+        log.info(String.format("Transactions reloaded %d times in %d ms (%d ms per reload)", times,
+                elapsed, elapsed / times));
+    }
+
+    @Test
     public void jsonApi() throws Exception {
         MvcResult result = mockMvc.perform(get("/rest/api.json/trading_pairs"))
                 .andExpect(status().isOk())
