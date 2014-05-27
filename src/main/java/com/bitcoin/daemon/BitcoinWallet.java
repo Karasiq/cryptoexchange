@@ -13,10 +13,10 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
+@SuppressWarnings("unchecked")
 @CommonsLog
 @Value
 @FieldDefaults(level = AccessLevel.PRIVATE)
@@ -72,87 +72,54 @@ public class BitcoinWallet implements AbstractWallet<String, Address.Transaction
     }
 
     JsonRPC jsonRPC;
-    final Map<String, Address> addressList = new HashMap<>();
-    final Map<String, Address.Transaction> transactionMap = new HashMap<>();
-    final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+    final AtomicReference<Map> addressListRef = new AtomicReference<>(Collections.EMPTY_MAP);
+    final Map<String, Address.Transaction> transactionMap = new ConcurrentHashMap<>();
 
     private BigDecimal getReceivedByAddress(String address) throws Exception { // Not cached
         return jsonRPC.executeRpcRequest("getreceivedbyaddress", Arrays.asList(address, Settings.REQUIRED_CONFIRMATIONS), new TypeReference<JsonRPC.Response<BigDecimal>>(){});
     }
 
+    @SuppressWarnings("unchecked")
     public BigDecimal getAddressBalance(@NonNull String address) throws Exception { // Cached
         Assert.isTrue(address.matches(Settings.BITCOIN_ADDRESS_REGEXP), "Invalid address");
-        Lock readLock = readWriteLock.readLock();
-        readLock.lock();
-        try {
-            Address addressCache = addressList.get(address);
-            if (addressCache == null) {
-                addressCache = new Address(address);
-                addressCache.setReceivedByAddress(getReceivedByAddress(address));
-                Lock writeLock = readWriteLock.writeLock();
-                writeLock.lock();
-                try {
-                    addressList.put(address, addressCache);
-                } finally {
-                    writeLock.unlock();
-                }
-            }
-            return addressCache.getReceivedByAddress();
-        } finally {
-            readLock.unlock();
+        final Map<String, Address> addressList = addressListRef.get();
+        Address addressCache = addressList.get(address);
+        if (addressCache == null) {
+            addressCache = new Address(address);
+            addressCache.setReceivedByAddress(getReceivedByAddress(address));
+            Map<String, Address> newAddressList = new HashMap<>(addressList);
+            newAddressList.put(address, addressCache);
+            addressListRef.compareAndSet(addressList, Collections.unmodifiableMap(newAddressList));
         }
+        return addressCache.getReceivedByAddress();
     }
 
     public List<Address.Transaction> getTransactions() throws Exception {
-        Lock readLock = readWriteLock.readLock();
-        readLock.lock();
-        try {
-            final Set<Address.Transaction> transactionSet = new HashSet<>(transactionMap.values());
-            for(Address address : addressList.values()) transactionSet.addAll(address.getTransactionSet());
-            return new ArrayList<>(transactionSet);
-        } finally {
-            readLock.unlock();
-        }
+        final Map<String, Address> addressList = addressListRef.get();
+        final Set<Address.Transaction> transactionSet = new HashSet<>(transactionMap.values());
+        for(Address address : addressList.values()) transactionSet.addAll(address.getTransactionSet());
+        return new ArrayList<>(transactionSet);
     }
 
     @SuppressWarnings("unchecked")
     public List<Address.Transaction> getTransactions(final Set<String> addresses) throws Exception {
+        final Map<String, Address> addressList = addressListRef.get();
         final Set<Address.Transaction> transactionSet = new HashSet<>();
-        if (addresses.size() > 0) {
-            Lock readLock = readWriteLock.readLock();
-            readLock.lock();
-            try {
-                for (String strAddress : addresses) if (addressList.containsKey(strAddress)) {
-                    transactionSet.addAll(addressList.get(strAddress).getTransactionSet());
-                }
-            } finally {
-                readLock.unlock();
-            }
+        for (String strAddress : addresses) if (addressList.containsKey(strAddress)) {
+            transactionSet.addAll(addressList.get(strAddress).getTransactionSet());
         }
         return new ArrayList<>(transactionSet);
     }
 
     public Address.Transaction getTransaction(String transactionId) throws Exception {
         Assert.isTrue(transactionId.matches(Settings.BITCOIN_TXID_REGEXP), "Invalid transaction id");
-        Lock readLock = readWriteLock.readLock();
-        readLock.lock();
-        try {
-            Address.Transaction transaction = transactionMap.get(transactionId);
-            if (transaction == null) {
-                transaction = jsonRPC.executeRpcRequest("gettransaction", Arrays.asList(transactionId), new TypeReference<JsonRPC.Response<Address.Transaction>>(){});
-                Assert.isTrue(transaction.getTxid().equals(transactionId));
-                Lock writeLock = readWriteLock.writeLock();
-                writeLock.lock();
-                try {
-                    transactionMap.put(transaction.getTxid(), transaction);
-                } finally {
-                    writeLock.unlock();
-                }
-            }
-            return transaction;
-        } finally {
-            readLock.unlock();
+        Address.Transaction transaction = transactionMap.get(transactionId);
+        if (transaction == null) {
+            transaction = jsonRPC.executeRpcRequest("gettransaction", Arrays.asList(transactionId), new TypeReference<JsonRPC.Response<Address.Transaction>>(){});
+            Assert.isTrue(transaction.getTxid().equals(transactionId));
+            transactionMap.put(transaction.getTxid(), transaction);
         }
+        return transaction;
     }
 
     public Map<String, ?> getInfo() throws Exception {
@@ -166,13 +133,7 @@ public class BitcoinWallet implements AbstractWallet<String, Address.Transaction
             return confirmed; // 0
         }
 
-        Lock readLock = readWriteLock.readLock();
-        readLock.lock();
-        try {
-            for(String strAddress : addresses) confirmed = confirmed.add(getAddressBalance(strAddress));
-        } finally {
-            readLock.unlock();
-        }
+        for(String strAddress : addresses) confirmed = confirmed.add(getAddressBalance(strAddress));
         return confirmed;
     }
 
@@ -194,45 +155,45 @@ public class BitcoinWallet implements AbstractWallet<String, Address.Transaction
         final List<Address.Transaction> transactions = getDefaultAccount().listTransactions(maxCount);
         final Map<String, BigDecimal> receivedByAddress = listReceivedByAddress();
 
-        Lock writeLock = readWriteLock.writeLock();
-        writeLock.lock();
-        try {
-            if (transactionMap.size() > maxCount * 3) { // Cache clean
-                transactionMap.clear();
-                addressList.clear();
-            }
-            Address address = null;
-            for(Map.Entry<String, BigDecimal> entry : receivedByAddress.entrySet()) {
-                if(address == null || !address.getAddress().equals(entry.getKey())) {
-                    address = addressList.get(entry.getKey());
-                    if(address == null) {
-                        address = new Address(entry.getKey());
-                        addressList.put(entry.getKey(), address);
-                    }
-                    address.setReceivedByAddress(entry.getValue());
-                }
-            }
-            for(Address.Transaction transaction : transactions) {
-                Assert.isTrue(transaction.getTxid().matches(Settings.BITCOIN_TXID_REGEXP), "Invalid transaction: " + transaction);
-                transactionMap.put(transaction.getTxid(), transaction);
-                if(transaction.getAddress() != null && transaction.getAddress().length() > 0 && "receive".equals(transaction.category)) {
-                    if(address == null || !address.getAddress().equals(transaction.address)) {
-                        address = addressList.get(transaction.address);
-                        if(address == null) {
-                            address = new Address(transaction.address);
-                            addressList.put(transaction.address, address);
-                        }
-                    }
-                    address.addTransaction(transaction);
-                }
-            }
-        } finally {
-            writeLock.unlock();
+        final Map<String, Address> addressList = new HashMap<>();
+
+        if (transactionMap.size() > maxCount * 3) { // Cache clean
+            transactionMap.clear();
+        } else {
+            addressList.putAll(addressListRef.get());
         }
+
+        Address address = null;
+        for(Map.Entry<String, BigDecimal> entry : receivedByAddress.entrySet()) {
+            if(address == null || !address.getAddress().equals(entry.getKey())) {
+                address = addressList.get(entry.getKey());
+                if(address == null) {
+                    address = new Address(entry.getKey());
+                    addressList.put(entry.getKey(), address);
+                }
+                address.setReceivedByAddress(entry.getValue());
+            }
+        }
+        for(Address.Transaction transaction : transactions) {
+            Assert.isTrue(transaction.getTxid().matches(Settings.BITCOIN_TXID_REGEXP), "Invalid transaction: " + transaction);
+            transactionMap.put(transaction.getTxid(), transaction);
+            if(transaction.getAddress() != null && transaction.getAddress().length() > 0 && "receive".equals(transaction.category)) {
+                if(address == null || !address.getAddress().equals(transaction.address)) {
+                    address = addressList.get(transaction.address);
+                    if(address == null) {
+                        address = new Address(transaction.address);
+                        addressList.put(transaction.address, address);
+                    }
+                }
+                address.addTransaction(transaction);
+            }
+        }
+
+        addressListRef.set(Collections.unmodifiableMap(addressList));
     }
 
     public Set<String> getAddressSet() throws Exception {
-        return Collections.unmodifiableSet(addressList.keySet());
+        return Collections.unmodifiableSet(addressListRef.get().keySet());
         // return getDefaultAccount().getAddressSet();
     }
 
